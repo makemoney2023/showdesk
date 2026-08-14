@@ -8,6 +8,7 @@ import {
   listQueuedRecordings,
   removeQueuedRecording,
 } from "@/lib/offline/queue";
+import { formatElapsed, nextDogAfter } from "@/lib/domain/show-day";
 import type { RosterEntryRecord } from "@/lib/types";
 import { VuMeter } from "@/components/desk/VuMeter";
 
@@ -28,11 +29,13 @@ export default function RecordPage() {
   const router = useRouter();
   const entryId = params.id as string;
   const [entry, setEntry] = useState<RosterEntryRecord | null>(null);
+  const [entries, setEntries] = useState<RosterEntryRecord[]>([]);
   const [showId, setShowId] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
   const [paused, setPaused] = useState(false);
   const [supportsPause, setSupportsPause] = useState(false);
   const [vuLevel, setVuLevel] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
   const [status, setStatus] = useState("Ready");
   const [queueCount, setQueueCount] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -40,6 +43,8 @@ export default function RecordPage() {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const tickStartedAtRef = useRef<number | null>(null);
+  const elapsedBaseRef = useRef(0);
 
   const refreshQueue = useCallback(async () => {
     const items = await listQueuedRecordings();
@@ -56,6 +61,7 @@ export default function RecordPage() {
       setShowId(showData.active_show_id);
       const res = await fetch(`/api/entries?show_id=${showData.active_show_id}`);
       const data = (await res.json()) as { entries: RosterEntryRecord[] };
+      setEntries(data.entries);
       setEntry(data.entries.find((e) => e.id === entryId) ?? null);
     }
     void loadEntry();
@@ -64,6 +70,31 @@ export default function RecordPage() {
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, [entryId, refreshQueue]);
+
+  useEffect(() => {
+    if (!recording || paused) return;
+    tickStartedAtRef.current = Date.now();
+    const id = window.setInterval(() => {
+      const started = tickStartedAtRef.current ?? Date.now();
+      setElapsed(
+        elapsedBaseRef.current + Math.floor((Date.now() - started) / 1000),
+      );
+    }, 250);
+    return () => window.clearInterval(id);
+  }, [recording, paused]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.code !== "Space") return;
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      e.preventDefault();
+      if (recording) stopRecording();
+      else void startRecording();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   function updateVuMeter() {
     const analyser = analyserRef.current;
@@ -96,6 +127,9 @@ export default function RecordPage() {
       recorder.onstop = () => void handleStop();
       recorder.start();
       mediaRecorderRef.current = recorder;
+      elapsedBaseRef.current = 0;
+      tickStartedAtRef.current = Date.now();
+      setElapsed(0);
       setRecording(true);
       setPaused(false);
       setStatus("Recording…");
@@ -108,6 +142,9 @@ export default function RecordPage() {
     const rec = mediaRecorderRef.current;
     if (rec && rec.state === "recording" && typeof rec.pause === "function") {
       rec.pause();
+      const started = tickStartedAtRef.current ?? Date.now();
+      elapsedBaseRef.current += Math.floor((Date.now() - started) / 1000);
+      setElapsed(elapsedBaseRef.current);
       setPaused(true);
       setStatus("Paused");
     }
@@ -151,6 +188,8 @@ export default function RecordPage() {
       });
       setStatus("Saved to offline queue");
       await refreshQueue();
+      const nextId = nextDogAfter(entries, entryId);
+      router.push(nextId ? `/ringside/record/${nextId}` : "/ringside");
       return;
     }
 
@@ -167,7 +206,8 @@ export default function RecordPage() {
     });
     if (res.ok) {
       setStatus("Sent to review queue");
-      router.push("/ringside");
+      const nextId = nextDogAfter(entries, entryId);
+      router.push(nextId ? `/ringside/record/${nextId}` : "/ringside");
     } else {
       const id = `offline-${Date.now()}`;
       await enqueueRecording({
@@ -213,13 +253,20 @@ export default function RecordPage() {
         </h1>
         {entry ? (
           <p className="text-sm text-sss-text-secondary">
-            #{entry.armband} {entry.dog_name}
+            #{entry.armband} {entry.dog_name} · Space starts or stops
           </p>
         ) : null}
       </div>
 
       <div className="sss-paper space-y-3 p-4">
-        <VuMeter level={vuLevel} label={status} />
+        <VuMeter
+          level={vuLevel}
+          label={
+            recording || elapsed > 0
+              ? `${status} · ${formatElapsed(elapsed)}`
+              : status
+          }
+        />
         <div className="flex flex-wrap gap-2">
           {!recording ? (
             <Button onClick={() => void startRecording()}>Start recording</Button>

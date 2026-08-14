@@ -8,9 +8,11 @@ import {
   secretaryNavItems,
   shellForPath,
 } from "@/lib/domain/role-shell";
+import { labelQueuedItem } from "@/lib/domain/show-day";
 import { listQueuedRecordings } from "@/lib/offline/queue";
 import { isDemoMode } from "@/lib/supabase/config";
-import type { CritiqueRecord, Show } from "@/lib/types";
+import type { CritiqueRecord, RosterEntryRecord, Show } from "@/lib/types";
+import { AccountMenu } from "./AccountMenu";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,10 +29,14 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "/";
   const kind = shellForPath(pathname);
   const [show, setShow] = useState<Show | null>(null);
+  const [entries, setEntries] = useState<RosterEntryRecord[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [online, setOnline] = useState(true);
-  const [queueCount, setQueueCount] = useState(0);
+  const [queueItems, setQueueItems] = useState<
+    Awaited<ReturnType<typeof listQueuedRecordings>>
+  >([]);
   const [queueOpen, setQueueOpen] = useState(false);
+  const queueCount = queueItems.length;
 
   const load = useCallback(async () => {
     const showRes = await fetch("/api/shows");
@@ -44,9 +50,19 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
     setShow(active);
     if (!active) {
       setPendingCount(0);
+      setEntries([]);
       return;
     }
-    const critRes = await fetch(`/api/critiques?show_id=${active.id}`);
+    const [critRes, entryRes] = await Promise.all([
+      fetch(`/api/critiques?show_id=${active.id}`),
+      fetch(`/api/entries?show_id=${active.id}`),
+    ]);
+    if (entryRes.ok) {
+      const entryData = (await entryRes.json()) as {
+        entries: RosterEntryRecord[];
+      };
+      setEntries(entryData.entries);
+    }
     if (!critRes.ok) return;
     const critData = (await critRes.json()) as { critiques: CritiqueRecord[] };
     setPendingCount(critData.critiques.filter((c) => isReviewable(c.status)).length);
@@ -54,7 +70,7 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
 
   const refreshQueue = useCallback(async () => {
     const items = await listQueuedRecordings();
-    setQueueCount(items.length);
+    setQueueItems(items);
   }, []);
 
   useEffect(() => {
@@ -89,7 +105,10 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
               Ringside
             </Link>
             <ShowChip name={show?.name ?? null} date={show?.date ?? null} compact />
-            <SyncChip online={online} queueCount={queueCount} />
+            <div className="flex items-center gap-2">
+              <SyncChip online={online} queueCount={queueCount} />
+              <AccountMenu kind={kind} />
+            </div>
           </div>
         </header>
         <main className="mx-auto max-w-3xl px-4 py-4 pb-28">{children}</main>
@@ -105,11 +124,25 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
             <DialogHeader>
               <DialogTitle>Offline queue</DialogTitle>
             </DialogHeader>
-            <p className="text-sm text-sss-text-secondary">
-              {queueCount === 0
-                ? "No recordings waiting to sync."
-                : `${queueCount} recording(s) stored on this device. Open Record to sync.`}
-            </p>
+            {queueCount === 0 ? (
+              <p className="text-sm text-sss-text-secondary">
+                No recordings waiting to sync.
+              </p>
+            ) : (
+              <ul className="space-y-2 text-sm">
+                {queueItems.map((item) => {
+                  const labeled = labelQueuedItem(item, entries, Date.now());
+                  return (
+                    <li key={item.id} className="sss-tray px-3 py-2">
+                      <p className="font-medium">{labeled.title}</p>
+                      <p className="text-xs text-sss-text-muted">
+                        {labeled.subtitle}
+                      </p>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
             <Button asChild variant="outline">
               <Link href="/ringside" onClick={() => setQueueOpen(false)}>
                 Back to dogs
@@ -144,12 +177,7 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
             activeHref={pathname}
             pendingCount={pendingCount}
           />
-          <Link
-            href="/login"
-            className="inline-flex min-h-11 items-center text-sm text-sss-text-secondary hover:text-sss-accent-deep"
-          >
-            Account
-          </Link>
+          <AccountMenu kind={kind} />
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>

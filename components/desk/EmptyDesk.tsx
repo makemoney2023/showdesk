@@ -14,6 +14,12 @@ const COPY = {
     href: "/admin/entries",
     cta: "Open roster",
   },
+  "no-entries-steward": {
+    title: "No dogs in this class",
+    body: "Ask the secretary to import the roster.",
+    href: null,
+    cta: null,
+  },
   "no-queue": {
     title: "Nothing to review",
     body: "Record a critique or complete an SE form ringside.",

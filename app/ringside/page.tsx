@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ADRK_CLASSES } from "@/lib/domain/adrk-template";
+import { classesWithDogs } from "@/lib/domain/show-day";
 import {
   critiqueChipTone,
   labelCritiqueStatus,
@@ -45,6 +46,7 @@ export default function RingsidePage() {
     void load();
   }, [load]);
 
+  const presentClasses = classesWithDogs(entries);
   const filtered =
     classFilter === "all"
       ? entries
@@ -59,6 +61,7 @@ export default function RingsidePage() {
         <p className="text-sm text-sss-text-secondary">Class / armband picker</p>
       </div>
 
+      {presentClasses.length > 0 ? (
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
@@ -71,7 +74,7 @@ export default function RingsidePage() {
         >
           All classes
         </button>
-        {ADRK_CLASSES.map((c) => (
+        {ADRK_CLASSES.filter((c) => presentClasses.includes(c.id)).map((c) => (
           <button
             key={c.id}
             type="button"
@@ -86,6 +89,7 @@ export default function RingsidePage() {
           </button>
         ))}
       </div>
+      ) : null}
 
       <ul className="space-y-3">
         {filtered.map((e) => {
@@ -105,7 +109,9 @@ export default function RingsidePage() {
           );
         })}
       </ul>
-      {filtered.length === 0 ? <EmptyDesk variant="no-entries" /> : null}
+      {filtered.length === 0 ? (
+        <EmptyDesk variant="no-entries-steward" />
+      ) : null}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fraunces, Manrope } from "next/font/google";
 import "./globals.css";
 import { RoleShell } from "@/components/layout/RoleShell";
@@ -17,6 +17,16 @@ export const metadata: Metadata = {
   title: "Sieger Show Secretary",
   description:
     "Ringside critique capture, secretary review, and ADRK-aligned PDF delivery for Sieger shows.",
+  appleWebApp: {
+    capable: true,
+    title: "Show Desk",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#1A1612",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

@@ -16,6 +16,7 @@ import {
   formatSeMissingFields,
   type TnrkSeForm,
 } from "@/lib/domain/tnrk-se-form";
+import { seSectionProgress } from "@/lib/domain/show-day";
 import type { RosterEntryRecord, SeEvaluationRecord } from "@/lib/types";
 
 const HEAD_LABELS: Record<(typeof HEAD_SHAPE_OPTIONS)[number], string> = {
@@ -211,8 +212,10 @@ export default function StewardSeFormPage() {
     );
   }
 
+  const sections = seSectionProgress(form);
+
   return (
-    <div className="mx-auto max-w-3xl space-y-8 pb-16">
+    <div className="mx-auto max-w-3xl space-y-8 pb-40">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-wide text-sss-text-muted">
@@ -245,7 +248,20 @@ export default function StewardSeFormPage() {
         </div>
       </div>
 
-      <section className="space-y-3">
+      <ol className="flex flex-wrap gap-2 text-xs">
+        {sections.map((section) => (
+          <li key={section.id}>
+            <a
+              href={`#se-${section.id}`}
+              className="sss-tray inline-flex min-h-11 items-center px-2 text-sss-text-secondary"
+            >
+              {section.label} {section.filled}/{section.total}
+            </a>
+          </li>
+        ))}
+      </ol>
+
+      <section id="se-identification" className="space-y-3">
         <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-sss-text-muted">
           Identification
         </h2>
@@ -317,7 +333,7 @@ export default function StewardSeFormPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
+      <section id="se-pedigree" className="space-y-3">
         <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-sss-text-muted">
           Pedigree & ownership
         </h2>
@@ -391,7 +407,7 @@ export default function StewardSeFormPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
+      <section id="se-measurements" className="space-y-3">
         <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-sss-text-muted">
           Measurements
         </h2>
@@ -419,7 +435,7 @@ export default function StewardSeFormPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
+      <section id="se-bite" className="space-y-3">
         <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-sss-text-muted">
           Bite & dentition
         </h2>
@@ -447,7 +463,7 @@ export default function StewardSeFormPage() {
         )}
       </section>
 
-      <section className="space-y-3">
+      <section id="se-appearance" className="space-y-3">
         <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-sss-text-muted">
           Overall appearance and behavior
         </h2>
@@ -459,7 +475,7 @@ export default function StewardSeFormPage() {
         />
       </section>
 
-      <section className="space-y-4">
+      <section id="se-ratings" className="space-y-4">
         <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-sss-text-muted">
           Detailed ratings
         </h2>
@@ -493,7 +509,7 @@ export default function StewardSeFormPage() {
         />
       </section>
 
-      <section className="space-y-3">
+      <section id="se-result" className="space-y-3">
         <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-sss-text-muted">
           Gunfire & result
         </h2>
@@ -547,7 +563,7 @@ export default function StewardSeFormPage() {
       </section>
 
       <div className="h-24" aria-hidden />
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-sss-border bg-sss-elevated/95 backdrop-blur">
+      <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 border-t border-sss-border bg-sss-elevated/95 backdrop-blur">
         <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-3">
           <Button
             type="button"
@@ -558,6 +574,7 @@ export default function StewardSeFormPage() {
           </Button>
           <Button
             type="button"
+            variant="outline"
             disabled={saving}
             onClick={() => void save(true)}
           >

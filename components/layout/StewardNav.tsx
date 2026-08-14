@@ -14,7 +14,7 @@ export function StewardNav({
   const items = stewardNavItems();
   return (
     <nav
-      className="sss-paper fixed inset-x-0 bottom-0 z-40 flex justify-around pb-[env(safe-area-inset-bottom)]"
+      className="sss-paper fixed inset-x-0 bottom-0 z-40 flex min-h-[calc(2.75rem+env(safe-area-inset-bottom))] justify-around pt-2 pb-[env(safe-area-inset-bottom)]"
       aria-label="Ringside"
     >
       {items.map((item) => {
