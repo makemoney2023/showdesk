@@ -1,0 +1,656 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  BEHAVIOR_OPTIONS,
+  BONE_STRENGTH_OPTIONS,
+  CHEEK_BONE_OPTIONS,
+  GUNFIRE_OPTIONS,
+  HEAD_SHAPE_OPTIONS,
+  formatSeMissingFields,
+  type TnrkSeForm,
+} from "@/lib/domain/tnrk-se-form";
+import type { RosterEntryRecord, SeEvaluationRecord } from "@/lib/types";
+
+const HEAD_LABELS: Record<(typeof HEAD_SHAPE_OPTIONS)[number], string> = {
+  too_small: "Too small",
+  slight_narrow: "Slight / narrow",
+  sufficient_strong: "Sufficient / strong",
+  strong_typey: "Strong / typey",
+  too_large: "Too large",
+};
+
+const CHEEK_LABELS: Record<(typeof CHEEK_BONE_OPTIONS)[number], string> = {
+  lacking: "Lacking",
+  slight: "Slight",
+  medium: "Medium",
+  distinct: "Distinct",
+  too_strong: "Too strong",
+};
+
+const BONE_LABELS: Record<(typeof BONE_STRENGTH_OPTIONS)[number], string> = {
+  fine: "Fine",
+  sufficient: "Sufficient",
+  medium: "Medium",
+  strong: "Strong",
+  coarse: "Coarse",
+};
+
+const BEH_LABELS: Record<(typeof BEHAVIOR_OPTIONS)[number], string> = {
+  fearful_shy: "Fearful / shy",
+  reserved: "Reserved",
+  calm_neutral: "Calm / neutral",
+  self_confident: "Self-confident",
+  uncontrollable: "Uncontrollable",
+};
+
+const GUN_LABELS: Record<(typeof GUNFIRE_OPTIONS)[number], string> = {
+  no_reaction: "No reaction",
+  sensitive: "Sensitive",
+  shy: "Shy",
+};
+
+export default function StewardSeFormPage() {
+  const params = useParams();
+  const entryId = params.id as string;
+  const [entry, setEntry] = useState<RosterEntryRecord | null>(null);
+  const [showId, setShowId] = useState<string | null>(null);
+  const [evaluation, setEvaluation] = useState<SeEvaluationRecord | null>(null);
+  const [form, setForm] = useState<TnrkSeForm | null>(null);
+  const [status, setStatus] = useState("Loading…");
+  const [actionMsg, setActionMsg] = useState("");
+  const [actionError, setActionError] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    const showRes = await fetch("/api/shows");
+    if (!showRes.ok) {
+      setStatus(
+        showRes.status === 401
+          ? "Session expired — sign in again"
+          : "Could not load show",
+      );
+      return;
+    }
+    const showData = (await showRes.json()) as { active_show_id: string | null };
+    if (!showData.active_show_id) {
+      setStatus("No active show");
+      return;
+    }
+    setShowId(showData.active_show_id);
+
+    const entriesRes = await fetch(
+      `/api/entries?show_id=${showData.active_show_id}`,
+    );
+    if (!entriesRes.ok) {
+      setStatus("Could not load entry");
+      return;
+    }
+    const entriesData = (await entriesRes.json()) as {
+      entries: RosterEntryRecord[];
+    };
+    const found = entriesData.entries.find((e) => e.id === entryId) ?? null;
+    setEntry(found);
+    if (!found) {
+      setStatus("Entry not found");
+      return;
+    }
+
+    const createRes = await fetch("/api/evaluations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        show_id: showData.active_show_id,
+        entry_id: entryId,
+      }),
+    });
+    if (!createRes.ok) {
+      setStatus("Could not open SE evaluation");
+      return;
+    }
+    const createData = (await createRes.json()) as {
+      evaluation: SeEvaluationRecord;
+    };
+    setEvaluation(createData.evaluation);
+    setForm(createData.evaluation.form);
+    setStatus(
+      createData.evaluation.status === "complete" ? "Complete" : "Draft",
+    );
+  }, [entryId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  function patchForm<K extends keyof TnrkSeForm>(key: K, value: TnrkSeForm[K]) {
+    setForm((prev) => (prev ? { ...prev, [key]: value } : prev));
+  }
+
+  function patchMeasurement(
+    key: keyof TnrkSeForm["measurements"],
+    value: string,
+  ) {
+    setForm((prev) =>
+      prev
+        ? { ...prev, measurements: { ...prev.measurements, [key]: value } }
+        : prev,
+    );
+  }
+
+  async function save(markComplete = false) {
+    if (!showId || !evaluation || !form) {
+      setActionError(true);
+      setActionMsg("Form is still loading — wait a moment and try again");
+      return;
+    }
+    setSaving(true);
+    setActionMsg(markComplete ? "Marking complete…" : "Saving draft…");
+    setActionError(false);
+    try {
+      const res = await fetch("/api/evaluations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          show_id: showId,
+          evaluation_id: evaluation.id,
+          form,
+          mark_complete: markComplete,
+        }),
+      });
+      const data = (await res.json()) as {
+        evaluation?: SeEvaluationRecord;
+        error?: string;
+        missing?: string[];
+      };
+      if (!res.ok) {
+        const detail = data.missing?.length
+          ? formatSeMissingFields(data.missing)
+          : (data.error ?? "Save failed");
+        const msg =
+          data.error === "Incomplete SE form"
+            ? `Select Pass/Fail (and fill required fields): ${detail}`
+            : detail;
+        setActionError(true);
+        setActionMsg(msg);
+        setStatus(msg);
+        return;
+      }
+      if (data.evaluation) {
+        setEvaluation(data.evaluation);
+        setForm(data.evaluation.form);
+      }
+      const okMsg =
+        markComplete || data.evaluation?.status === "complete"
+          ? "Marked complete"
+          : "Draft saved";
+      setActionError(false);
+      setActionMsg(okMsg);
+      setStatus(okMsg);
+    } catch {
+      setActionError(true);
+      setActionMsg("Network error — could not save");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!form || !entry) {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-sss-text-muted">{status}</p>
+        <Link href="/ringside" className="text-sss-accent text-sm">
+          ← Ringside
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-8 pb-16">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-sss-text-muted">
+            Ring steward · Standard Prüfung (SE)
+          </p>
+          <h1 className="font-[family-name:var(--font-fraunces)] text-2xl font-semibold">
+            {entry.dog_name}
+          </h1>
+          <p className="text-sm text-sss-text-secondary">
+            #{entry.armband} · {status}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/ringside">
+            <Button variant="outline" type="button">
+              Ringside
+            </Button>
+          </Link>
+          {showId && evaluation && (
+            <a
+              href={`/api/pdf/tnrk?kind=se&show_id=${showId}&evaluation_id=${evaluation.id}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Button variant="outline" type="button">
+                Preview PDF
+              </Button>
+            </a>
+          )}
+        </div>
+      </div>
+
+      <section className="space-y-3">
+        <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-sss-text-muted">
+          Identification
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Date">
+            <Input
+              value={form.date}
+              onChange={(e) => patchForm("date", e.target.value)}
+            />
+          </Field>
+          <Field label="Club">
+            <Input
+              value={form.club}
+              onChange={(e) => patchForm("club", e.target.value)}
+            />
+          </Field>
+          <Field label="Judge">
+            <Input
+              value={form.judge}
+              onChange={(e) => patchForm("judge", e.target.value)}
+            />
+          </Field>
+          <Field label="Dog's name">
+            <Input
+              value={form.dog_name}
+              onChange={(e) => patchForm("dog_name", e.target.value)}
+            />
+          </Field>
+          <Field label="Registration number">
+            <Input
+              value={form.registration_number}
+              onChange={(e) =>
+                patchForm("registration_number", e.target.value)
+              }
+            />
+          </Field>
+          <Field label="Date of birth">
+            <Input
+              value={form.date_of_birth}
+              onChange={(e) => patchForm("date_of_birth", e.target.value)}
+            />
+          </Field>
+          <Field label="Microchip Nr">
+            <Input
+              value={form.microchip_nr}
+              onChange={(e) => patchForm("microchip_nr", e.target.value)}
+            />
+          </Field>
+          <Field label="Tattoo Nr">
+            <Input
+              value={form.tattoo_nr}
+              onChange={(e) => patchForm("tattoo_nr", e.target.value)}
+            />
+          </Field>
+        </div>
+        <div className="flex gap-4">
+          <Radio
+            name="sex"
+            checked={form.sex === "male"}
+            onChange={() => patchForm("sex", "male")}
+            label="Male / Rüde"
+          />
+          <Radio
+            name="sex"
+            checked={form.sex === "female"}
+            onChange={() => patchForm("sex", "female")}
+            label="Female / Hündin"
+          />
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-sss-text-muted">
+          Pedigree & ownership
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Sire">
+            <Input
+              value={form.sire}
+              onChange={(e) => patchForm("sire", e.target.value)}
+            />
+          </Field>
+          <Field label="Sire Reg.-Nr.">
+            <Input
+              value={form.sire_reg}
+              onChange={(e) => patchForm("sire_reg", e.target.value)}
+            />
+          </Field>
+          <Field label="Dam">
+            <Input
+              value={form.dam}
+              onChange={(e) => patchForm("dam", e.target.value)}
+            />
+          </Field>
+          <Field label="Dam Reg.-Nr.">
+            <Input
+              value={form.dam_reg}
+              onChange={(e) => patchForm("dam_reg", e.target.value)}
+            />
+          </Field>
+          <Field label="Breeder">
+            <Input
+              value={form.breeder}
+              onChange={(e) => patchForm("breeder", e.target.value)}
+            />
+          </Field>
+          <Field label="HD/ED JLPP Nr">
+            <Input
+              value={form.hd_ed_jlpp_nr}
+              onChange={(e) => patchForm("hd_ed_jlpp_nr", e.target.value)}
+            />
+          </Field>
+          <Field label="Owner / co-owner">
+            <Input
+              value={form.owner_co_owner}
+              onChange={(e) => patchForm("owner_co_owner", e.target.value)}
+            />
+          </Field>
+          <Field label="Email">
+            <Input
+              value={form.email}
+              onChange={(e) => patchForm("email", e.target.value)}
+            />
+          </Field>
+          <Field label="Address">
+            <Input
+              value={form.address}
+              onChange={(e) => patchForm("address", e.target.value)}
+            />
+          </Field>
+          <Field label="Handler">
+            <Input
+              value={form.handler}
+              onChange={(e) => patchForm("handler", e.target.value)}
+            />
+          </Field>
+          <Field label="Phone">
+            <Input
+              value={form.phone}
+              onChange={(e) => patchForm("phone", e.target.value)}
+            />
+          </Field>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-sss-text-muted">
+          Measurements
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {(
+            [
+              ["height", "Height / Widerrist"],
+              ["chest_depth", "Chest depth"],
+              ["weight", "Weight"],
+              ["body_length", "Body length"],
+              ["chest_circumference", "Chest circumference"],
+              ["eye_color", "Eye color"],
+              ["muzzle_length", "Muzzle length"],
+              ["skull", "Skull"],
+              ["legible_tattoo", "Legible tattoo"],
+            ] as const
+          ).map(([key, label]) => (
+            <Field key={key} label={label}>
+              <Input
+                value={form.measurements[key]}
+                onChange={(e) => patchMeasurement(key, e.target.value)}
+              />
+            </Field>
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-sss-text-muted">
+          Bite & dentition
+        </h2>
+        <div className="flex flex-wrap gap-4">
+          <Radio
+            name="bite"
+            checked={form.bite === "correct_scissor"}
+            onChange={() => patchForm("bite", "correct_scissor")}
+            label="Correct scissor bite"
+          />
+          <Radio
+            name="bite"
+            checked={form.bite === "other"}
+            onChange={() => patchForm("bite", "other")}
+            label="Other"
+          />
+        </div>
+        {form.bite === "other" && (
+          <Field label="Other details">
+            <Input
+              value={form.bite_other}
+              onChange={(e) => patchForm("bite_other", e.target.value)}
+            />
+          </Field>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-sss-text-muted">
+          Overall appearance and behavior
+        </h2>
+        <Textarea
+          rows={4}
+          value={form.overall_appearance}
+          onChange={(e) => patchForm("overall_appearance", e.target.value)}
+          placeholder="Free-form evaluation notes…"
+        />
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-sss-text-muted">
+          Detailed ratings
+        </h2>
+        <OptionRow
+          label="Head shape"
+          options={HEAD_SHAPE_OPTIONS}
+          labels={HEAD_LABELS}
+          value={form.head_shape}
+          onChange={(v) => patchForm("head_shape", v)}
+        />
+        <OptionRow
+          label="Cheek bone"
+          options={CHEEK_BONE_OPTIONS}
+          labels={CHEEK_LABELS}
+          value={form.cheek_bone}
+          onChange={(v) => patchForm("cheek_bone", v)}
+        />
+        <OptionRow
+          label="Bone strength"
+          options={BONE_STRENGTH_OPTIONS}
+          labels={BONE_LABELS}
+          value={form.bone_strength}
+          onChange={(v) => patchForm("bone_strength", v)}
+        />
+        <OptionRow
+          label="General behavior"
+          options={BEHAVIOR_OPTIONS}
+          labels={BEH_LABELS}
+          value={form.general_behavior}
+          onChange={(v) => patchForm("general_behavior", v)}
+        />
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-sss-text-muted">
+          Gunfire & result
+        </h2>
+        <OptionRow
+          label="Reaction to gunfire"
+          options={GUNFIRE_OPTIONS}
+          labels={GUN_LABELS}
+          value={form.gunfire}
+          onChange={(v) => patchForm("gunfire", v)}
+        />
+        <Field label="Comments">
+          <Input
+            value={form.comments}
+            onChange={(e) => patchForm("comments", e.target.value)}
+          />
+        </Field>
+        <div className="flex gap-4">
+          <Radio
+            name="final"
+            checked={form.final_result === "pass"}
+            onChange={() => patchForm("final_result", "pass")}
+            label="PASS / Bestanden"
+          />
+          <Radio
+            name="final"
+            checked={form.final_result === "fail"}
+            onChange={() => patchForm("final_result", "fail")}
+            label="FAIL / Nicht bestanden"
+          />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Field label="Judge's signature">
+            <Input
+              value={form.judge_signature}
+              onChange={(e) => patchForm("judge_signature", e.target.value)}
+            />
+          </Field>
+          <Field label="Event secretary">
+            <Input
+              value={form.event_secretary}
+              onChange={(e) => patchForm("event_secretary", e.target.value)}
+            />
+          </Field>
+          <Field label="Signature date">
+            <Input
+              value={form.signature_date}
+              onChange={(e) => patchForm("signature_date", e.target.value)}
+            />
+          </Field>
+        </div>
+      </section>
+
+      <div className="h-24" aria-hidden />
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-sss-border bg-sss-elevated/95 backdrop-blur">
+        <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-3">
+          <Button
+            type="button"
+            disabled={saving}
+            onClick={() => void save(false)}
+          >
+            {saving ? "Saving…" : "Save draft"}
+          </Button>
+          <Button
+            type="button"
+            disabled={saving}
+            onClick={() => void save(true)}
+          >
+            Mark complete
+          </Button>
+          {actionMsg ? (
+            <p
+              role="status"
+              aria-live="polite"
+              className={`text-sm ${
+                actionError ? "text-destructive" : "text-sss-accent-deep"
+              }`}
+            >
+              {actionMsg}
+            </p>
+          ) : (
+            <p className="text-xs text-sss-text-muted">
+              Mark complete needs Pass/Fail selected below.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs text-sss-text-muted">{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+function Radio({
+  name,
+  checked,
+  onChange,
+  label,
+}: {
+  name: string;
+  checked: boolean;
+  onChange: () => void;
+  label: string;
+}) {
+  return (
+    <label className="flex items-center gap-2 text-sm">
+      <input
+        type="radio"
+        name={name}
+        checked={checked}
+        onChange={onChange}
+        className="accent-sss-accent"
+      />
+      {label}
+    </label>
+  );
+}
+
+function OptionRow<T extends string>({
+  label,
+  options,
+  labels,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: readonly T[];
+  labels: Record<T, string>;
+  value: T | null;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="space-y-2 rounded-lg border border-sss-border p-3">
+      <p className="text-xs font-medium text-sss-text-secondary">{label}</p>
+      <div className="flex flex-wrap gap-x-4 gap-y-2">
+        {options.map((opt) => (
+          <Radio
+            key={opt}
+            name={label}
+            checked={value === opt}
+            onChange={() => onChange(opt)}
+            label={labels[opt]}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}

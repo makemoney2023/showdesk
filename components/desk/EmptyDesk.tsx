@@ -1,0 +1,50 @@
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+
+const COPY = {
+  "no-show": {
+    title: "No show yet",
+    body: "Create a show, then import the roster.",
+    href: "/admin/entries",
+    cta: "Create show",
+  },
+  "no-entries": {
+    title: "Roster is empty",
+    body: "Import a CSV or add a scratch entry.",
+    href: "/admin/entries",
+    cta: "Open roster",
+  },
+  "no-queue": {
+    title: "Nothing to review",
+    body: "Record a critique or complete an SE form ringside.",
+    href: "/ringside",
+    cta: "Open ringside",
+  },
+  "no-selection": {
+    title: "Select a critique",
+    body: "Pick an item from the queue to review the draft.",
+    href: null,
+    cta: null,
+  },
+} as const;
+
+export function EmptyDesk({
+  variant,
+}: {
+  variant: keyof typeof COPY;
+}) {
+  const copy = COPY[variant];
+  return (
+    <div className="sss-tray space-y-3 p-5">
+      <h2 className="font-[family-name:var(--font-fraunces)] text-lg font-semibold">
+        {copy.title}
+      </h2>
+      <p className="text-sm text-sss-text-secondary">{copy.body}</p>
+      {copy.href && copy.cta ? (
+        <Button asChild>
+          <Link href={copy.href}>{copy.cta}</Link>
+        </Button>
+      ) : null}
+    </div>
+  );
+}

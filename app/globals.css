@@ -1,0 +1,127 @@
+@import "tailwindcss";
+
+/**
+ * Show Desk tokens — keep in sync with
+ * business-idea/11-brand/tokens.css
+ */
+:root {
+  --sss-void: #070707;
+  --sss-paper: #f7f4ed;
+  --sss-white: #ffffff;
+  --sss-lifted: #efeae0;
+  --sss-tan: #c4a35a;
+  --sss-tan-deep: #a67c52;
+  --sss-tan-soft: #d4b87a;
+  --sss-ink: #141210;
+  --sss-ink-secondary: #4a4640;
+  --sss-ink-muted: #7a746a;
+  --sss-line: #d4cdbf;
+  --sss-success: #166534;
+  --sss-warning: #92400e;
+  --sss-error: #b91c1c;
+  --sss-offline: #9a3412;
+
+  --color-ground: var(--sss-paper);
+  --color-elevated: var(--sss-white);
+  --color-lifted: var(--sss-lifted);
+  --color-accent: var(--sss-tan);
+  --color-accent-deep: var(--sss-tan-deep);
+  --color-accent-soft: var(--sss-tan-soft);
+  --color-text-primary: var(--sss-ink);
+  --color-text-secondary: var(--sss-ink-secondary);
+  --color-text-muted: var(--sss-ink-muted);
+  --color-border: var(--sss-line);
+  --color-ring: var(--sss-void);
+  --color-error: var(--sss-error);
+  --color-success: var(--sss-success);
+  --color-warning: var(--sss-warning);
+  --color-offline: var(--sss-offline);
+
+  --background: var(--color-ground);
+  --foreground: var(--color-text-primary);
+  --primary: var(--color-accent);
+  --primary-foreground: var(--sss-void);
+  --muted: var(--color-lifted);
+  --muted-foreground: var(--color-text-muted);
+  --border: var(--color-border);
+  --input: var(--color-elevated);
+  --ring: var(--color-ring);
+  --destructive: var(--color-error);
+
+  --duration-ui: 200ms;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-sss-ground: var(--color-ground);
+  --color-sss-elevated: var(--color-elevated);
+  --color-sss-lifted: var(--color-lifted);
+  --color-sss-accent: var(--color-accent);
+  --color-sss-accent-deep: var(--color-accent-deep);
+  --color-sss-accent-soft: var(--color-accent-soft);
+  --color-sss-text-primary: var(--color-text-primary);
+  --color-sss-text-secondary: var(--color-text-secondary);
+  --color-sss-text-muted: var(--color-text-muted);
+  --color-sss-border: var(--color-border);
+  --color-sss-ink: var(--sss-void);
+  --color-sss-success: var(--color-success);
+  --color-sss-warning: var(--color-warning);
+  --color-sss-error: var(--color-error);
+  --color-sss-offline: var(--color-offline);
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  min-height: 100dvh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.sss-paper {
+  background: var(--color-elevated);
+  border: 1px solid var(--color-border);
+  box-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.55);
+}
+
+.sss-tray {
+  background: var(--color-lifted);
+  border: 1px solid var(--color-border);
+  box-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / 0.45),
+    inset 0 -1px 0 0 rgb(20 18 16 / 0.04);
+}
+
+.sss-well {
+  background: var(--color-lifted);
+  box-shadow: inset 0 2px 4px rgb(20 18 16 / 0.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
