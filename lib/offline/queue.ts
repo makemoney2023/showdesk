@@ -8,6 +8,7 @@ export interface OfflineRecording {
   showId: string;
   blob: Blob;
   createdAt: string;
+  judge?: string;
 }
 
 function queueKey(id: string) {

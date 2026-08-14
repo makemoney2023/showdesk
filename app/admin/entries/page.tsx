@@ -18,6 +18,7 @@ import { blankRosterEntryDraft } from "@/lib/domain/roster-draft";
 import { blankShowDraft, validateShowCreate } from "@/lib/domain/show-draft";
 import type { ShowCreateInput } from "@/lib/domain/show-draft";
 import { CsvImportDialog } from "@/components/roster/CsvImportDialog";
+import { JudgeListFields } from "@/components/show/JudgeListFields";
 import {
   Dialog,
   DialogContent,
@@ -374,15 +375,17 @@ export default function AdminEntriesPage() {
                 placeholder="Ground / city"
               />
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="show_judge">Judge</Label>
-              <Input
-                id="show_judge"
-                value={showDraft.judge}
-                onChange={(e) => setShowDraft({ ...showDraft, judge: e.target.value })}
-                placeholder="Judge name"
-              />
-            </div>
+            <JudgeListFields
+              idPrefix="show_judge"
+              judges={showDraft.judges}
+              onChange={(judges) =>
+                setShowDraft({
+                  ...showDraft,
+                  judges,
+                  judge: judges[0] ?? "",
+                })
+              }
+            />
           </div>
           <div className="flex gap-2">
             <Button onClick={() => void createShow()}>Create show</Button>

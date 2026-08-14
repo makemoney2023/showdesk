@@ -38,6 +38,12 @@ const COPY = {
     href: "/ringside",
     cta: "Open ringside",
   },
+  "select-judge": {
+    title: "Select a judge",
+    body: "Pick the judge in the header before you record or complete an SE.",
+    href: null,
+    cta: null,
+  },
   "no-selection": {
     title: "Select a critique",
     body: "Pick an item from the queue to review the draft.",

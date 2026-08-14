@@ -41,6 +41,7 @@ export async function POST(request: Request) {
   const body = (await request.json()) as {
     show_id: string;
     entry_id: string;
+    judge?: string;
   };
 
   const store = await readStore();
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
     form = {
       ...form,
       date: show.date || form.date,
-      judge: show.judge || form.judge,
+      judge: (body.judge ?? "").trim() || show.judge || form.judge,
     };
   }
 

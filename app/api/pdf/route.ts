@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { readStore } from "@/lib/store/file-store";
 import { buildAdrkRichterberichtPdf } from "@/lib/pdf/adrk-richterbericht";
+import { resolvePdfJudge } from "@/lib/domain/show-judges";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
 
 export async function GET(request: Request) {
@@ -29,8 +30,18 @@ export async function GET(request: Request) {
   const placement = store.placements.find(
     (p) => p.entry_id === entry.id && p.show_id === showId,
   );
+  const se = (store.se_evaluations ?? []).find(
+    (e) => e.entry_id === entry.id && e.show_id === showId,
+  );
   const pdfBytes = await buildAdrkRichterberichtPdf({
-    show,
+    show: {
+      ...show,
+      judge: resolvePdfJudge({
+        critiqueJudge: critique.judge,
+        seJudge: se?.form.judge,
+        showJudge: show.judge,
+      }),
+    },
     entry,
     draft: {
       ...critique.draft,

@@ -4,7 +4,7 @@ test.describe("smoke", () => {
   test("home page loads", async ({ page }) => {
     await page.goto("/");
     await expect(
-      page.getByRole("heading", { name: "Sieger Show Secretary" }),
+      page.getByRole("heading", { name: "Show Desk" }),
     ).toBeVisible();
   });
 

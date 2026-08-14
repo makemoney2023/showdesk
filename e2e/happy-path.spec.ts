@@ -14,7 +14,9 @@ test.describe("happy path", () => {
     await page.getByRole("button", { name: "New show" }).click();
     await page.getByLabel("Show name").fill("E2E Sieger Show");
     await page.getByLabel("Venue").fill("Demo Ground");
-    await page.getByLabel("Judge").fill("Test Judge");
+    await page.getByLabel("Judge", { exact: true }).fill("Test Judge");
+    await page.getByRole("button", { name: "Add judge" }).click();
+    await page.locator("#show_judge-1").fill("Second Judge");
     await page.getByRole("button", { name: "Create show" }).click();
     await expect(page.getByText(/Show created/i)).toBeVisible();
 
@@ -36,6 +38,7 @@ test.describe("happy path", () => {
     ).toBeVisible();
 
     await page.goto("/ringside");
+    await page.getByLabel("Judge").selectOption("Test Judge");
     await expect(page.getByText("Rex Happy Path")).toBeVisible();
 
     // Create a mock critique via API (cookie from login)

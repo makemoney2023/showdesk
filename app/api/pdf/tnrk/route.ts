@@ -6,6 +6,7 @@ import { buildTnrkAwardPdf } from "@/lib/pdf/tnrk-award-pdf";
 import { getAdrkClassLabel } from "@/lib/domain/adrk-template";
 import type { AdrkClassId } from "@/lib/domain/adrk-template";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
+import { resolvePdfJudge } from "@/lib/domain/show-judges";
 
 export async function GET(request: Request) {
   const auth = await requireApiSession();
@@ -99,8 +100,11 @@ export async function GET(request: Request) {
       co_owner: "",
       judge_signature:
         se?.form.judge_signature?.trim() ||
-        se?.form.judge?.trim() ||
-        show.judge,
+        resolvePdfJudge({
+          critiqueJudge: critique?.judge,
+          seJudge: se?.form.judge,
+          showJudge: show.judge,
+        }),
     });
 
     return new NextResponse(Buffer.from(pdfBytes), {
@@ -124,10 +128,20 @@ export async function GET(request: Request) {
     if (!entry) {
       return NextResponse.json({ error: "Entry not found" }, { status: 404 });
     }
+    const se = (store.se_evaluations ?? []).find(
+      (e) => e.entry_id === entry.id && e.show_id === showId,
+    );
+    const critique = store.critiques.find(
+      (c) => c.entry_id === entry.id && c.show_id === showId,
+    );
     const pdfBytes = await buildTnrkAwardPdf({
       date: show.date,
       lines: [awardTitle, entry.dog_name, `Owner: ${entry.owner}`],
-      judge: show.judge,
+      judge: resolvePdfJudge({
+        critiqueJudge: critique?.judge,
+        seJudge: se?.form.judge,
+        showJudge: show.judge,
+      }),
       show_secretary: "Show Secretary",
     });
     return new NextResponse(Buffer.from(pdfBytes), {

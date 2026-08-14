@@ -14,7 +14,7 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "Sieger Show Secretary",
+  title: "Show Desk",
   description:
     "Ringside critique capture, secretary review, and ADRK-aligned PDF delivery for Sieger shows.",
   appleWebApp: {

@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Sieger Show Secretary",
+    name: "Show Desk",
     short_name: "Show Desk",
     description:
       "Ringside critique capture and secretary review for Sieger shows.",

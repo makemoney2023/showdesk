@@ -17,7 +17,10 @@ import {
   type TnrkSeForm,
 } from "@/lib/domain/tnrk-se-form";
 import { seSectionProgress } from "@/lib/domain/show-day";
-import type { RosterEntryRecord, SeEvaluationRecord } from "@/lib/types";
+import { canRecordWithJudge, syncShowJudges } from "@/lib/domain/show-judges";
+import { stickyJudgeForShow } from "@/lib/client/sticky-judge";
+import { EmptyDesk } from "@/components/desk/EmptyDesk";
+import type { RosterEntryRecord, SeEvaluationRecord, Show } from "@/lib/types";
 
 const HEAD_LABELS: Record<(typeof HEAD_SHAPE_OPTIONS)[number], string> = {
   too_small: "Too small",
@@ -62,6 +65,8 @@ export default function StewardSeFormPage() {
   const entryId = params.id as string;
   const [entry, setEntry] = useState<RosterEntryRecord | null>(null);
   const [showId, setShowId] = useState<string | null>(null);
+  const [judgePick, setJudgePick] = useState<string | null>(null);
+  const [judges, setJudges] = useState<string[]>([]);
   const [evaluation, setEvaluation] = useState<SeEvaluationRecord | null>(null);
   const [form, setForm] = useState<TnrkSeForm | null>(null);
   const [status, setStatus] = useState("Loading…");
@@ -79,12 +84,21 @@ export default function StewardSeFormPage() {
       );
       return;
     }
-    const showData = (await showRes.json()) as { active_show_id: string | null };
+    const showData = (await showRes.json()) as {
+      shows: Show[];
+      active_show_id: string | null;
+    };
     if (!showData.active_show_id) {
       setStatus("No active show");
       return;
     }
     setShowId(showData.active_show_id);
+    const active =
+      showData.shows.find((s) => s.id === showData.active_show_id) ?? null;
+    const names = syncShowJudges(active ?? {}).judges;
+    const pick = stickyJudgeForShow(showData.active_show_id, names);
+    setJudges(names);
+    setJudgePick(pick);
 
     const entriesRes = await fetch(
       `/api/entries?show_id=${showData.active_show_id}`,
@@ -109,6 +123,7 @@ export default function StewardSeFormPage() {
       body: JSON.stringify({
         show_id: showData.active_show_id,
         entry_id: entryId,
+        judge: pick ?? undefined,
       }),
     });
     if (!createRes.ok) {
@@ -119,7 +134,12 @@ export default function StewardSeFormPage() {
       evaluation: SeEvaluationRecord;
     };
     setEvaluation(createData.evaluation);
-    setForm(createData.evaluation.form);
+    const nextForm = createData.evaluation.form;
+    setForm(
+      pick && !nextForm.judge.trim()
+        ? { ...nextForm, judge: pick }
+        : nextForm,
+    );
     setStatus(
       createData.evaluation.status === "complete" ? "Complete" : "Draft",
     );
@@ -150,6 +170,15 @@ export default function StewardSeFormPage() {
       setActionMsg("Form is still loading — wait a moment and try again");
       return;
     }
+    const nextForm =
+      judgePick && !form.judge.trim()
+        ? { ...form, judge: judgePick }
+        : form;
+    if (markComplete && !canRecordWithJudge(nextForm.judge, judges)) {
+      setActionError(true);
+      setActionMsg("Select a judge");
+      return;
+    }
     setSaving(true);
     setActionMsg(markComplete ? "Marking complete…" : "Saving draft…");
     setActionError(false);
@@ -160,7 +189,7 @@ export default function StewardSeFormPage() {
         body: JSON.stringify({
           show_id: showId,
           evaluation_id: evaluation.id,
-          form,
+          form: nextForm,
           mark_complete: markComplete,
         }),
       });
@@ -247,6 +276,10 @@ export default function StewardSeFormPage() {
           )}
         </div>
       </div>
+
+      {!canRecordWithJudge(judgePick ?? form.judge, judges) ? (
+        <EmptyDesk variant="select-judge" />
+      ) : null}
 
       <ol className="flex flex-wrap gap-2 text-xs">
         {sections.map((section) => (
@@ -575,7 +608,9 @@ export default function StewardSeFormPage() {
           <Button
             type="button"
             variant="outline"
-            disabled={saving}
+            disabled={
+              saving || !canRecordWithJudge(judgePick ?? form.judge, judges)
+            }
             onClick={() => void save(true)}
           >
             Mark complete

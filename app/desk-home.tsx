@@ -9,6 +9,7 @@ import {
   deskSecondaryActions,
 } from "@/lib/domain/desk-next-action";
 import { pendingReviewCount } from "@/lib/domain/critique-status";
+import { formatShowJudges, syncShowJudges } from "@/lib/domain/show-judges";
 import { isDemoMode } from "@/lib/supabase/config";
 import type { CritiqueRecord, RosterEntryRecord, Show } from "@/lib/types";
 
@@ -66,12 +67,9 @@ export function DeskHome() {
     <div className="space-y-8">
       <section className="-mx-4 -mt-8 border-b border-sss-border bg-sss-ink px-4 py-10 text-[var(--sss-paper)] sm:-mx-4">
         <div className="mx-auto max-w-6xl space-y-3">
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-sss-accent-soft">
-            Blacksage Kennels · Show Desk
-          </p>
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="font-[family-name:var(--font-fraunces)] text-4xl font-semibold tracking-tight sm:text-5xl">
-              Sieger Show Secretary
+              Show Desk
             </h1>
             {isDemoMode() ? (
               <span className="rounded-md border border-sss-accent px-2 py-0.5 text-xs font-medium text-sss-accent-soft">
@@ -97,7 +95,8 @@ export function DeskHome() {
             {show.name}
           </h2>
           <p className="text-sm text-sss-text-secondary">
-            {show.date} · {show.venue || "Venue TBD"} · {show.judge || "Judge TBD"} ·{" "}
+            {show.date} · {show.venue || "Venue TBD"} ·{" "}
+            {formatShowJudges(syncShowJudges(show).judges)} ·{" "}
             {show.rulebook.toUpperCase()}
           </p>
         </section>

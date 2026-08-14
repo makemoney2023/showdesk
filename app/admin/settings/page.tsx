@@ -12,6 +12,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { pushToast } from "@/components/feedback/toast";
+import { JudgeListFields } from "@/components/show/JudgeListFields";
+import { syncShowJudges } from "@/lib/domain/show-judges";
 import type { Show } from "@/lib/types";
 
 export default function AdminSettingsPage() {
@@ -36,7 +38,7 @@ export default function AdminSettingsPage() {
     setShows(data.shows);
     setActiveShowId(data.active_show_id);
     const active = data.shows.find((s) => s.id === data.active_show_id) ?? null;
-    setForm(active ? { ...active } : null);
+    setForm(active ? { ...active, ...syncShowJudges(active) } : null);
     if (!active) {
       setMessage("No active show — create one on Roster.");
     }
@@ -127,14 +129,16 @@ export default function AdminSettingsPage() {
                 onChange={(e) => setForm({ ...form, venue: e.target.value })}
               />
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="judge">Judge</Label>
-              <Input
-                id="judge"
-                value={form.judge}
-                onChange={(e) => setForm({ ...form, judge: e.target.value })}
-              />
-            </div>
+            <JudgeListFields
+              idPrefix="settings_judge"
+              judges={form.judges ?? (form.judge ? [form.judge] : [""])}
+              onChange={(judges) =>
+                setForm({
+                  ...form,
+                  ...syncShowJudges({ judges }),
+                })
+              }
+            />
             <div className="space-y-1">
               <Label>Rulebook</Label>
               <Select

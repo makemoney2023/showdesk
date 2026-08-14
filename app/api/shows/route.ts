@@ -2,8 +2,13 @@ import { NextResponse } from "next/server";
 import { readStore, updateStore, newId } from "@/lib/store/file-store";
 import { ADRK_CLASSES } from "@/lib/domain/adrk-template";
 import { validateShowCreate } from "@/lib/domain/show-draft";
+import { syncShowJudges } from "@/lib/domain/show-judges";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
 import type { Show } from "@/lib/types";
+
+function presentShow(show: Show): Show {
+  return { ...show, ...syncShowJudges(show) };
+}
 
 export async function GET() {
   const auth = await requireApiSession();
@@ -11,7 +16,7 @@ export async function GET() {
 
   const store = await readStore();
   return NextResponse.json({
-    shows: store.shows,
+    shows: store.shows.map(presentShow),
     active_show_id: store.active_show_id,
     adrk_classes: ADRK_CLASSES,
   });
@@ -26,14 +31,20 @@ export async function POST(request: Request) {
     date?: string;
     venue?: string;
     judge?: string;
+    judges?: string[];
     rulebook?: "adrk" | "usrc" | "rkna" | "other";
   };
 
+  const synced = syncShowJudges({
+    judge: body.judge,
+    judges: body.judges,
+  });
   const input = {
     name: body.name ?? "",
     date: body.date ?? new Date().toISOString().slice(0, 10),
     venue: body.venue ?? "",
-    judge: body.judge ?? "",
+    judge: synced.judge,
+    judges: synced.judges,
     rulebook: body.rulebook ?? ("adrk" as const),
   };
   const validation = validateShowCreate(input);
@@ -46,7 +57,8 @@ export async function POST(request: Request) {
     name: input.name.trim(),
     date: input.date,
     venue: input.venue.trim(),
-    judge: input.judge.trim(),
+    judge: input.judge,
+    judges: input.judges,
     rulebook: input.rulebook,
     created_at: new Date().toISOString(),
   };
@@ -75,12 +87,23 @@ export async function PATCH(request: Request) {
     if (!existing) {
       return NextResponse.json({ error: "Show not found" }, { status: 404 });
     }
+    const synced = syncShowJudges({
+      judge: body.show.judge ?? existing.judge,
+      judges: body.show.judges ?? existing.judges,
+    });
+    if (synced.judges.length === 0) {
+      return NextResponse.json(
+        { error: "Add at least one judge." },
+        { status: 400 },
+      );
+    }
     const updated: Show = {
       ...existing,
       name: body.show.name ?? existing.name,
       date: body.show.date ?? existing.date,
       venue: body.show.venue ?? existing.venue,
-      judge: body.show.judge ?? existing.judge,
+      judge: synced.judge,
+      judges: synced.judges,
       rulebook: body.show.rulebook ?? existing.rulebook,
       logo_url: body.show.logo_url ?? existing.logo_url,
     };

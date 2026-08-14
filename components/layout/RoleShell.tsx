@@ -4,6 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { pendingReviewCount } from "@/lib/domain/critique-status";
+import { syncShowJudges } from "@/lib/domain/show-judges";
+import {
+  stickyJudgeForShow,
+  writeStickyJudge,
+} from "@/lib/client/sticky-judge";
 import { ToastHost } from "@/components/feedback/toast";
 import {
   secretaryNavItems,
@@ -110,6 +115,7 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
               Ringside
             </Link>
             <ShowChip name={show?.name ?? null} date={show?.date ?? null} compact />
+            <StewardJudgeSelect show={show} />
             <div className="flex items-center gap-2">
               <SyncChip online={online} queueCount={queueCount} />
               <AccountMenu kind={kind} />
@@ -169,7 +175,7 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
               href="/"
               className="font-[family-name:var(--font-fraunces)] text-lg font-semibold tracking-tight"
             >
-              Sieger Show Secretary
+              Show Desk
             </Link>
             <ShowChip name={show?.name ?? null} date={show?.date ?? null} />
             {isDemoMode() ? (
@@ -188,5 +194,40 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
       </header>
       <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
     </div>
+  );
+}
+
+function StewardJudgeSelect({ show }: { show: Show | null }) {
+  const judges = syncShowJudges(show ?? {}).judges;
+  const [selected, setSelected] = useState("");
+
+  const judgeKey = judges.join("\0");
+  useEffect(() => {
+    if (!show) {
+      setSelected("");
+      return;
+    }
+    setSelected(stickyJudgeForShow(show.id, judges) ?? "");
+  }, [show, judgeKey, judges]);
+
+  if (!show || judges.length === 0) return null;
+
+  return (
+    <select
+      aria-label="Judge"
+      className="min-h-11 max-w-[12rem] rounded-md border border-sss-border bg-sss-paper px-2 text-sm"
+      value={selected}
+      onChange={(e) => {
+        setSelected(e.target.value);
+        writeStickyJudge(show.id, e.target.value);
+      }}
+    >
+      <option value="">Select a judge</option>
+      {judges.map((name) => (
+        <option key={name} value={name}>
+          {name}
+        </option>
+      ))}
+    </select>
   );
 }

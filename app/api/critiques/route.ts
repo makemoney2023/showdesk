@@ -31,6 +31,7 @@ export async function POST(request: Request) {
     show_id: string;
     entry_id: string;
     audio_base64?: string;
+    judge?: string;
   };
 
   const store = await readStore();
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
         delivery_status: "blocked",
         created_at: now,
         updated_at: now,
+        judge: (body.judge ?? "").trim() || undefined,
       },
     ],
   }));

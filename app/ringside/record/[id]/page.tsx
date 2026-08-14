@@ -9,7 +9,10 @@ import {
   removeQueuedRecording,
 } from "@/lib/offline/queue";
 import { formatElapsed, nextDogAfter } from "@/lib/domain/show-day";
-import type { RosterEntryRecord } from "@/lib/types";
+import { canRecordWithJudge, syncShowJudges } from "@/lib/domain/show-judges";
+import { stickyJudgeForShow } from "@/lib/client/sticky-judge";
+import type { RosterEntryRecord, Show } from "@/lib/types";
+import { EmptyDesk } from "@/components/desk/EmptyDesk";
 import { VuMeter } from "@/components/desk/VuMeter";
 
 function blobToBase64(blob: Blob): Promise<string> {
@@ -31,6 +34,8 @@ export default function RecordPage() {
   const [entry, setEntry] = useState<RosterEntryRecord | null>(null);
   const [entries, setEntries] = useState<RosterEntryRecord[]>([]);
   const [showId, setShowId] = useState<string | null>(null);
+  const [judge, setJudge] = useState<string | null>(null);
+  const [judges, setJudges] = useState<string[]>([]);
   const [recording, setRecording] = useState(false);
   const [paused, setPaused] = useState(false);
   const [supportsPause, setSupportsPause] = useState(false);
@@ -56,9 +61,17 @@ export default function RecordPage() {
     async function loadEntry() {
       const showRes = await fetch("/api/shows");
       if (!showRes.ok) return;
-      const showData = (await showRes.json()) as { active_show_id: string | null };
+      const showData = (await showRes.json()) as {
+        shows: Show[];
+        active_show_id: string | null;
+      };
       if (!showData.active_show_id) return;
       setShowId(showData.active_show_id);
+      const active =
+        showData.shows.find((s) => s.id === showData.active_show_id) ?? null;
+      const names = syncShowJudges(active ?? {}).judges;
+      setJudges(names);
+      setJudge(stickyJudgeForShow(showData.active_show_id, names));
       const res = await fetch(`/api/entries?show_id=${showData.active_show_id}`);
       const data = (await res.json()) as { entries: RosterEntryRecord[] };
       setEntries(data.entries);
@@ -107,6 +120,10 @@ export default function RecordPage() {
   }
 
   async function startRecording() {
+    if (!canRecordWithJudge(judge, judges)) {
+      setStatus("Select a judge");
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -185,6 +202,7 @@ export default function RecordPage() {
         showId,
         blob,
         createdAt: new Date().toISOString(),
+        judge: judge ?? undefined,
       });
       setStatus("Saved to offline queue");
       await refreshQueue();
@@ -202,6 +220,7 @@ export default function RecordPage() {
         show_id: showId,
         entry_id: entryId,
         audio_base64: audioBase64,
+        judge: judge ?? undefined,
       }),
     });
     if (res.ok) {
@@ -216,6 +235,7 @@ export default function RecordPage() {
         showId,
         blob,
         createdAt: new Date().toISOString(),
+        judge: judge ?? undefined,
       });
       setStatus("Upload failed — queued offline");
       await refreshQueue();
@@ -237,6 +257,7 @@ export default function RecordPage() {
           show_id: item.showId,
           entry_id: item.entryId,
           audio_base64: audioBase64,
+          judge: item.judge,
         }),
       });
       if (res.ok) await removeQueuedRecording(item.id);
@@ -258,6 +279,10 @@ export default function RecordPage() {
         ) : null}
       </div>
 
+      {!canRecordWithJudge(judge, judges) ? (
+        <EmptyDesk variant="select-judge" />
+      ) : null}
+
       <div className="sss-paper space-y-3 p-4">
         <VuMeter
           level={vuLevel}
@@ -269,7 +294,12 @@ export default function RecordPage() {
         />
         <div className="flex flex-wrap gap-2">
           {!recording ? (
-            <Button onClick={() => void startRecording()}>Start recording</Button>
+            <Button
+              disabled={!canRecordWithJudge(judge, judges)}
+              onClick={() => void startRecording()}
+            >
+              Start recording
+            </Button>
           ) : (
             <>
               {supportsPause ? (
