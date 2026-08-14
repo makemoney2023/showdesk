@@ -10,6 +10,7 @@ export interface Show {
   date: string;
   venue: string;
   judge: string;
+  judges?: string[];
   rulebook: RulebookTemplate;
   logo_url?: string;
   created_at: string;
@@ -41,6 +42,7 @@ export interface CritiqueRecord {
   created_at: string;
   updated_at: string;
   approved_at?: string;
+  judge?: string;
 }
 
 export interface PlacementRecord {
