@@ -17,3 +17,18 @@ export function deskNextAction(input: {
   }
   return { href: "/ringside", label: "Open ringside" };
 }
+
+export function deskSecondaryActions(input: {
+  hasShow: boolean;
+  entryCount: number;
+  pendingCount: number;
+}): { href: string; label: string }[] {
+  if (!input.hasShow) return [];
+  if (input.entryCount === 0) {
+    return [{ href: "/admin/entries", label: "Add entry" }];
+  }
+  if (input.pendingCount > 0) {
+    return [{ href: "/ringside", label: "Open ringside" }];
+  }
+  return [{ href: "/admin/entries", label: "Import CSV" }];
+}

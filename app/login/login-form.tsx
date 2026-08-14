@@ -51,7 +51,7 @@ export function LoginForm() {
           Show Desk login
         </h1>
         <p className="text-sm text-[var(--sss-paper)]/80">
-          Supabase Auth when configured; demo credentials in DEMO MODE.
+          Sign in to Show Desk. Demo mode uses the saved secretary account.
         </p>
       </div>
       <form

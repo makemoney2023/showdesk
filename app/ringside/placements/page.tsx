@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ADRK_CLASSES } from "@/lib/domain/adrk-template";
+import { pushToast } from "@/components/feedback/toast";
 import type { PlacementRecord, RosterEntryRecord } from "@/lib/types";
 
 export default function PlacementsPage() {
@@ -10,6 +11,7 @@ export default function PlacementsPage() {
   const [entries, setEntries] = useState<RosterEntryRecord[]>([]);
   const [placements, setPlacements] = useState<Record<string, number | "">>({});
   const [status, setStatus] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     const showRes = await fetch("/api/shows");
@@ -23,7 +25,7 @@ export default function PlacementsPage() {
     }
     const showData = (await showRes.json()) as { active_show_id: string | null };
     if (!showData.active_show_id) {
-      setStatus("No active show — create one under Entries");
+      setStatus("No active show — create one on Roster.");
       setShowId(null);
       setEntries([]);
       return;
@@ -53,10 +55,12 @@ export default function PlacementsPage() {
   }, [load]);
 
   async function save() {
+    if (busy) return;
     if (!showId) {
-      setStatus("No active show — create one under Entries");
+      setStatus("No active show — create one on Roster.");
       return;
     }
+    setBusy(true);
     const payload = entries.map((e) => ({
       entry_id: e.id,
       class_id: e.class_id,
@@ -70,7 +74,10 @@ export default function PlacementsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ show_id: showId, placements: payload }),
     });
-    setStatus(res.ok ? "Placements saved" : "Save failed");
+    const ok = res.ok;
+    setStatus(ok ? "Placements saved" : "Save failed");
+    pushToast(ok ? "Placements saved" : "Save failed", ok ? "ok" : "error");
+    setBusy(false);
     await load();
   }
 
@@ -90,7 +97,9 @@ export default function PlacementsPage() {
             Placements (1–4) are separate from per-dog Formwert rating.
           </p>
         </div>
-        <Button onClick={() => void save()}>Save placements</Button>
+        <Button disabled={busy} onClick={() => void save()}>
+          Save placements
+        </Button>
       </div>
       {status ? <p className="text-sm text-sss-accent-deep">{status}</p> : null}
       {byClass.map((cls) =>

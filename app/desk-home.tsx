@@ -4,8 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { EmptyDesk } from "@/components/desk/EmptyDesk";
-import { deskNextAction } from "@/lib/domain/desk-next-action";
-import { isReviewable } from "@/lib/domain/critique-status";
+import {
+  deskNextAction,
+  deskSecondaryActions,
+} from "@/lib/domain/desk-next-action";
+import { pendingReviewCount } from "@/lib/domain/critique-status";
 import { isDemoMode } from "@/lib/supabase/config";
 import type { CritiqueRecord, RosterEntryRecord, Show } from "@/lib/types";
 
@@ -42,7 +45,7 @@ export function DeskHome() {
       ? ((await critRes.json()) as { critiques: CritiqueRecord[] }).critiques
       : [];
     setEntryCount(entries.length);
-    setPendingCount(critiques.filter((c) => isReviewable(c.status)).length);
+    setPendingCount(pendingReviewCount(critiques.map((c) => c.status)));
     const critByEntry = new Set(critiques.map((c) => c.entry_id));
     setGapCount(entries.filter((e) => !critByEntry.has(e.id)).length);
   }, []);
@@ -51,11 +54,13 @@ export function DeskHome() {
     void load();
   }, [load]);
 
-  const next = deskNextAction({
+  const nextInput = {
     hasShow: Boolean(show),
     entryCount,
     pendingCount,
-  });
+  };
+  const next = deskNextAction(nextInput);
+  const secondaries = deskSecondaryActions(nextInput);
 
   return (
     <div className="space-y-8">
@@ -125,15 +130,11 @@ export function DeskHome() {
         <Button asChild>
           <Link href={next.href}>{next.label}</Link>
         </Button>
-        <Button asChild variant="outline">
-          <Link href="/admin/entries">Import CSV</Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link href="/admin/entries">Add entry</Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link href="/ringside">Open ringside</Link>
-        </Button>
+        {secondaries.map((action) => (
+          <Button key={action.label} asChild variant="outline">
+            <Link href={action.href}>{action.label}</Link>
+          </Button>
+        ))}
       </div>
     </div>
   );

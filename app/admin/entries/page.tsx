@@ -276,7 +276,9 @@ export default function AdminEntriesPage() {
           Roster entries
         </h1>
         <p className="text-sm text-sss-text-secondary">
-          Create a show, then import or add dog profiles for that show.
+          {showId
+            ? "Import a CSV or add a scratch entry for this show."
+            : "Create a show, then import or add dog profiles for that show."}
         </p>
       </div>
 
@@ -395,7 +397,7 @@ export default function AdminEntriesPage() {
       <section className="space-y-3 border border-sss-border bg-sss-elevated p-4">
         <h2 className="font-medium">CSV import</h2>
         <p className="text-sm text-sss-text-secondary">
-          Upload a roster file for the active show. Drag and drop supported.
+          Upload a roster file for the active show.
         </p>
         <Button onClick={openCsvImport} disabled={!showId}>
           Import CSV

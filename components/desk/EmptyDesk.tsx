@@ -5,8 +5,20 @@ const COPY = {
   "no-show": {
     title: "No show yet",
     body: "Create a show, then import the roster.",
-    href: "/admin/entries",
-    cta: "Create show",
+    href: null,
+    cta: null,
+  },
+  "no-show-steward": {
+    title: "No active show",
+    body: "Ask the secretary to create or select a show.",
+    href: null,
+    cta: null,
+  },
+  unauthorized: {
+    title: "Sign in again",
+    body: "Your session expired.",
+    href: "/login",
+    cta: "Sign in",
   },
   "no-entries": {
     title: "Roster is empty",

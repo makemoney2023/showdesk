@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { pushToast } from "@/components/feedback/toast";
 import type { Show } from "@/lib/types";
 
 export default function AdminSettingsPage() {
@@ -19,6 +20,7 @@ export default function AdminSettingsPage() {
   const [form, setForm] = useState<Show | null>(null);
   const [confirm, setConfirm] = useState("");
   const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/shows");
@@ -36,7 +38,7 @@ export default function AdminSettingsPage() {
     const active = data.shows.find((s) => s.id === data.active_show_id) ?? null;
     setForm(active ? { ...active } : null);
     if (!active) {
-      setMessage("No active show — create one under Entries");
+      setMessage("No active show — create one on Roster.");
     }
   }, []);
 
@@ -45,26 +47,37 @@ export default function AdminSettingsPage() {
   }, [load]);
 
   async function saveShow() {
-    if (!form) return;
+    if (!form || busy) return;
+    setBusy(true);
     const res = await fetch("/api/shows", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ show: form }),
     });
-    setMessage(res.ok ? "Show settings saved" : "Save failed");
+    const ok = res.ok;
+    setMessage(ok ? "Show settings saved" : "Save failed");
+    pushToast(ok ? "Show settings saved" : "Save failed", ok ? "ok" : "error");
+    setBusy(false);
     await load();
   }
 
   async function purgeShow() {
-    if (!activeShowId) return;
+    if (!activeShowId || busy) return;
+    setBusy(true);
     const res = await fetch("/api/purge", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ show_id: activeShowId, confirm }),
     });
     const data = (await res.json()) as { ok?: boolean; error?: string };
-    setMessage(data.ok ? "Show data purged" : (data.error ?? "Purge failed"));
+    const ok = Boolean(data.ok);
+    setMessage(ok ? "Show data purged" : (data.error ?? "Purge failed"));
+    pushToast(
+      ok ? "Show data purged" : (data.error ?? "Purge failed"),
+      ok ? "ok" : "error",
+    );
     setConfirm("");
+    setBusy(false);
     await load();
   }
 
@@ -145,7 +158,9 @@ export default function AdminSettingsPage() {
               </Select>
             </div>
           </div>
-          <Button onClick={() => void saveShow()}>Save show settings</Button>
+          <Button disabled={busy} onClick={() => void saveShow()}>
+            Save show settings
+          </Button>
           {shows.length > 1 ? (
             <p className="text-xs text-sss-text-muted">
               Editing active show only ({shows.length} shows in store).
@@ -154,7 +169,7 @@ export default function AdminSettingsPage() {
         </section>
       ) : (
         <p className="text-sm text-sss-text-muted">
-          No active show — create one under Entries.
+          No active show — create one on Roster.
         </p>
       )}
 
@@ -175,7 +190,7 @@ export default function AdminSettingsPage() {
         </div>
         <Button
           variant="destructive"
-          disabled={confirm !== "PURGE" || !activeShowId}
+          disabled={busy || confirm !== "PURGE" || !activeShowId}
           onClick={() => void purgeShow()}
         >
           Purge show data

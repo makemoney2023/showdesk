@@ -29,6 +29,10 @@ export function isReviewable(status: CritiqueStatus): boolean {
   return status === "PENDING_REVIEW";
 }
 
+export function pendingReviewCount(statuses: Iterable<CritiqueStatus>): number {
+  return [...statuses].filter(isReviewable).length;
+}
+
 export function assertTransition(
   from: CritiqueStatus,
   to: CritiqueStatus,

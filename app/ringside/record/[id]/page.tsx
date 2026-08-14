@@ -294,7 +294,7 @@ export default function RecordPage() {
       {queueCount > 0 ? (
         <div className="space-y-2 border border-sss-border bg-sss-lifted p-4">
           <p className="text-sm">
-            {queueCount} recording(s) in offline queue (IndexedDB)
+            {queueCount} recording(s) waiting to sync
           </p>
           <Button variant="outline" onClick={() => void syncQueue()}>
             Sync queue

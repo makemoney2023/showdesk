@@ -3,6 +3,7 @@ import {
   canRelease,
   canTransition,
   isReviewable,
+  pendingReviewCount,
   assertTransition,
 } from "./critique-status";
 
@@ -20,6 +21,12 @@ describe("critique-status", () => {
   it("marks pending review as reviewable", () => {
     expect(isReviewable("PENDING_REVIEW")).toBe(true);
     expect(isReviewable("PROCESSING")).toBe(false);
+  });
+
+  it("counts only reviewable statuses for the badge and queue heading", () => {
+    expect(
+      pendingReviewCount(["PENDING_REVIEW", "APPROVED", "PENDING_REVIEW", "ERROR"]),
+    ).toBe(2);
   });
 
   it("allows discard rerun from pending review", () => {

@@ -35,6 +35,9 @@ test.describe("happy path", () => {
       page.getByRole("cell", { name: "Rex Happy Path", exact: true }),
     ).toBeVisible();
 
+    await page.goto("/ringside");
+    await expect(page.getByText("Rex Happy Path")).toBeVisible();
+
     // Create a mock critique via API (cookie from login)
     const showRes = await page.request.get("/api/shows");
     const showData = (await showRes.json()) as {
@@ -59,10 +62,10 @@ test.describe("happy path", () => {
     expect(critRes.ok()).toBeTruthy();
 
     await page.goto("/admin/review");
-    page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: /Rex Happy Path/ }).click();
     await expect(page.getByLabel("Narrative (draft)")).toBeVisible();
     await page.getByRole("button", { name: "Approve & release" }).click();
+    await page.getByRole("button", { name: "Confirm" }).click();
     await expect(page.getByText(/Approved/i)).toBeVisible({ timeout: 10000 });
   });
 });

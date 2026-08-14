@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ADRK_CLASSES } from "@/lib/domain/adrk-template";
+import { deskLoadState } from "@/lib/domain/desk-load-state";
 import { classesWithDogs } from "@/lib/domain/show-day";
 import {
   critiqueChipTone,
@@ -26,11 +27,23 @@ export default function RingsidePage() {
   const [entries, setEntries] = useState<RosterEntryRecord[]>([]);
   const [critiques, setCritiques] = useState<CritiqueRecord[]>([]);
   const [classFilter, setClassFilter] = useState<string>("all");
+  const [loaded, setLoaded] = useState(false);
+  const [fetchFailed, setFetchFailed] = useState(false);
+  const [status, setStatus] = useState<number | undefined>();
+  const [activeShowId, setActiveShowId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const showRes = await fetch("/api/shows");
-    if (!showRes.ok) return;
+    setLoaded(true);
+    if (!showRes.ok) {
+      setFetchFailed(true);
+      setStatus(showRes.status);
+      return;
+    }
+    setFetchFailed(false);
+    setStatus(showRes.status);
     const showData = (await showRes.json()) as { active_show_id: string | null };
+    setActiveShowId(showData.active_show_id);
     if (!showData.active_show_id) return;
     const [entryRes, critRes] = await Promise.all([
       fetch(`/api/entries?show_id=${showData.active_show_id}`),
@@ -46,6 +59,12 @@ export default function RingsidePage() {
     void load();
   }, [load]);
 
+  const loadState = deskLoadState({
+    fetchFailed,
+    status,
+    activeShowId,
+    loaded,
+  });
   const presentClasses = classesWithDogs(entries);
   const filtered =
     classFilter === "all"
@@ -109,7 +128,16 @@ export default function RingsidePage() {
           );
         })}
       </ul>
-      {filtered.length === 0 ? (
+      {loadState.kind === "loading" ? (
+        <p className="text-sm text-sss-text-muted">Loading dogs…</p>
+      ) : null}
+      {loadState.kind === "unauthorized" ? (
+        <EmptyDesk variant="unauthorized" />
+      ) : null}
+      {loadState.kind === "no-show" ? (
+        <EmptyDesk variant="no-show-steward" />
+      ) : null}
+      {loadState.kind === "ready" && filtered.length === 0 ? (
         <EmptyDesk variant="no-entries-steward" />
       ) : null}
     </div>

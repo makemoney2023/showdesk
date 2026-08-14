@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deskNextAction } from "./desk-next-action";
+import { deskNextAction, deskSecondaryActions } from "./desk-next-action";
 
 describe("deskNextAction", () => {
   it("asks to create a show when none exists", () => {
@@ -24,5 +24,31 @@ describe("deskNextAction", () => {
     expect(
       deskNextAction({ hasShow: true, entryCount: 12, pendingCount: 0 }),
     ).toEqual({ href: "/ringside", label: "Open ringside" });
+  });
+});
+
+describe("deskSecondaryActions", () => {
+  it("hides secondaries when there is no show", () => {
+    expect(
+      deskSecondaryActions({ hasShow: false, entryCount: 0, pendingCount: 0 }),
+    ).toEqual([]);
+  });
+
+  it("offers add entry after import when the roster is empty", () => {
+    expect(
+      deskSecondaryActions({ hasShow: true, entryCount: 0, pendingCount: 0 }),
+    ).toEqual([{ href: "/admin/entries", label: "Add entry" }]);
+  });
+
+  it("offers ringside when review is the primary", () => {
+    expect(
+      deskSecondaryActions({ hasShow: true, entryCount: 12, pendingCount: 3 }),
+    ).toEqual([{ href: "/ringside", label: "Open ringside" }]);
+  });
+
+  it("offers import csv when the desk is otherwise clear", () => {
+    expect(
+      deskSecondaryActions({ hasShow: true, entryCount: 12, pendingCount: 0 }),
+    ).toEqual([{ href: "/admin/entries", label: "Import CSV" }]);
   });
 });

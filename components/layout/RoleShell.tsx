@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { isReviewable } from "@/lib/domain/critique-status";
+import { pendingReviewCount } from "@/lib/domain/critique-status";
+import { ToastHost } from "@/components/feedback/toast";
 import {
   secretaryNavItems,
   shellForPath,
@@ -65,7 +66,7 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
     }
     if (!critRes.ok) return;
     const critData = (await critRes.json()) as { critiques: CritiqueRecord[] };
-    setPendingCount(critData.critiques.filter((c) => isReviewable(c.status)).length);
+    setPendingCount(pendingReviewCount(critData.critiques.map((c) => c.status)));
   }, []);
 
   const refreshQueue = useCallback(async () => {
@@ -89,13 +90,17 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
 
   if (kind === "minimal") {
     return (
-      <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+      <>
+        <ToastHost />
+        <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+      </>
     );
   }
 
   if (kind === "steward") {
     return (
       <div className="min-h-dvh">
+        <ToastHost />
         <header className="sss-paper sticky top-0 z-30">
           <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-2">
             <Link
@@ -156,6 +161,7 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-dvh">
+      <ToastHost />
       <header className="sss-paper sticky top-0 z-30">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-2">
           <div className="flex flex-wrap items-center gap-3">

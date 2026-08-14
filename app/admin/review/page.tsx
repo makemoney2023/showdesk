@@ -12,8 +12,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ADRK_FORMWERT_CODES } from "@/lib/domain/adrk-template";
-import { canRelease, isReviewable } from "@/lib/domain/critique-status";
+import {
+  canRelease,
+  isReviewable,
+  pendingReviewCount,
+} from "@/lib/domain/critique-status";
 import { reviewPrimaryAction } from "@/lib/domain/review-primary-action";
+import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
+import { pushToast } from "@/components/feedback/toast";
 import {
   critiqueChipTone,
   labelCritiqueStatus,
@@ -36,6 +42,8 @@ export default function AdminReviewPage() {
   const [draft, setDraft] = useState<CritiqueRecord["draft"] | null>(null);
   const [statusMsg, setStatusMsg] = useState("");
   const [pendingOnly, setPendingOnly] = useState(true);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     const showRes = await fetch("/api/shows");
@@ -51,7 +59,7 @@ export default function AdminReviewPage() {
     const active = showData.active_show_id;
     setShowId(active);
     if (!active) {
-      setStatusMsg("No active show — create one under Entries");
+      setStatusMsg("No active show — create one on Roster.");
       setCritiques([]);
       setEntries([]);
       setEvaluations([]);
@@ -95,8 +103,9 @@ export default function AdminReviewPage() {
   }, [selected]);
 
   async function saveDraft() {
-    if (!showId || !selectedId || !draft) return;
-    await fetch("/api/critiques", {
+    if (!showId || !selectedId || !draft || busy) return;
+    setBusy(true);
+    const res = await fetch("/api/critiques", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -106,12 +115,16 @@ export default function AdminReviewPage() {
         draft,
       }),
     });
-    setStatusMsg("Draft saved");
+    const ok = res.ok;
+    setStatusMsg(ok ? "Draft saved" : "Save failed");
+    pushToast(ok ? "Draft saved" : "Save failed", ok ? "ok" : "error");
+    setBusy(false);
     await load();
   }
 
   async function discardAndRerun() {
-    if (!showId || !selectedId) return;
+    if (!showId || !selectedId || busy) return;
+    setBusy(true);
     setStatusMsg("Re-running AI draft…");
     const res = await fetch("/api/critiques", {
       method: "PATCH",
@@ -122,13 +135,19 @@ export default function AdminReviewPage() {
         action: "rerun",
       }),
     });
-    setStatusMsg(res.ok ? "Rerun complete — review new draft" : "Rerun failed");
+    const ok = res.ok;
+    setStatusMsg(ok ? "Rerun complete — review new draft" : "Rerun failed");
+    pushToast(
+      ok ? "Rerun complete — review new draft" : "Rerun failed",
+      ok ? "ok" : "error",
+    );
+    setBusy(false);
     await load();
   }
 
   async function approve() {
-    if (!showId || !selectedId) return;
-    if (!window.confirm("Approve and release this critique?")) return;
+    if (!showId || !selectedId || busy) return;
+    setBusy(true);
     const res = await fetch("/api/critiques", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -140,6 +159,9 @@ export default function AdminReviewPage() {
     });
     if (!res.ok) {
       setStatusMsg("Approve blocked — item is not waiting for review");
+      pushToast("Approve blocked — item is not waiting for review", "error");
+      setBusy(false);
+      setConfirmOpen(false);
       return;
     }
     const release = await fetch("/api/approve", {
@@ -148,14 +170,17 @@ export default function AdminReviewPage() {
       body: JSON.stringify({ show_id: showId, critique_id: selectedId }),
     });
     const releaseData = (await release.json()) as { email?: { mock?: boolean; sent?: boolean } };
-    setStatusMsg(
-      releaseData.email?.mock
-        ? "Approved — email mocked (no RESEND_API_KEY)"
-        : "Approved and release attempted",
-    );
+    const msg = releaseData.email?.mock
+      ? "Approved — email mocked (no RESEND_API_KEY)"
+      : "Approved and release attempted";
+    setStatusMsg(msg);
+    pushToast(msg);
+    setBusy(false);
+    setConfirmOpen(false);
     await load();
   }
 
+  const pendingCount = pendingReviewCount(critiques.map((c) => c.status));
   const pending = critiques.filter((c) => isReviewable(c.status));
   const visible = pendingOnly ? pending : critiques;
   const queue = [...visible].toSorted((a, b) => {
@@ -179,7 +204,7 @@ export default function AdminReviewPage() {
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <h2 className="font-medium">
-              {pendingOnly ? `Pending (${pending.length})` : `All (${critiques.length})`}
+              {pendingOnly ? `Pending (${pendingCount})` : `All (${critiques.length})`}
             </h2>
             <div className="flex gap-2">
               <Button
@@ -327,15 +352,20 @@ export default function AdminReviewPage() {
                   More actions
                 </summary>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <Button variant="outline" onClick={() => void saveDraft()}>
+                  <Button
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => void saveDraft()}
+                  >
                     Save draft
                   </Button>
                   <Button
                     variant="outline"
                     onClick={() => void discardAndRerun()}
                     disabled={
-                      selected.status !== "PENDING_REVIEW" &&
-                      selected.status !== "ERROR"
+                      busy ||
+                      (selected.status !== "PENDING_REVIEW" &&
+                        selected.status !== "ERROR")
                     }
                   >
                     Discard &amp; rerun
@@ -366,7 +396,9 @@ export default function AdminReviewPage() {
               </details>
               <StickyDeskBar
                 primaryLabel={reviewPrimaryAction(selected.status).label}
-                primaryDisabled={reviewPrimaryAction(selected.status).disabled}
+                primaryDisabled={
+                  busy || reviewPrimaryAction(selected.status).disabled
+                }
                 primaryHref={
                   reviewPrimaryAction(selected.status).kind === "reports"
                     ? "/admin/reports"
@@ -374,9 +406,17 @@ export default function AdminReviewPage() {
                 }
                 onPrimary={() => {
                   const kind = reviewPrimaryAction(selected.status).kind;
-                  if (kind === "approve") void approve();
+                  if (kind === "approve") setConfirmOpen(true);
                   if (kind === "retry") void discardAndRerun();
                 }}
+              />
+              <ConfirmDialog
+                open={confirmOpen}
+                title="Release this critique to the owner?"
+                body="Nothing leaves the desk until you confirm."
+                confirmLabel="Confirm"
+                onConfirm={() => void approve()}
+                onCancel={() => setConfirmOpen(false)}
               />
               {!canRelease(selected.status) && (
                 <p className="text-xs text-sss-text-muted">
