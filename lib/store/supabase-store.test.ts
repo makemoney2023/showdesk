@@ -9,7 +9,7 @@ import type {
 } from "@/lib/types";
 import { createEmptyDraft } from "@/lib/domain/adrk-template";
 import { createEmptyTnrkSeForm } from "@/lib/domain/tnrk-se-form";
-import { toEntryRow, toShowRow } from "./row-mappers";
+import { toEntryRow, toPlacementRow, toShowRow } from "./row-mappers";
 import {
   assembleStore,
   newId,
@@ -310,6 +310,51 @@ describe("sbReadStore / sbUpdateStore / sbPurgeShowData", () => {
     expect(next.placements).toEqual([]);
     expect(next.se_evaluations).toEqual([]);
     expect(next.active_show_id).toBeNull();
+  });
+
+  it("deletes the old placement before upserting a replacement for the same show_id+entry_id", async () => {
+    const client = createMockClient({
+      shows: [toShowRow(show)],
+      entries: [toEntryRow(entry)],
+      placements: [placement],
+    });
+    const replacement = { ...placement, id: "place-2", placement: 2 };
+
+    await sbUpdateStore(client, (s) => ({
+      ...s,
+      placements: [replacement],
+    }));
+
+    const placementOps = client.ops.filter((op) => op.table === "placements");
+    const deleteIdx = placementOps.findIndex((op) => op.op === "delete");
+    const upsertIdx = placementOps.findIndex((op) => op.op === "upsert");
+
+    expect(deleteIdx).toBeGreaterThanOrEqual(0);
+    expect(upsertIdx).toBeGreaterThanOrEqual(0);
+    expect(deleteIdx).toBeLessThan(upsertIdx);
+    expect(placementOps[deleteIdx]?.payload).toEqual({
+      col: "id",
+      ids: ["place-1"],
+    });
+    expect(placementOps[upsertIdx]?.payload).toEqual([toPlacementRow(replacement)]);
+  });
+
+  it("persists in-place mutators that return void", async () => {
+    const client = createMockClient({
+      shows: [toShowRow(show)],
+      app_state: { id: 1, active_show_id: null },
+    });
+
+    const next = await sbUpdateStore(client, (s) => {
+      s.active_show_id = "show-1";
+    });
+
+    expect(next.active_show_id).toBe("show-1");
+    expect(client.ops).toContainEqual({
+      op: "upsert",
+      table: "app_state",
+      payload: [{ id: 1, active_show_id: "show-1" }],
+    });
   });
 });
 

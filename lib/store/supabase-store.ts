@@ -164,6 +164,27 @@ async function applyPlan(
     throwIfError(error, "upsert entries");
   }
 
+  // Delete children first so a replacement id for the same (show_id, entry_id)
+  // does not hit UNIQUE (show_id, entry_id) on upsert.
+  const childDeletes = [
+    plan.deleteCritiqueIds.length > 0
+      ? client.from("critiques").delete().in("id", plan.deleteCritiqueIds)
+      : null,
+    plan.deletePlacementIds.length > 0
+      ? client.from("placements").delete().in("id", plan.deletePlacementIds)
+      : null,
+    plan.deleteSeEvaluationIds.length > 0
+      ? client.from("se_evaluations").delete().in("id", plan.deleteSeEvaluationIds)
+      : null,
+  ].filter((job): job is Promise<{ error: QueryError }> => job != null);
+
+  if (childDeletes.length > 0) {
+    const results = await Promise.all(childDeletes);
+    for (const result of results) {
+      throwIfError(result.error, "delete child rows");
+    }
+  }
+
   const childUpserts = [
     plan.upsertCritiques.length > 0
       ? client.from("critiques").upsert(plan.upsertCritiques)
@@ -188,25 +209,6 @@ async function applyPlan(
   if (plan.appState) {
     const { error } = await client.from("app_state").upsert(plan.appState);
     throwIfError(error, "upsert app_state");
-  }
-
-  const childDeletes = [
-    plan.deleteCritiqueIds.length > 0
-      ? client.from("critiques").delete().in("id", plan.deleteCritiqueIds)
-      : null,
-    plan.deletePlacementIds.length > 0
-      ? client.from("placements").delete().in("id", plan.deletePlacementIds)
-      : null,
-    plan.deleteSeEvaluationIds.length > 0
-      ? client.from("se_evaluations").delete().in("id", plan.deleteSeEvaluationIds)
-      : null,
-  ].filter((job): job is Promise<{ error: QueryError }> => job != null);
-
-  if (childDeletes.length > 0) {
-    const results = await Promise.all(childDeletes);
-    for (const result of results) {
-      throwIfError(result.error, "delete child rows");
-    }
   }
 
   if (plan.deleteEntryIds.length > 0) {
@@ -273,8 +275,9 @@ export async function sbUpdateStore(
   client: SupabaseStoreClient,
   updater: (store: AppStore) => AppStore | void,
 ): Promise<AppStore> {
-  const before = await sbReadStore(client);
-  const next = updater(before) ?? before;
+  const before = structuredClone(await sbReadStore(client));
+  const working = structuredClone(before);
+  const next = updater(working) ?? working;
   await applyPlan(client, planStoreWrite(before, next));
   return next;
 }
