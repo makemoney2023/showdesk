@@ -23,10 +23,10 @@ With no public Supabase env, the app stays in DEMO MODE (see below).
 
 | Behavior | Demo | Production (both public vars set) |
 |----------|------|-----------------------------------|
-| Login | Cookie `sss-demo-session`; form prefills `secretary@demo.local` / `demo1234` | Supabase Auth `signInWithPassword` |
+| Login | Cookie `sss-demo-session`; form prefills `secretary@demo.local` / `demo1234` | Supabase Auth sign-in + **Create account** at `/login` |
 | Data | `.data/store.json` | Postgres (`shows`, `app_state`, `entries`, `critiques`, `placements`, `se_evaluations`) |
 | Critique audio | `.data/audio/{show_id}/{critique_id}.webm` | Private Storage bucket `critique-audio` |
-| `SUPABASE_SERVICE_ROLE_KEY` | Unused | Server-only (Storage / privileged ops). Never `NEXT_PUBLIC_` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Unused | Server-only (signup confirm, Storage). Never `NEXT_PUBLIC_` |
 
 Demo session cookie is `httpOnly`, `sameSite=lax`, `path=/`, and `secure` on HTTPS / production.
 
@@ -51,16 +51,20 @@ SQL lives under `supabase/migrations/`. Apply **in order** on project `emiwbvbyt
 2. `supabase/migrations/20260818120100_critique_audio_bucket.sql` — private bucket `critique-audio` + authenticated Storage policies.
 3. `supabase/migrations/20260818120200_show_judges_and_critique_judge.sql` — `shows.judges` jsonb + `critiques.judge` text.
 
-**Status:** files are in-repo. Remote apply is still an operator step if the connected MCP/CLI session cannot see this project (wrong org).
+**Status:** applied on project `emiwbvbytmfbonbnemli` (schema + Storage + judges columns).
 
-## Auth users
+## Auth (self-serve signup)
 
-A1: any authenticated user can use secretary + ringside (no role gates). Create named accounts in the Dashboard:
+A1: any authenticated user can use secretary + ringside (no role gates).
 
-1. Open `https://emiwbvbytmfbonbnemli.supabase.co` → **Authentication → Users → Add user**.
-2. Choose **Create new user** (email + password). Confirm the user (auto-confirm if email is not wired).
-3. Create at least one **secretary** and one **steward** (example: `secretary@blacksage.local`, `steward@blacksage.local`).
-4. Sign in at `/login` with those credentials after Vercel env is set. Do **not** use `secretary@demo.local` in production.
+Users **create their own account** on `/login` → **Create account** (email + password, min 6 chars). The API is `POST /api/auth/signup`, which uses the service-role admin client to create an already-confirmed user, then `signInWithPassword` so session cookies are set immediately. No Dashboard “Add user” step.
+
+Requirements for signup on Vercel:
+1. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` (required for signup confirm).
+2. Redeploy.
+3. Open `/login` → **Create account** with a real email. Do **not** use `secretary@demo.local` in production.
+
+Existing users use **Sign in**. Duplicate emails return a clear error (409).
 
 ## Storage (production)
 

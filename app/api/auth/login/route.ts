@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { readStore } from "@/lib/store";
 import { getSessionUser } from "@/lib/auth/session";
+import { parseAuthCredentials } from "@/lib/auth/credentials";
 import { isDemoMode, getDemoSessionCookieName } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { demoSessionCookieOptions } from "@/lib/auth/demo-cookie";
@@ -34,13 +35,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, demo: true, user: { email: user.email } });
   }
 
+  const parsed = parseAuthCredentials(body);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
+  }
+
   const supabase = await createSupabaseServerClient();
   if (!supabase) {
     return NextResponse.json({ error: "Auth not configured" }, { status: 500 });
   }
   const { error } = await supabase.auth.signInWithPassword({
-    email: body.email ?? "",
-    password: body.password ?? "",
+    email: parsed.email,
+    password: parsed.password,
   });
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 401 });
