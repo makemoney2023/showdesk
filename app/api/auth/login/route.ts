@@ -4,6 +4,7 @@ import { readStore } from "@/lib/store";
 import { getSessionUser } from "@/lib/auth/session";
 import { isDemoMode, getDemoSessionCookieName } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { demoSessionCookieOptions } from "@/lib/auth/demo-cookie";
 
 export async function GET() {
   const user = await getSessionUser();
@@ -25,11 +26,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
     const cookieStore = await cookies();
-    cookieStore.set(getDemoSessionCookieName(), user.id, {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-    });
+    cookieStore.set(
+      getDemoSessionCookieName(),
+      user.id,
+      demoSessionCookieOptions(request),
+    );
     return NextResponse.json({ ok: true, demo: true, user: { email: user.email } });
   }
 
