@@ -15,6 +15,14 @@ npm run dev
 
 Demo mode (no Supabase env vars): login `secretary@demo.local` / `demo1234`. Data persists to `.data/store.json`; critique audio under `.data/audio/`.
 
+## Storage (production)
+
+When Supabase env is set, critique recordings go in the private bucket `critique-audio`.
+
+Object path: `{show_id}/{critique_id}.webm` (same layout as local `.data/audio/`).
+
+Authenticated users may INSERT, SELECT, UPDATE (upsert), and DELETE objects in that bucket. Apply `supabase/migrations/20260818120100_critique_audio_bucket.sql` on project `emiwbvbytmfbonbnemli` if the bucket is not already present.
+
 ## Scripts
 
 - `npm test` — vitest domain tests
