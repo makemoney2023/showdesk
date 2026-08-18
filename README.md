@@ -88,7 +88,7 @@ Set env on the Show Desk Vercel project (Production and Preview). Then redeploy 
 | `ASSEMBLYAI_API_KEY` | optional | Mock STT if unset |
 | `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | optional | Mock email if unset |
 
-If public env is missing on Vercel, the deploy stays in DEMO MODE (file store + demo cookie). After env is set: login with a Dashboard Auth user; create a show; import CSV; run SE / critique / review.
+If public env is missing on Vercel, the deploy stays in DEMO MODE (file store + demo cookie). After env is set (including service role): **Create account** on `/login`, then create a show; import CSV; run SE / critique / review.
 
 Operator checklist: `docs/orgs/velocity-agency/customers/blacksage-kennels/initiatives/sieger-show-secretary/business-idea/WIRE/phase-9-mvp.md`.
 
