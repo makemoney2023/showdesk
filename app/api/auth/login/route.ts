@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { readStore } from "@/lib/store/file-store";
+import { readStore } from "@/lib/store";
 import { getSessionUser } from "@/lib/auth/session";
 import { isDemoMode, getDemoSessionCookieName } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";

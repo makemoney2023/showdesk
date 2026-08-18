@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { readStore } from "@/lib/store/file-store";
+import { readStore } from "@/lib/store";
 import { buildTnrkSePdf } from "@/lib/pdf/tnrk-se-pdf";
 import { buildTnrkCritiquePdf } from "@/lib/pdf/tnrk-critique-pdf";
 import { buildTnrkAwardPdf } from "@/lib/pdf/tnrk-award-pdf";

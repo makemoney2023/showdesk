@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { readStore } from "@/lib/store/file-store";
+import { readStore, readCritiqueAudio, audioExists } from "@/lib/store";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
-import { readCritiqueAudio, audioExists } from "@/lib/store/audio-store";
 
 export async function GET(
   _request: Request,

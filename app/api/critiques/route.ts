@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
-import { readStore, updateStore, newId } from "@/lib/store/file-store";
+import {
+  readStore,
+  updateStore,
+  newId,
+  writeCritiqueAudio,
+  readCritiqueAudio,
+} from "@/lib/store";
 import { filterByShow } from "@/lib/domain/show-scope";
 import { processCritique } from "@/lib/pipeline/process-critique";
 import { assertTransition } from "@/lib/domain/critique-status";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
-import {
-  writeCritiqueAudio,
-  readCritiqueAudio,
-} from "@/lib/store/audio-store";
 
 export async function GET(request: Request) {
   const auth = await requireApiSession();

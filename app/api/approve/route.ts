@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { readStore } from "@/lib/store/file-store";
+import { readStore, updateStore } from "@/lib/store";
 import { canRelease } from "@/lib/domain/critique-status";
 import { buildAdrkRichterberichtPdf } from "@/lib/pdf/adrk-richterbericht";
 import { sendCritiqueEmail } from "@/lib/email/resend";
-import { updateStore } from "@/lib/store/file-store";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
 
 export async function POST(request: Request) {

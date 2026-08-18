@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { readStore } from "@/lib/store/file-store";
+import { readStore } from "@/lib/store";
 import { buildAdrkRichterberichtPdf } from "@/lib/pdf/adrk-richterbericht";
 import { resolvePdfJudge } from "@/lib/domain/show-judges";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";

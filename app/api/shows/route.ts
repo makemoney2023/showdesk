@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { readStore, updateStore, newId } from "@/lib/store/file-store";
+import { readStore, updateStore, newId } from "@/lib/store";
 import { ADRK_CLASSES } from "@/lib/domain/adrk-template";
 import { validateShowCreate } from "@/lib/domain/show-draft";
 import { syncShowJudges } from "@/lib/domain/show-judges";

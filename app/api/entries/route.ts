@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { readStore, updateStore, newId } from "@/lib/store/file-store";
+import { readStore, updateStore, newId } from "@/lib/store";
 import { filterByShow } from "@/lib/domain/show-scope";
 import { parseRosterCsv, validateRosterEntryUpdate } from "@/lib/domain/roster";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";

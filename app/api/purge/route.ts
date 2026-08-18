@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { purgeShowData } from "@/lib/store/file-store";
-import { deleteShowAudio } from "@/lib/store/audio-store";
+import { purgeShowData, deleteShowAudio } from "@/lib/store";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
 
 export async function POST(request: Request) {
