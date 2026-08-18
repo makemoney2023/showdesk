@@ -14,7 +14,7 @@ describe("role-shell", () => {
     expect(shellForPath("/admin/review")).toBe("secretary");
   });
 
-  it("lists exactly five secretary tabs and no ringside links", () => {
+  it("lists secretary tabs including Ringside for role switch", () => {
     const items = secretaryNavItems();
     expect(items.map((i) => i.label)).toEqual([
       "Desk",
@@ -22,14 +22,16 @@ describe("role-shell", () => {
       "Review",
       "Reports",
       "Settings",
+      "Ringside",
     ]);
-    expect(items.some((i) => i.href.startsWith("/ringside"))).toBe(false);
+    expect(items.find((i) => i.label === "Ringside")?.href).toBe("/ringside");
     expect(items.some((i) => i.href === "/login")).toBe(false);
   });
 
-  it("lists steward primary destinations without admin links", () => {
+  it("lists steward destinations including Desk for role switch", () => {
     const items = stewardNavItems();
-    expect(items.map((i) => i.label)).toEqual(["Dogs", "Placements"]);
+    expect(items.map((i) => i.label)).toEqual(["Dogs", "Placements", "Desk"]);
+    expect(items.find((i) => i.label === "Desk")?.href).toBe("/");
     expect(items.some((i) => i.href.startsWith("/admin"))).toBe(false);
   });
 });

@@ -19,9 +19,11 @@ export function StewardNav({
     >
       {items.map((item) => {
         const active =
-          item.href === "/ringside"
-            ? activeHref === "/ringside"
-            : activeHref.startsWith(item.href);
+          item.href === "/"
+            ? activeHref === "/"
+            : item.href === "/ringside"
+              ? activeHref === "/ringside"
+              : activeHref.startsWith(item.href);
         return (
           <Link
             key={item.href}
