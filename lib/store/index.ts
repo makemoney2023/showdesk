@@ -13,6 +13,7 @@ import {
   writeStore as fileWriteStore,
 } from "./file-store";
 import {
+  critiqueAudioExists,
   deleteShowAudioObjects,
   readCritiqueAudioBytes,
   writeCritiqueAudioBytes,
@@ -29,6 +30,7 @@ import {
 export { newId } from "./file-store";
 export {
   CRITIQUE_AUDIO_BUCKET,
+  critiqueAudioExists,
   critiqueAudioObjectPath,
   deleteShowAudioObjects,
   readCritiqueAudioBytes,
@@ -113,8 +115,7 @@ export async function audioExists(
     return fileAudioExists(relativePath, root);
   }
   try {
-    await readCritiqueAudioBytes(await requireSupabaseClient(), relativePath);
-    return true;
+    return critiqueAudioExists(await requireSupabaseClient(), relativePath);
   } catch {
     return false;
   }

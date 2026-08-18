@@ -270,6 +270,12 @@ export async function sbWriteStore(
 /**
  * File-store compatible read → mutate-in-memory → persist deltas.
  * Callers inject createSupabaseServerClient() (admin only if A1 is insufficient).
+ *
+ * Race: this is a non-transactional RMW. Two overlapping updateStore calls can
+ * each read the same snapshot, apply different mutators, and last-write-wins
+ * (lost updates). Fine for single-flight secretary use; risky on show day if
+ * ringside + admin persist at once. File-store serializes this with a mutex.
+ * Child deletes still run before child upserts (UNIQUE show_id+entry_id).
  */
 export async function sbUpdateStore(
   client: SupabaseStoreClient,

@@ -93,28 +93,25 @@ const seEvaluation: SeEvaluationRecord = {
 };
 
 describe("show row mappers", () => {
-  it("maps schema columns and leaves app-only judges undefined", () => {
+  it("round-trips judges jsonb with the rest of the show", () => {
     const mapped = mapShowRow(toShowRow(show));
-    expect(mapped.id).toBe(show.id);
-    expect(mapped.name).toBe(show.name);
-    expect(mapped.date).toBe(show.date);
-    expect(mapped.venue).toBe(show.venue);
-    expect(mapped.judge).toBe(show.judge);
-    expect(mapped.rulebook).toBe(show.rulebook);
-    expect(mapped.logo_url).toBe(show.logo_url);
-    expect(mapped.created_at).toBe(show.created_at);
-    expect(mapped.judges).toBeUndefined();
+    expect(mapped).toEqual(show);
+    expect(mapped.judges).toEqual(["Jane Doe", "John Roe"]);
   });
 
-  it("omits judges from the DB row and nulls missing logo_url", () => {
-    const row = toShowRow({ ...show, logo_url: undefined, judges: ["A"] });
-    expect(row).not.toHaveProperty("judges");
+  it("nulls missing logo_url and missing judges on the DB row", () => {
+    const row = toShowRow({ ...show, logo_url: undefined, judges: undefined });
     expect(row.logo_url).toBeNull();
+    expect(row.judges).toBeNull();
   });
 
-  it("round-trips schema fields", () => {
-    const { judges: _omitted, ...schemaShow } = show;
-    expect(mapShowRow(toShowRow(show))).toEqual(schemaShow);
+  it("parses stringified judges jsonb from the driver", () => {
+    const row = toShowRow(show);
+    const mapped = mapShowRow({
+      ...row,
+      judges: JSON.stringify(show.judges),
+    });
+    expect(mapped.judges).toEqual(["Jane Doe", "John Roe"]);
   });
 });
 
@@ -125,20 +122,21 @@ describe("entry row mappers", () => {
 });
 
 describe("critique row mappers", () => {
-  it("round-trips jsonb draft and omits app-only judge", () => {
+  it("round-trips jsonb draft and judge", () => {
     const mapped = mapCritiqueRow(toCritiqueRow(critique));
+    expect(mapped).toEqual(critique);
     expect(mapped.draft).toEqual(critique.draft);
     expect(mapped.draft.narrative).toBe("Strong head, correct bite.");
     expect(mapped.draft.formwert).toBe("V");
-    expect(mapped.judge).toBeUndefined();
+    expect(mapped.judge).toBe("Jane Doe");
     expect(mapped.audio_path).toBe("show-1/crit-1.webm");
     expect(mapped.error_message).toBeUndefined();
     expect(mapped.approved_at).toBeUndefined();
   });
 
-  it("omits judge from the DB row and nulls optional columns", () => {
-    const row = toCritiqueRow(critique);
-    expect(row).not.toHaveProperty("judge");
+  it("nulls optional columns including missing judge", () => {
+    const row = toCritiqueRow({ ...critique, judge: undefined });
+    expect(row.judge).toBeNull();
     expect(row.error_message).toBeNull();
     expect(row.approved_at).toBeNull();
     expect(row.draft).toEqual(critique.draft);

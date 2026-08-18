@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CRITIQUE_AUDIO_BUCKET,
+  critiqueAudioExists,
   deleteShowAudioObjects,
   readCritiqueAudioBytes,
   writeCritiqueAudioBytes,
@@ -88,6 +89,27 @@ describe("supabase-audio", () => {
     });
     const buf = await readCritiqueAudioBytes(client, "show-1/crit-1.webm");
     expect(buf.toString()).toBe("stored-audio");
+  });
+
+  it("checks existence with list and never downloads the object", async () => {
+    const { client, ops } = createMockStorage({
+      "show-1/crit-1.webm": Buffer.from("stored-audio"),
+    });
+
+    await expect(critiqueAudioExists(client, "show-1/crit-1.webm")).resolves.toBe(
+      true,
+    );
+    await expect(critiqueAudioExists(client, "show-1/missing.webm")).resolves.toBe(
+      false,
+    );
+
+    expect(ops.filter((op) => op.op === "list")).toHaveLength(2);
+    expect(ops.filter((op) => op.op === "download")).toHaveLength(0);
+    expect(ops[0]).toMatchObject({
+      op: "list",
+      bucket: CRITIQUE_AUDIO_BUCKET,
+      path: "show-1",
+    });
   });
 
   it("deletes all objects under a show prefix", async () => {

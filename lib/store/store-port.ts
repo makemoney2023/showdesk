@@ -7,13 +7,14 @@ import type { CritiqueStatus } from "@/lib/domain/critique-status";
 import type { TnrkSeForm } from "@/lib/domain/tnrk-se-form";
 import type { AppStore } from "@/lib/types";
 
-/** Postgres `shows` row — schema columns only (no app-only `judges`). */
+/** Postgres `shows` row. */
 export interface ShowRow {
   id: string;
   name: string;
   date: string;
   venue: string;
   judge: string;
+  judges: string[] | string | null;
   rulebook: RulebookTemplate;
   logo_url: string | null;
   created_at: string;
@@ -33,7 +34,7 @@ export interface EntryRow {
   class_id: AdrkClassId;
 }
 
-/** Postgres `critiques` row — schema columns only (no app-only `judge`). */
+/** Postgres `critiques` row. */
 export interface CritiqueRow {
   id: string;
   show_id: string;
@@ -47,6 +48,7 @@ export interface CritiqueRow {
   created_at: string;
   updated_at: string;
   approved_at: string | null;
+  judge: string | null;
 }
 
 /** Postgres `placements` row. */

@@ -59,6 +59,20 @@ export async function readCritiqueAudioBytes(
   return Buffer.from(await data.arrayBuffer());
 }
 
+export async function critiqueAudioExists(
+  client: SupabaseAudioClient,
+  relativePath: string,
+): Promise<boolean> {
+  const slash = relativePath.lastIndexOf("/");
+  const prefix = slash === -1 ? "" : relativePath.slice(0, slash);
+  const name = slash === -1 ? relativePath : relativePath.slice(slash + 1);
+  const { data, error } = await client.storage
+    .from(CRITIQUE_AUDIO_BUCKET)
+    .list(prefix);
+  throwIfError(error, "list critique audio");
+  return (data ?? []).some((file) => file.name === name);
+}
+
 export async function deleteShowAudioObjects(
   client: SupabaseAudioClient,
   showId: string,

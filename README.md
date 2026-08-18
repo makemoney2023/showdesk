@@ -49,6 +49,7 @@ SQL lives under `supabase/migrations/`. Apply **in order** on project `emiwbvbyt
 
 1. `supabase/migrations/20260818120000_showdesk_mvp.sql` — tables, indexes, A1 RLS (`authenticated` CRUD; no anon), seed `app_state` (`id = 1`).
 2. `supabase/migrations/20260818120100_critique_audio_bucket.sql` — private bucket `critique-audio` + authenticated Storage policies.
+3. `supabase/migrations/20260818120200_show_judges_and_critique_judge.sql` — `shows.judges` jsonb + `critiques.judge` text.
 
 **Status:** files are in-repo. Remote apply is still an operator step if the connected MCP/CLI session cannot see this project (wrong org).
 
@@ -68,6 +69,8 @@ Private bucket: `critique-audio`.
 Object path: `{show_id}/{critique_id}.webm` (same layout as local `.data/audio/`).
 
 Authenticated users may INSERT, SELECT, UPDATE (upsert), and DELETE objects in that bucket. `/api/audio/[critiqueId]` streams via the session (or service role when needed).
+
+**Cascade:** Deleting an entry (or a show) CASCADE-deletes its critiques, SE evaluations, and placements. That is intentional for the cloud store — roster DELETE is a wipe of child rows, not a soft unlink.
 
 ## Vercel
 

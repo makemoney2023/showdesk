@@ -23,6 +23,14 @@ function optionalText(value: string | null | undefined): string | undefined {
   return value ?? undefined;
 }
 
+function optionalStringArray(
+  value: string[] | string | null | undefined,
+): string[] | undefined {
+  if (value == null) return undefined;
+  const parsed = parseJsonb<string[]>(value);
+  return parsed;
+}
+
 export function toShowRow(show: Show): ShowRow {
   return {
     id: show.id,
@@ -30,6 +38,7 @@ export function toShowRow(show: Show): ShowRow {
     date: show.date,
     venue: show.venue,
     judge: show.judge,
+    judges: show.judges ?? null,
     rulebook: show.rulebook,
     logo_url: show.logo_url ?? null,
     created_at: show.created_at,
@@ -43,6 +52,7 @@ export function mapShowRow(row: ShowRow): Show {
     date: row.date,
     venue: row.venue,
     judge: row.judge,
+    judges: optionalStringArray(row.judges),
     rulebook: row.rulebook,
     logo_url: optionalText(row.logo_url),
     created_at: row.created_at,
@@ -93,6 +103,7 @@ export function toCritiqueRow(critique: CritiqueRecord): CritiqueRow {
     created_at: critique.created_at,
     updated_at: critique.updated_at,
     approved_at: critique.approved_at ?? null,
+    judge: critique.judge ?? null,
   };
 }
 
@@ -110,6 +121,7 @@ export function mapCritiqueRow(row: CritiqueRow): CritiqueRecord {
     created_at: row.created_at,
     updated_at: row.updated_at,
     approved_at: optionalText(row.approved_at),
+    judge: optionalText(row.judge),
   };
 }
 
