@@ -123,6 +123,12 @@ Operator checklist: `docs/orgs/velocity-agency/customers/blacksage-kennels/initi
 
 UI copy, class labels, and ADRK draft PDF text are **English**. Official Formwert codes (V, Sg, …) and title abbreviations stay as on the form, with English glosses in Review / placements. Speech-to-text is `en-US`.
 
+## Reports (`/admin/reports`)
+
+Per dog on the active show roster:
+- **View** / **Download** for each generated document that exists: TNRK critique PDF, SE PDF, ADRK draft PDF, Award PDF, and ringside recording (when audio was retained).
+- PDF routes accept `download=1` to force an attachment download; View opens inline in a new tab.
+
 ## Scripts
 
 - `npm test` — vitest domain tests

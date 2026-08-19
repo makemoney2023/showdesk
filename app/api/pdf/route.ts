@@ -11,6 +11,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const showId = searchParams.get("show_id");
   const critiqueId = searchParams.get("critique_id");
+  const asDownload = searchParams.get("download") === "1";
   if (!showId || !critiqueId) {
     return NextResponse.json({ error: "show_id and critique_id required" }, { status: 400 });
   }
@@ -56,7 +57,7 @@ export async function GET(request: Request) {
   return new NextResponse(Buffer.from(pdfBytes), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="critique-${entry.armband}.pdf"`,
+      "Content-Disposition": `${asDownload ? "attachment" : "inline"}; filename="critique-${entry.armband}.pdf"`,
     },
   });
 }

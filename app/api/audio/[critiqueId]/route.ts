@@ -20,10 +20,16 @@ export async function GET(
   }
 
   const buf = await readCritiqueAudio(critique.audio_path);
+  const asDownload = new URL(_request.url).searchParams.get("download") === "1";
   return new NextResponse(new Uint8Array(buf), {
     headers: {
       "Content-Type": "audio/webm",
       "Cache-Control": "private, no-store",
+      ...(asDownload
+        ? {
+            "Content-Disposition": `attachment; filename="critique-${critiqueId}.webm"`,
+          }
+        : {}),
     },
   });
 }

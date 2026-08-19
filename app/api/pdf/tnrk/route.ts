@@ -22,6 +22,8 @@ export async function GET(request: Request) {
   const critiqueId = searchParams.get("critique_id");
   const entryId = searchParams.get("entry_id");
   const awardTitle = searchParams.get("award_title") ?? "Award";
+  const asDownload = searchParams.get("download") === "1";
+  const disposition = asDownload ? "attachment" : "inline";
 
   if (!showId) {
     return NextResponse.json({ error: "show_id required" }, { status: 400 });
@@ -50,7 +52,7 @@ export async function GET(request: Request) {
     return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="tnrk-se-${evaluation.entry_id}.pdf"`,
+        "Content-Disposition": `${disposition}; filename="tnrk-se-${evaluation.entry_id}.pdf"`,
       },
     });
   }
@@ -121,7 +123,7 @@ export async function GET(request: Request) {
     return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="tnrk-critique-${entry.armband}.pdf"`,
+        "Content-Disposition": `${disposition}; filename="tnrk-critique-${entry.armband}.pdf"`,
       },
     });
   }
@@ -158,7 +160,7 @@ export async function GET(request: Request) {
     return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="tnrk-award-${entry.armband}.pdf"`,
+        "Content-Disposition": `${disposition}; filename="tnrk-award-${entry.armband}.pdf"`,
       },
     });
   }
