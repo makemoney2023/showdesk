@@ -248,7 +248,7 @@ export default function StewardSeFormPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-wide text-sss-text-muted">
-            Ring steward · Standard Prüfung (SE)
+            Ring steward · Standard Evaluation (SE)
           </p>
           <h1 className="font-[family-name:var(--font-fraunces)] text-2xl font-semibold">
             {entry.dog_name}
@@ -355,13 +355,13 @@ export default function StewardSeFormPage() {
             name="sex"
             checked={form.sex === "male"}
             onChange={() => patchForm("sex", "male")}
-            label="Male / Rüde"
+            label="Male"
           />
           <Radio
             name="sex"
             checked={form.sex === "female"}
             onChange={() => patchForm("sex", "female")}
-            label="Female / Hündin"
+            label="Female"
           />
         </div>
       </section>

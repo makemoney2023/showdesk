@@ -9,11 +9,18 @@ import { createEmptyDraft } from "@/lib/domain/adrk-template";
 describe("structureDraftFromTranscript", () => {
   it("puts transcription into narrative for editing", () => {
     const draft = structureDraftFromTranscript(
-      "Vorzüglicher Rüde mit kräftigen Knochen. Formwert V.",
+      "Excellent male with strong bone. Rating V.",
     );
     expect(draft.formwert).toBe("V");
-    expect(draft.narrative).toContain("Vorzüglicher Rüde");
-    expect(draft.narrative).toContain("kräftigen Knochen");
+    expect(draft.narrative).toContain("Excellent male");
+    expect(draft.narrative).toContain("strong bone");
+  });
+
+  it("still maps German rating words when present", () => {
+    const draft = structureDraftFromTranscript(
+      "Vorzüglicher Rüde. Formwert V.",
+    );
+    expect(draft.formwert).toBe("V");
   });
 });
 
@@ -21,9 +28,9 @@ describe("ensureNarrativeFromTranscript", () => {
   it("seeds empty narrative from STT", () => {
     const draft = ensureNarrativeFromTranscript(
       createEmptyDraft(),
-      "Live German ringside text.",
+      "Live English ringside text.",
     );
-    expect(draft.narrative).toBe("Live German ringside text.");
+    expect(draft.narrative).toBe("Live English ringside text.");
   });
 
   it("does not overwrite an existing narrative", () => {
@@ -40,11 +47,11 @@ describe("ensureNarrativeFromTranscript", () => {
 describe("processCritique transcript preference", () => {
   it("prefers live over batch via merge helper", () => {
     const merged = mergeLiveAndBatchTranscript({
-      live: "Live German text.",
+      live: "Live English text.",
       batch: "Batch text.",
       batchMock: false,
     });
     expect(merged.source).toBe("live");
-    expect(merged.transcript).toBe("Live German text.");
+    expect(merged.transcript).toBe("Live English text.");
   });
 });

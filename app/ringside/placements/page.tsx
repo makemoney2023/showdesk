@@ -1,14 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ADRK_CLASSES } from "@/lib/domain/adrk-template";
+import { formatAdrkFormwert } from "@/lib/domain/adrk-template";
+import {
+  placementsSuggestedFromFormwert,
+  resolveFormwertByEntryId,
+  sortDogsForPlacement,
+} from "@/lib/domain/placements";
 import { pushToast } from "@/components/feedback/toast";
-import type { PlacementRecord, RosterEntryRecord } from "@/lib/types";
+import type {
+  CritiqueRecord,
+  PlacementRecord,
+  RosterEntryRecord,
+} from "@/lib/types";
 
 export default function PlacementsPage() {
   const [showId, setShowId] = useState<string | null>(null);
   const [entries, setEntries] = useState<RosterEntryRecord[]>([]);
+  const [critiques, setCritiques] = useState<CritiqueRecord[]>([]);
   const [placements, setPlacements] = useState<Record<string, number | "">>({});
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
@@ -28,12 +39,14 @@ export default function PlacementsPage() {
       setStatus("No active show — create one on Roster.");
       setShowId(null);
       setEntries([]);
+      setCritiques([]);
       return;
     }
     setShowId(showData.active_show_id);
-    const [entryRes, placeRes] = await Promise.all([
+    const [entryRes, placeRes, critRes] = await Promise.all([
       fetch(`/api/entries?show_id=${showData.active_show_id}`),
       fetch(`/api/placements?show_id=${showData.active_show_id}`),
+      fetch(`/api/critiques?show_id=${showData.active_show_id}`),
     ]);
     if (!entryRes.ok || !placeRes.ok) {
       setStatus("Could not load roster or placements");
@@ -47,12 +60,42 @@ export default function PlacementsPage() {
       map[p.entry_id] = p.placement;
     }
     setPlacements(map);
+    if (critRes.ok) {
+      const critData = (await critRes.json()) as { critiques: CritiqueRecord[] };
+      setCritiques(critData.critiques);
+    } else {
+      setCritiques([]);
+    }
     setStatus("");
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const formwertByEntry = useMemo(
+    () => resolveFormwertByEntryId(critiques),
+    [critiques],
+  );
+
+  const byClass = ADRK_CLASSES.map((cls) => ({
+    ...cls,
+    dogs: sortDogsForPlacement(
+      entries.filter((e) => e.class_id === cls.id),
+      formwertByEntry,
+    ),
+  }));
+
+  function applySortByRating() {
+    const suggested = placementsSuggestedFromFormwert(entries, formwertByEntry);
+    const next: Record<string, number | ""> = {};
+    for (const row of suggested) {
+      next[row.entry_id] = row.placement ?? "";
+    }
+    setPlacements(next);
+    setStatus("Sorted by rating — review, then Save placements");
+    pushToast("Placements filled from rating order (top 4 per class)");
+  }
 
   async function save() {
     if (busy) return;
@@ -81,10 +124,7 @@ export default function PlacementsPage() {
     await load();
   }
 
-  const byClass = ADRK_CLASSES.map((cls) => ({
-    ...cls,
-    dogs: entries.filter((e) => e.class_id === cls.id),
-  }));
+  const ratedCount = Object.values(formwertByEntry).filter(Boolean).length;
 
   return (
     <div className="space-y-6">
@@ -94,42 +134,65 @@ export default function PlacementsPage() {
             Class placements
           </h1>
           <p className="text-sm text-sss-text-secondary">
-            Placements (1–4) are separate from per-dog Formwert rating.
+            Dogs list by rating (best first). Use Auto-sort to fill placements
+            1–4 from ratings.
           </p>
         </div>
-        <Button disabled={busy} onClick={() => void save()}>
-          Save placements
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy || ratedCount === 0}
+            onClick={applySortByRating}
+          >
+            Auto-sort by rating
+          </Button>
+          <Button disabled={busy} onClick={() => void save()}>
+            Save placements
+          </Button>
+        </div>
       </div>
       {status ? <p className="text-sm text-sss-accent-deep">{status}</p> : null}
+      {ratedCount === 0 ? (
+        <p className="text-xs text-sss-text-muted">
+          No ratings yet — set them in Review, then Auto-sort becomes available.
+        </p>
+      ) : null}
       {byClass.map((cls) =>
         cls.dogs.length > 0 ? (
           <section key={cls.id} className="border border-sss-border p-4">
             <h2 className="font-medium">{cls.label}</h2>
             <ul className="mt-2 space-y-2">
-              {cls.dogs.map((dog) => (
-                <li key={dog.id} className="flex items-center gap-3 text-sm">
-                  <span className="w-16">#{dog.armband}</span>
-                  <span className="flex-1">{dog.dog_name}</span>
-                  <select
-                    className="rounded border border-sss-border px-2 py-1"
-                    value={placements[dog.id] ?? ""}
-                    onChange={(e) =>
-                      setPlacements((p) => ({
-                        ...p,
-                        [dog.id]: e.target.value === "" ? "" : Number(e.target.value),
-                      }))
-                    }
-                  >
-                    <option value="">—</option>
-                    {[1, 2, 3, 4].map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
-                </li>
-              ))}
+              {cls.dogs.map((dog) => {
+                const formwert = formwertByEntry[dog.id];
+                return (
+                  <li key={dog.id} className="flex items-center gap-3 text-sm">
+                    <span className="w-16">#{dog.armband}</span>
+                    <span className="flex-1">{dog.dog_name}</span>
+                    <span className="min-w-24 text-xs text-sss-text-muted">
+                      {formatAdrkFormwert(formwert ?? null)}
+                    </span>
+                    <select
+                      className="rounded border border-sss-border px-2 py-1"
+                      value={placements[dog.id] ?? ""}
+                      onChange={(e) =>
+                        setPlacements((p) => ({
+                          ...p,
+                          [dog.id]:
+                            e.target.value === "" ? "" : Number(e.target.value),
+                        }))
+                      }
+                    >
+                      <option value="">—</option>
+                      {[1, 2, 3, 4].map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </select>
+                  </li>
+                );
+              })}
             </ul>
           </section>
         ) : null,

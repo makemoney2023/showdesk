@@ -12,14 +12,14 @@ describe("extractDeepgramTranscript", () => {
         channels: [
           {
             alternatives: [
-              { transcript: "Vorzüglicher Rüde. Formwert V.", confidence: 0.9 },
+              { transcript: "Excellent male. Rating V.", confidence: 0.9 },
               { transcript: "ignored", confidence: 0.1 },
             ],
           },
         ],
       },
     });
-    expect(text).toBe("Vorzüglicher Rüde. Formwert V.");
+    expect(text).toBe("Excellent male. Rating V.");
   });
 
   it("returns empty string when channels are missing", () => {
@@ -81,16 +81,16 @@ describe("applyLiveResult", () => {
     let state = { finals: [] as string[], interim: "" };
     let next = applyLiveResult(state, {
       is_final: false,
-      transcript: "Vorzüglicher",
+      transcript: "Excellent",
     });
-    expect(next.display).toBe("Vorzüglicher");
+    expect(next.display).toBe("Excellent");
     state = { finals: next.finals, interim: next.interim };
     next = applyLiveResult(state, {
       is_final: true,
-      transcript: "Vorzüglicher Rüde.",
+      transcript: "Excellent male.",
     });
-    expect(next.finals).toEqual(["Vorzüglicher Rüde."]);
+    expect(next.finals).toEqual(["Excellent male."]);
     expect(next.interim).toBe("");
-    expect(next.display).toBe("Vorzüglicher Rüde.");
+    expect(next.display).toBe("Excellent male.");
   });
 });

@@ -1,4 +1,4 @@
-/** TNRK Standard Prüfung (SE) — Official Evaluation Form fields (2026 pack page 2). */
+/** TNRK Standard Evaluation (SE) — Official Evaluation Form fields (2026 pack page 2). */
 
 export const HEAD_SHAPE_OPTIONS = [
   "too_small",

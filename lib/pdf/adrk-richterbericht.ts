@@ -4,6 +4,7 @@ import {
   ADRK_CLASSES,
   ADRK_FORMWERT_CODES,
   ADRK_TITLE_OPTIONS,
+  formatAdrkFormwert,
   getAdrkClassLabel,
 } from "@/lib/domain/adrk-template";
 import type { AdrkClassId } from "@/lib/domain/adrk-template";
@@ -36,41 +37,43 @@ export async function buildAdrkRichterberichtPdf(
     y -= size + 6;
   };
 
-  draw("ADRK Richterbericht (draft — Stand 08/2023 template)", 12, true);
+  draw("ADRK critique report (draft — 08/2023 template)", 12, true);
   draw(`Show: ${show.name} · ${show.date} · ${show.venue}`);
   draw(`Judge: ${show.judge}`);
   y -= 8;
 
-  draw("Class (checkbox fields):", 10, true);
+  draw("Class:", 10, true);
   for (const cls of ADRK_CLASSES) {
     const checked = entry.class_id === cls.id ? "[x]" : "[ ]";
     draw(`${checked} ${cls.label} (${cls.note})`);
   }
   y -= 4;
 
-  draw(`Sex: ${entry.sex === "R" ? "[x] R" : "[ ] R"}  ${entry.sex === "H" ? "[x] H" : "[ ] H"}`);
-  draw(`Kat.-Nr. / Armband: ${entry.armband}`);
+  draw(
+    `Sex: ${entry.sex === "R" ? "[x] Male (R)" : "[ ] Male (R)"}  ${entry.sex === "H" ? "[x] Female (H)" : "[ ] Female (H)"}`,
+  );
+  draw(`Catalog / armband: ${entry.armband}`);
   draw(entry.dog_name, 16, true);
-  draw(`ZB-Nr.: ${entry.zb_number}`);
-  draw(`WT: ${entry.wt}`);
-  draw(`Eigentümer: ${entry.owner}`);
+  draw(`Registration (ZB): ${entry.zb_number}`);
+  draw(`DOB (WT): ${entry.wt}`);
+  draw(`Owner: ${entry.owner}`);
   y -= 8;
 
-  draw("Formwertnoten:", 10, true);
+  draw("Rating (Formwert):", 10, true);
   for (const code of ADRK_FORMWERT_CODES) {
     const checked = draft.formwert === code ? "[x]" : "[ ]";
-    draw(`${checked} ${code}`, 9);
+    draw(`${checked} ${formatAdrkFormwert(code)}`, 9);
   }
   y -= 4;
 
-  draw("Platzierung:", 10, true);
+  draw("Placement:", 10, true);
   for (const p of [1, 2, 3, 4] as const) {
     const checked = draft.placement === p ? "[x]" : "[ ]";
     draw(`${checked} ${p}`, 9);
   }
   y -= 4;
 
-  draw("Anwartschaften / Titel:", 10, true);
+  draw("Titles / awards:", 10, true);
   for (const title of ADRK_TITLE_OPTIONS.slice(0, 10)) {
     const checked = draft.titles.includes(title) ? "[x]" : "[ ]";
     draw(`${checked} ${title}`, 8);
@@ -87,13 +90,13 @@ export async function buildAdrkRichterberichtPdf(
   }
   y -= 8;
 
-  draw(`Ort: ${show.venue}`);
-  draw(`Datum: ${show.date}`);
-  draw(`Richter: ${show.judge}`);
-  draw(`Klasse: ${getAdrkClassLabel(entry.class_id as AdrkClassId)}`);
+  draw(`Venue: ${show.venue}`);
+  draw(`Date: ${show.date}`);
+  draw(`Judge: ${show.judge}`);
+  draw(`Class: ${getAdrkClassLabel(entry.class_id as AdrkClassId)}`);
 
   page.drawText(
-    "Die Formwertnoten, Platzierungen, Anwartschaften etc. sind vom Richter auszufüllen!",
+    "Ratings, placements, and titles are completed by the judge / secretary.",
     { x: 40, y: 40, size: 8, font, color: rgb(0.3, 0.3, 0.3) },
   );
 

@@ -90,7 +90,7 @@ describe("tnrk-critique-pdf layout", () => {
       dob: "2024-01-01",
       armband: "101",
       narrative: "Strong male. Moves freely. Excellent proportions.",
-      class_and_rating: "Zwischenklasse — V",
+      class_and_rating: "Intermediate Class — V",
       date: "2026-08-13",
       owner: "Max Mustermann",
       co_owner: "",

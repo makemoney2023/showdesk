@@ -1,19 +1,19 @@
-/** ADRK exhibition class templates (Stand 08/2023 research note). */
+/** ADRK exhibition class templates (Stand 08/2023 research note). English UI labels. */
 export const ADRK_CLASSES = [
-  { id: "babyklasse", label: "Babyklasse", note: "4–6 Mon." },
-  { id: "juengstenklasse", label: "Jüngstenklasse", note: "6–9 Mon." },
-  { id: "jugendklasse-i", label: "Jugendklasse I", note: "9–15 Mon." },
-  { id: "jugendklasse-ii", label: "Jugendklasse II", note: "12–18 Mon." },
-  { id: "zwischenklasse", label: "Zwischenklasse", note: "15–24 Mon." },
-  { id: "offene-klasse", label: "Offene Klasse", note: "ab 15 Mon." },
-  { id: "gebrauchshundklasse", label: "Gebrauchshundklasse", note: "ab 15 Mon." },
-  { id: "championklasse", label: "Championklasse", note: "ab 15 Mon." },
-  { id: "veteranenklasse", label: "Veteranenklasse", note: "ab 8 Jahre" },
+  { id: "babyklasse", label: "Baby Class", note: "4–6 mo." },
+  { id: "juengstenklasse", label: "Puppy Class", note: "6–9 mo." },
+  { id: "jugendklasse-i", label: "Youth Class I", note: "9–15 mo." },
+  { id: "jugendklasse-ii", label: "Youth Class II", note: "12–18 mo." },
+  { id: "zwischenklasse", label: "Intermediate Class", note: "15–24 mo." },
+  { id: "offene-klasse", label: "Open Class", note: "from 15 mo." },
+  { id: "gebrauchshundklasse", label: "Working Dog Class", note: "from 15 mo." },
+  { id: "championklasse", label: "Champion Class", note: "from 15 mo." },
+  { id: "veteranenklasse", label: "Veteran Class", note: "from 8 years" },
 ] as const;
 
 export type AdrkClassId = (typeof ADRK_CLASSES)[number]["id"];
 
-/** Formwert codes on official ADRK Richterbericht. */
+/** Formwert codes on official ADRK Richterbericht (keep official abbreviations). */
 export const ADRK_FORMWERT_CODES = [
   "vv",
   "V",
@@ -30,7 +30,22 @@ export const ADRK_FORMWERT_CODES = [
 
 export type AdrkFormwertCode = (typeof ADRK_FORMWERT_CODES)[number];
 
-/** Title / Anwartschaft checkboxes on Richterbericht. */
+/** English glosses for Formwert codes (codes stay official). */
+export const ADRK_FORMWERT_LABELS: Record<AdrkFormwertCode, string> = {
+  vv: "Excellent plus",
+  V: "Excellent",
+  vsp: "Excellent (special)",
+  Sg: "Very good",
+  wv: "Very promising",
+  G: "Good",
+  "disq.": "Disqualified",
+  Ggd: "Sufficient",
+  oB: "Without evaluation",
+  zgz: "Pulled",
+  ne: "Not exhibited",
+};
+
+/** Title / Anwartschaft checkboxes on Richterbericht (official abbreviations). */
 export const ADRK_TITLE_OPTIONS = [
   "Anw.Dt.Ch.VDH",
   "Res.Anw.Dt.Ch.VDH",
@@ -58,7 +73,7 @@ export type AdrkTitleOption = (typeof ADRK_TITLE_OPTIONS)[number];
 export type RulebookTemplate = "adrk" | "usrc" | "rkna" | "other";
 
 export interface DraftCritiqueSchema {
-  /** Free-form German narrative — NOT frozen anatomical keys. */
+  /** Free-form English narrative — NOT frozen anatomical keys. */
   narrative: string;
   formwert: AdrkFormwertCode | null;
   placement: 1 | 2 | 3 | 4 | null;
@@ -88,4 +103,13 @@ export function isValidFormwert(code: string): code is AdrkFormwertCode {
 export function getAdrkClassLabel(id: AdrkClassId): string {
   const found = ADRK_CLASSES.find((c) => c.id === id);
   return found?.label ?? id;
+}
+
+export function getAdrkFormwertLabel(code: AdrkFormwertCode): string {
+  return ADRK_FORMWERT_LABELS[code];
+}
+
+export function formatAdrkFormwert(code: AdrkFormwertCode | null): string {
+  if (!code) return "—";
+  return `${code} (${getAdrkFormwertLabel(code)})`;
 }

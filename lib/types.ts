@@ -53,7 +53,7 @@ export interface PlacementRecord {
   placement: 1 | 2 | 3 | 4;
 }
 
-/** Ring-steward TNRK Standard Prüfung (SE) evaluation. */
+/** Ring-steward TNRK Standard Evaluation (SE) evaluation. */
 export interface SeEvaluationRecord {
   id: string;
   show_id: string;

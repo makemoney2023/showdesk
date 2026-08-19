@@ -113,6 +113,16 @@ Operator checklist: `docs/orgs/velocity-agency/customers/blacksage-kennels/initi
 - When an SE form exists for the dog, **SE PDF Preview** appears beside the TNRK button.
 - Certificate narrative prefers secretary draft → live/batch STT transcript → SE-derived text.
 
+## Class placements (`/ringside/placements`)
+
+- Dogs within each class are listed by **rating** (best Formwert first; unrated last).
+- **Auto-sort by rating** fills placements 1–4 from rating order per class (review, then Save). Unrated dogs are cleared.
+- Ratings still come from Review drafts; placement ranks stay editable and separate.
+
+## Language
+
+UI copy, class labels, and ADRK draft PDF text are **English**. Official Formwert codes (V, Sg, …) and title abbreviations stay as on the form, with English glosses in Review / placements. Speech-to-text is `en-US`.
+
 ## Scripts
 
 - `npm test` — vitest domain tests

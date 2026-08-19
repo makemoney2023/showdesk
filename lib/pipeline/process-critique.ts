@@ -23,13 +23,31 @@ export interface ProcessCritiqueResult {
 }
 
 const MOCK_TRANSCRIPT =
-  "Arm band one oh one. Vorzüglicher Rüde. Kräftige Knochen. Gute Proportionen. Scissor bite. Bewegung frei und kraftvoll. Formwert V.";
+  "Armband one oh one. Excellent male. Strong bone. Good proportions. Scissor bite. Movement free and powerful. Rating V.";
 
 function mapRatingToFormwert(text: string): AdrkFormwertCode | null {
   const lower = text.toLowerCase();
-  if (lower.includes("vorzüglich") || /\bv1?\b/i.test(text)) return "V";
-  if (lower.includes("sehr gut") || /\bsg\b/i.test(text)) return "Sg";
-  if (lower.includes("gut") && !lower.includes("sehr")) return "G";
+  if (
+    lower.includes("vorzüglich") ||
+    lower.includes("excellent") ||
+    /\bv1?\b/i.test(text)
+  ) {
+    return "V";
+  }
+  if (
+    lower.includes("sehr gut") ||
+    lower.includes("very good") ||
+    /\bsg\b/i.test(text)
+  ) {
+    return "Sg";
+  }
+  if (
+    (lower.includes("gut") || lower.includes("good")) &&
+    !lower.includes("sehr") &&
+    !lower.includes("very")
+  ) {
+    return "G";
+  }
   if (lower.includes("disqualif")) return "disq.";
   return null;
 }
@@ -37,8 +55,8 @@ function mapRatingToFormwert(text: string): AdrkFormwertCode | null {
 function buildNarrativeFromTranscript(transcript: string): string {
   // Full STT text is the editable narrative; only strip noisy bookends.
   return transcript
-    .replace(/Arm band \d+\.\s*/i, "")
-    .replace(/Formwert [A-Za-z.]+\.\s*$/i, "")
+    .replace(/Arm\s*band \d+\.\s*/i, "")
+    .replace(/(Formwert|Rating) [A-Za-z.]+\.\s*$/i, "")
     .trim();
 }
 

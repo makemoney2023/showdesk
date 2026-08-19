@@ -11,7 +11,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ADRK_FORMWERT_CODES } from "@/lib/domain/adrk-template";
+import {
+  ADRK_FORMWERT_CODES,
+  formatAdrkFormwert,
+} from "@/lib/domain/adrk-template";
 import {
   canRelease,
   isReviewable,
@@ -307,7 +310,7 @@ export default function AdminReviewPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Formwert</Label>
+                      <Label>Rating</Label>
                       <Select
                         value={draft.formwert ?? "none"}
                         onValueChange={(v) =>
@@ -325,7 +328,7 @@ export default function AdminReviewPage() {
                           <SelectItem value="none">—</SelectItem>
                           {ADRK_FORMWERT_CODES.map((code) => (
                             <SelectItem key={code} value={code}>
-                              {code}
+                              {formatAdrkFormwert(code)}
                             </SelectItem>
                           ))}
                         </SelectContent>

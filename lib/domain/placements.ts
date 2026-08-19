@@ -1,4 +1,8 @@
-import type { AdrkClassId } from "./adrk-template";
+import {
+  ADRK_FORMWERT_CODES,
+  type AdrkClassId,
+  type AdrkFormwertCode,
+} from "./adrk-template";
 import type { PlacementRecord } from "@/lib/types";
 
 export interface PlacementInput {
@@ -31,4 +35,92 @@ export function upsertPlacements(
     });
   }
   return [...otherShows, ...keptForShow, ...added];
+}
+
+/** Lower rank = better Formwert. Unrated / unknown sort last. */
+export function formwertSortRank(
+  code: AdrkFormwertCode | null | undefined,
+): number {
+  if (!code) return ADRK_FORMWERT_CODES.length;
+  const index = ADRK_FORMWERT_CODES.indexOf(code);
+  return index === -1 ? ADRK_FORMWERT_CODES.length : index;
+}
+
+export function resolveFormwertByEntryId(
+  critiques: Array<{
+    entry_id: string;
+    updated_at: string;
+    draft: { formwert: AdrkFormwertCode | null };
+  }>,
+): Record<string, AdrkFormwertCode | null> {
+  const newest = new Map<
+    string,
+    { formwert: AdrkFormwertCode | null; updated_at: string }
+  >();
+  for (const critique of critiques) {
+    const prev = newest.get(critique.entry_id);
+    if (!prev || critique.updated_at > prev.updated_at) {
+      newest.set(critique.entry_id, {
+        formwert: critique.draft.formwert,
+        updated_at: critique.updated_at,
+      });
+    }
+  }
+  const out: Record<string, AdrkFormwertCode | null> = {};
+  for (const [entryId, value] of newest) {
+    out[entryId] = value.formwert;
+  }
+  return out;
+}
+
+/** Sort dogs best Formwert first; ties by numeric armband; unrated last. */
+export function sortDogsForPlacement<
+  T extends { id: string; armband: string },
+>(
+  dogs: T[],
+  formwertByEntry: Record<string, AdrkFormwertCode | null | undefined>,
+): T[] {
+  return [...dogs].toSorted((a, b) => {
+    const rankDiff =
+      formwertSortRank(formwertByEntry[a.id]) -
+      formwertSortRank(formwertByEntry[b.id]);
+    if (rankDiff !== 0) return rankDiff;
+    return a.armband.localeCompare(b.armband, undefined, { numeric: true });
+  });
+}
+
+/**
+ * Suggest placements 1–4 per class from Formwert order.
+ * Only rated dogs receive a placement; unrated clear to null.
+ */
+export function placementsSuggestedFromFormwert<
+  T extends { id: string; armband: string; class_id: AdrkClassId },
+>(
+  dogs: T[],
+  formwertByEntry: Record<string, AdrkFormwertCode | null | undefined>,
+): PlacementInput[] {
+  const byClass = new Map<AdrkClassId, T[]>();
+  for (const dog of dogs) {
+    const list = byClass.get(dog.class_id) ?? [];
+    list.push(dog);
+    byClass.set(dog.class_id, list);
+  }
+
+  const suggested: PlacementInput[] = [];
+  for (const [classId, classDogs] of byClass) {
+    const ordered = sortDogsForPlacement(classDogs, formwertByEntry);
+    const rated = ordered.filter((dog) => formwertByEntry[dog.id]);
+    const placementById = new Map<string, 1 | 2 | 3 | 4>();
+    rated.slice(0, 4).forEach((dog, index) => {
+      placementById.set(dog.id, (index + 1) as 1 | 2 | 3 | 4);
+    });
+    for (const dog of ordered) {
+      suggested.push({
+        entry_id: dog.id,
+        class_id: classId,
+        placement: placementById.get(dog.id) ?? null,
+      });
+    }
+  }
+  return suggested;
 }

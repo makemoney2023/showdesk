@@ -3,23 +3,24 @@ import {
   ADRK_CLASSES,
   ADRK_FORMWERT_CODES,
   createEmptyDraft,
+  formatAdrkFormwert,
   getAdrkClassLabel,
   isValidAdrkClassId,
   isValidFormwert,
 } from "./adrk-template";
 
 describe("adrk-template", () => {
-  it("includes all nine standard ADRK classes", () => {
+  it("includes all nine standard ADRK classes with English labels", () => {
     const labels = ADRK_CLASSES.map((c) => c.label);
-    expect(labels).toContain("Babyklasse");
-    expect(labels).toContain("Jüngstenklasse");
-    expect(labels).toContain("Jugendklasse I");
-    expect(labels).toContain("Jugendklasse II");
-    expect(labels).toContain("Zwischenklasse");
-    expect(labels).toContain("Offene Klasse");
-    expect(labels).toContain("Gebrauchshundklasse");
-    expect(labels).toContain("Championklasse");
-    expect(labels).toContain("Veteranenklasse");
+    expect(labels).toContain("Baby Class");
+    expect(labels).toContain("Puppy Class");
+    expect(labels).toContain("Youth Class I");
+    expect(labels).toContain("Youth Class II");
+    expect(labels).toContain("Intermediate Class");
+    expect(labels).toContain("Open Class");
+    expect(labels).toContain("Working Dog Class");
+    expect(labels).toContain("Champion Class");
+    expect(labels).toContain("Veteran Class");
     expect(ADRK_CLASSES).toHaveLength(9);
   });
 
@@ -43,7 +44,13 @@ describe("adrk-template", () => {
     expect(draft.titles).toEqual([]);
   });
 
-  it("resolves class labels", () => {
-    expect(getAdrkClassLabel("babyklasse")).toBe("Babyklasse");
+  it("resolves English class labels", () => {
+    expect(getAdrkClassLabel("babyklasse")).toBe("Baby Class");
+    expect(getAdrkClassLabel("zwischenklasse")).toBe("Intermediate Class");
+  });
+
+  it("formats Formwert with English gloss", () => {
+    expect(formatAdrkFormwert("V")).toBe("V (Excellent)");
+    expect(formatAdrkFormwert(null)).toBe("—");
   });
 });
