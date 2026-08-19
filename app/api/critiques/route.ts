@@ -33,6 +33,7 @@ export async function POST(request: Request) {
     show_id: string;
     entry_id: string;
     audio_base64?: string;
+    live_transcript?: string;
     judge?: string;
   };
 
@@ -78,6 +79,7 @@ export async function POST(request: Request) {
 
     const result = await processCritique({
       audioBase64: body.audio_base64,
+      liveTranscript: body.live_transcript,
       entryId: body.entry_id,
       showId: body.show_id,
     });
@@ -110,6 +112,7 @@ export async function POST(request: Request) {
       id: critiqueId,
       status: "PENDING_REVIEW",
       mock: result.mock,
+      source: result.source,
     });
   } catch (err) {
     await updateStore((s) => ({

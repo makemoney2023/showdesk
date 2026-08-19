@@ -37,11 +37,24 @@ Demo session cookie is `httpOnly`, `sameSite=lax`, `path=/`, and `secure` on HTT
 | `NEXT_PUBLIC_SUPABASE_URL` | yes | Project URL: `https://emiwbvbytmfbonbnemli.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | Publishable / anon key (Dashboard → Project Settings → API) |
 | `SUPABASE_SERVICE_ROLE_KEY` | yes (server) | Service role key. **Server only** — never prefix `NEXT_PUBLIC_` |
-| `ASSEMBLYAI_API_KEY` | no | Real STT + LeMUR (mock when missing) |
+| `DEEPGRAM_API_KEY` | yes (for real STT) | Live + batch German STT (`nova-3`). Server only — never `NEXT_PUBLIC_` |
+| `ASSEMBLYAI_API_KEY` | no | Legacy STT fallback + optional LeMUR draft structuring |
 | `RESEND_API_KEY` | no | Owner email on approve (mock when missing) |
 | `RESEND_FROM_EMAIL` | no | Sender address |
 
 Local file: `.env.local` in this app directory (not committed). Missing public vars = DEMO MODE.
+
+### Transcription (Deepgram)
+
+Ringside recording uses **live** Deepgram WebSocket STT while the mic is open, and still uploads the WebM for **batch** prerecorded transcription as backup.
+
+| Path | How |
+|------|-----|
+| Live | Browser gets a short-lived JWT from `POST /api/deepgram/token` (session required), then streams audio to `wss://api.deepgram.com/v1/listen` (`model=nova-3`, `language=de`). The long-lived `DEEPGRAM_API_KEY` never reaches the client. |
+| Batch backup | After stop, `POST /api/critiques` saves audio and calls Deepgram prerecorded listen. If `live_transcript` is non-empty it is preferred; otherwise batch (or mock) is used. |
+| Offline queue sync | Audio only → batch path (no live transcript). |
+
+Without `DEEPGRAM_API_KEY`, live STT is skipped and processing falls back to AssemblyAI (if set) or a German mock transcript.
 
 ## Apply migrations
 
@@ -85,7 +98,8 @@ Set env on the Show Desk Vercel project (Production and Preview). Then redeploy 
 | `NEXT_PUBLIC_SUPABASE_URL` | Production, Preview | `https://emiwbvbytmfbonbnemli.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Production, Preview | Anon / publishable key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Production, Preview | Server only. Do not expose to the browser |
-| `ASSEMBLYAI_API_KEY` | optional | Mock STT if unset |
+| `DEEPGRAM_API_KEY` | Production, Preview | Live WebSocket + batch backup STT. Server only |
+| `ASSEMBLYAI_API_KEY` | optional | Legacy STT / LeMUR if Deepgram unset |
 | `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | optional | Mock email if unset |
 
 If public env is missing on Vercel, the deploy stays in DEMO MODE (file store + demo cookie). After env is set (including service role): **Create account** on `/login`, then create a show; import CSV; run SE / critique / review.

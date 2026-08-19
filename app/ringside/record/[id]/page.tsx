@@ -11,6 +11,7 @@ import {
 import { formatElapsed, nextDogAfter } from "@/lib/domain/show-day";
 import { canRecordWithJudge, syncShowJudges } from "@/lib/domain/show-judges";
 import { stickyJudgeForShow } from "@/lib/client/sticky-judge";
+import { startDeepgramLiveSession } from "@/lib/client/deepgram-live";
 import type { RosterEntryRecord, Show } from "@/lib/types";
 import { EmptyDesk } from "@/components/desk/EmptyDesk";
 import { VuMeter } from "@/components/desk/VuMeter";
@@ -42,6 +43,7 @@ export default function RecordPage() {
   const [vuLevel, setVuLevel] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [status, setStatus] = useState("Ready");
+  const [liveTranscript, setLiveTranscript] = useState("");
   const [queueCount, setQueueCount] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -50,6 +52,10 @@ export default function RecordPage() {
   const streamRef = useRef<MediaStream | null>(null);
   const tickStartedAtRef = useRef<number | null>(null);
   const elapsedBaseRef = useRef(0);
+  const liveSessionRef = useRef<Awaited<
+    ReturnType<typeof startDeepgramLiveSession>
+  > | null>(null);
+  const liveFinalRef = useRef("");
 
   const refreshQueue = useCallback(async () => {
     const items = await listQueuedRecordings();
@@ -81,6 +87,7 @@ export default function RecordPage() {
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
       streamRef.current?.getTracks().forEach((t) => t.stop());
+      void liveSessionRef.current?.stop();
     };
   }, [entryId, refreshQueue]);
 
@@ -135,13 +142,26 @@ export default function RecordPage() {
       analyserRef.current = analyser;
       updateVuMeter();
 
+      setLiveTranscript("");
+      liveFinalRef.current = "";
+      liveSessionRef.current = await startDeepgramLiveSession({
+        onDisplay: setLiveTranscript,
+        onStatus: setStatus,
+      });
+      if (liveSessionRef.current) {
+        await liveSessionRef.current.attachStream(stream);
+      }
+
       const recorder = new MediaRecorder(stream);
       setSupportsPause(typeof recorder.pause === "function");
       chunksRef.current = [];
       recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
+        if (e.data.size > 0) {
+          chunksRef.current.push(e.data);
+        }
       };
       recorder.onstop = () => void handleStop();
+      // Full WebM for batch Deepgram backup after stop
       recorder.start();
       mediaRecorderRef.current = recorder;
       elapsedBaseRef.current = 0;
@@ -149,7 +169,11 @@ export default function RecordPage() {
       setElapsed(0);
       setRecording(true);
       setPaused(false);
-      setStatus("Recording…");
+      if (!liveSessionRef.current) {
+        setStatus("Recording… (batch STT on stop)");
+      } else {
+        setStatus("Recording…");
+      }
     } catch {
       setStatus("Microphone access denied");
     }
@@ -194,6 +218,12 @@ export default function RecordPage() {
     const blob = new Blob(chunksRef.current, { type: "audio/webm" });
     if (!showId || !entryId) return;
 
+    const live = liveSessionRef.current
+      ? await liveSessionRef.current.stop()
+      : "";
+    liveSessionRef.current = null;
+    liveFinalRef.current = live || liveTranscript.trim();
+
     if (!navigator.onLine) {
       const id = `offline-${Date.now()}`;
       await enqueueRecording({
@@ -220,6 +250,7 @@ export default function RecordPage() {
         show_id: showId,
         entry_id: entryId,
         audio_base64: audioBase64,
+        live_transcript: liveFinalRef.current || undefined,
         judge: judge ?? undefined,
       }),
     });
@@ -320,6 +351,17 @@ export default function RecordPage() {
           )}
         </div>
       </div>
+
+      {(recording || liveTranscript) && (
+        <div className="sss-paper space-y-2 p-4">
+          <p className="text-xs uppercase tracking-wide text-sss-text-secondary">
+            Live transcript
+          </p>
+          <p className="min-h-[4.5rem] whitespace-pre-wrap text-sm leading-relaxed text-sss-text">
+            {liveTranscript || "Listening…"}
+          </p>
+        </div>
+      )}
 
       {queueCount > 0 ? (
         <div className="space-y-2 border border-sss-border bg-sss-lifted p-4">

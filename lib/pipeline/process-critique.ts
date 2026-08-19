@@ -1,9 +1,16 @@
 import type { DraftCritiqueSchema } from "@/lib/domain/adrk-template";
 import { createEmptyDraft, isValidFormwert } from "@/lib/domain/adrk-template";
 import type { AdrkFormwertCode } from "@/lib/domain/adrk-template";
+import { hasDeepgramKey, transcribeWithDeepgram } from "@/lib/deepgram/client";
+import {
+  mergeLiveAndBatchTranscript,
+  type TranscriptSource,
+} from "@/lib/deepgram/transcript";
 
 export interface ProcessCritiqueInput {
   audioBase64?: string;
+  /** Final live transcript from ringside WebSocket (preferred when present). */
+  liveTranscript?: string;
   entryId: string;
   showId: string;
 }
@@ -12,6 +19,7 @@ export interface ProcessCritiqueResult {
   transcript: string;
   draft: DraftCritiqueSchema;
   mock: boolean;
+  source: TranscriptSource;
 }
 
 const MOCK_TRANSCRIPT =
@@ -49,8 +57,24 @@ export function structureDraftFromTranscript(
 export async function transcribeAudio(
   audioBase64: string | undefined,
 ): Promise<{ transcript: string; mock: boolean }> {
+  if (!audioBase64) {
+    return { transcript: MOCK_TRANSCRIPT, mock: true };
+  }
+
+  // Preferred: Deepgram prerecorded (batch backup after live, or sole path offline sync).
+  if (hasDeepgramKey()) {
+    try {
+      const bytes = new Uint8Array(Buffer.from(audioBase64, "base64"));
+      const text = await transcribeWithDeepgram(bytes, "audio/webm");
+      if (text) return { transcript: text, mock: false };
+    } catch {
+      // fall through to AssemblyAI / mock
+    }
+  }
+
+  // Legacy optional fallback.
   const apiKey = process.env.ASSEMBLYAI_API_KEY;
-  if (!apiKey || !audioBase64) {
+  if (!apiKey) {
     return { transcript: MOCK_TRANSCRIPT, mock: true };
   }
 
@@ -141,7 +165,17 @@ export async function runLemurStructuring(
 export async function processCritique(
   input: ProcessCritiqueInput,
 ): Promise<ProcessCritiqueResult> {
-  const { transcript, mock } = await transcribeAudio(input.audioBase64);
-  const draft = await runLemurStructuring(transcript);
-  return { transcript, draft, mock };
+  const batch = await transcribeAudio(input.audioBase64);
+  const merged = mergeLiveAndBatchTranscript({
+    live: input.liveTranscript,
+    batch: batch.transcript,
+    batchMock: batch.mock,
+  });
+  const draft = await runLemurStructuring(merged.transcript);
+  return {
+    transcript: merged.transcript,
+    draft,
+    mock: merged.mock,
+    source: merged.source,
+  };
 }
