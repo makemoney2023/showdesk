@@ -132,9 +132,19 @@ export default function RecordPage() {
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       streamRef.current = stream;
       const audioContext = new AudioContext();
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
       const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 256;
@@ -145,24 +155,31 @@ export default function RecordPage() {
       setLiveTranscript("");
       liveFinalRef.current = "";
       liveSessionRef.current = await startDeepgramLiveSession({
-        onDisplay: setLiveTranscript,
+        onDisplay: (text) => {
+          setLiveTranscript(text);
+          if (text.trim()) setStatus("Transcribing…");
+        },
         onStatus: setStatus,
       });
       if (liveSessionRef.current) {
-        await liveSessionRef.current.attachStream(stream);
+        await liveSessionRef.current.attachAudio({ stream, audioContext });
       }
 
-      const recorder = new MediaRecorder(stream);
+      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : "audio/webm";
+      const recorder = new MediaRecorder(stream, { mimeType: mime });
       setSupportsPause(typeof recorder.pause === "function");
       chunksRef.current = [];
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
           chunksRef.current.push(e.data);
+          liveSessionRef.current?.feedWebmChunk(e.data);
         }
       };
       recorder.onstop = () => void handleStop();
-      // Full WebM for batch Deepgram backup after stop
-      recorder.start();
+      // timeslice: accumulate full recording AND feed live webm fallback
+      recorder.start(250);
       mediaRecorderRef.current = recorder;
       elapsedBaseRef.current = 0;
       tickStartedAtRef.current = Date.now();
@@ -171,8 +188,6 @@ export default function RecordPage() {
       setPaused(false);
       if (!liveSessionRef.current) {
         setStatus("Recording… (batch STT on stop)");
-      } else {
-        setStatus("Recording…");
       }
     } catch {
       setStatus("Microphone access denied");
