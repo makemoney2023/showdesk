@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import type { TnrkCritiqueForm } from "@/lib/domain/tnrk-se-form";
 
 const TEMPLATE = path.join(
@@ -41,6 +41,13 @@ export const TNRK_CRITIQUE_FIELD_X = {
   judge_signature: 385,
 } as const;
 
+/** Base body title size (minimum 24pt for certificate prominence). */
+export const TNRK_CRITIQUE_BODY_TITLE_BASE_SIZE = 24;
+/** Dog name title in the critique band — 20% larger than base (≥28.8pt). */
+export const TNRK_CRITIQUE_BODY_TITLE_SIZE =
+  TNRK_CRITIQUE_BODY_TITLE_BASE_SIZE * 1.2;
+export const TNRK_CRITIQUE_NARRATIVE_SIZE = 10;
+
 /** Prefer secretary draft → STT transcript → SE-derived text. */
 export function resolveCritiqueCertificateNarrative(input: {
   draftNarrative?: string | null;
@@ -58,6 +65,18 @@ export function resolveCritiqueCertificateNarrative(input: {
   return "";
 }
 
+/** Horizontal x so `text` is centered on the page. */
+export function centeredTextX(
+  text: string,
+  size: number,
+  font: PDFFont,
+  pageWidth: number,
+  margin = 40,
+): number {
+  const width = font.widthOfTextAtSize(text, size);
+  return Math.max(margin, (pageWidth - width) / 2);
+}
+
 /** Overlay critique fields onto TNRK landscape Critique / Richterbericht blank. */
 export async function buildTnrkCritiquePdf(
   form: TnrkCritiqueForm,
@@ -67,7 +86,7 @@ export async function buildTnrkCritiquePdf(
   const page = pdf.getPages()[0];
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const { height } = page.getSize();
+  const { width, height } = page.getSize();
   const mediaY = page.getMediaBox().y;
   const yFromTop = (fromTop: number) => height - fromTop + mediaY;
   const baseline = (bottomFromTop: number, inset = 10) =>
@@ -90,28 +109,39 @@ export async function buildTnrkCritiquePdf(
     });
   };
 
-  // Header form fields (template NAME DES HUNDES row)
+  const drawCentered = (
+    text: string,
+    y: number,
+    size: number,
+    useBold = false,
+  ) => {
+    if (!text?.trim()) return;
+    const clipped = text.slice(0, 140);
+    const face = useBold ? bold : font;
+    draw(clipped, centeredTextX(clipped, size, face, width), y, size, useBold);
+  };
+
+  // Header form fields (template NAME DES HUNDES / DOB / armband row)
   const yHeader = baseline(TNRK_CRITIQUE_FIELD_TOP.dog_name);
   draw(form.dog_name, TNRK_CRITIQUE_FIELD_X.dog_name, yHeader, 12, true);
   draw(form.dob, TNRK_CRITIQUE_FIELD_X.dob, yHeader, 10);
   draw(form.armband, TNRK_CRITIQUE_FIELD_X.armband, yHeader, 10);
 
-  // Body: dog name as bold title, transcript/narrative underneath
-  draw(
+  // Body: centered bold dog title (+20%), centered critique underneath
+  drawCentered(
     form.dog_name,
-    TNRK_CRITIQUE_FIELD_X.narrative,
     baseline(TNRK_CRITIQUE_FIELD_TOP.body_title),
-    14,
+    TNRK_CRITIQUE_BODY_TITLE_SIZE,
     true,
   );
 
-  const lines = wrap(form.narrative, 105);
+  const lines = wrap(form.narrative, 90);
   lines.slice(0, 12).forEach((line, i) => {
-    draw(
+    drawCentered(
       line,
-      TNRK_CRITIQUE_FIELD_X.narrative,
       baseline(TNRK_CRITIQUE_FIELD_TOP.narrative_start + i * 14),
-      10,
+      TNRK_CRITIQUE_NARRATIVE_SIZE,
+      false,
     );
   });
 
