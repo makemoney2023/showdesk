@@ -3,14 +3,11 @@
 import { applyLiveResult } from "@/lib/deepgram/transcript";
 
 export type LiveSession = {
-  /** Tap mic PCM from an AudioContext already resumed by a user gesture. */
   attachAudio: (opts: {
     stream: MediaStream;
     audioContext: AudioContext;
   }) => Promise<void>;
-  /** Optional: also feed MediaRecorder webm slices (auto-detect encoding). */
   feedWebmChunk: (chunk: Blob) => void;
-  /** Finalize stream and return joined final transcript. */
   stop: () => Promise<string>;
 };
 
@@ -41,13 +38,36 @@ function pcmChunkToArrayBuffer(pcm: Int16Array): ArrayBuffer {
   ) as ArrayBuffer;
 }
 
+/** Shared live listen query — English-only ringside STT. */
+export function deepgramLiveQuery(opts: {
+  encoding?: "linear16";
+  sampleRate?: number;
+}): Record<string, string> {
+  const q: Record<string, string> = {
+    model: "nova-3",
+    language: "en-US",
+    smart_format: "true",
+    punctuate: "true",
+    interim_results: "true",
+    // ms of silence before speech_final — default is too twitchy for ringside.
+    endpointing: "300",
+    utterance_end_ms: "1200",
+    vad_events: "true",
+  };
+  if (opts.encoding) {
+    q.encoding = opts.encoding;
+    q.sample_rate = String(opts.sampleRate ?? 16000);
+    q.channels = "1";
+  }
+  return q;
+}
+
 function openDeepgramSocket(
   accessToken: string,
   query: Record<string, string>,
 ): WebSocket {
   const params = new URLSearchParams(query);
   const url = `wss://api.deepgram.com/v1/listen?${params.toString()}`;
-  // JWTs must use "bearer" (API keys use "token") — matches @deepgram/sdk.
   const ws = new WebSocket(url, ["bearer", accessToken]);
   ws.binaryType = "arraybuffer";
   return ws;
@@ -84,40 +104,32 @@ async function waitForOpen(ws: WebSocket, label: string): Promise<void> {
   });
 }
 
+async function grantAccessToken(): Promise<string | null> {
+  const tokenRes = await fetch("/api/deepgram/token", { method: "POST" });
+  if (!tokenRes.ok) return null;
+  const { access_token } = (await tokenRes.json()) as { access_token: string };
+  return access_token || null;
+}
+
 /**
- * Browser live STT via temporary Deepgram JWT (from /api/deepgram/token).
- * Primary: 16 kHz linear16 PCM through a live AudioContext graph.
- * Backup: MediaRecorder webm/opus slices on a second socket (auto-detect).
+ * Browser live STT via temporary Deepgram JWT.
+ * Keeps the AudioContext alive with a silent oscillator (does NOT route mic
+ * to speakers — that triggers browser AEC and mutes the mic after a moment).
  */
 export async function startDeepgramLiveSession(opts: {
   onDisplay: (text: string) => void;
   onStatus?: (status: string) => void;
 }): Promise<LiveSession | null> {
-  const tokenRes = await fetch("/api/deepgram/token", { method: "POST" });
-  if (!tokenRes.ok) {
-    const detail =
-      tokenRes.status === 503
-        ? "DEEPGRAM_API_KEY not configured"
-        : `token grant failed (${tokenRes.status})`;
-    opts.onStatus?.(`Live STT unavailable — ${detail}`);
-    return null;
-  }
-  const { access_token } = (await tokenRes.json()) as { access_token: string };
-  if (!access_token) {
-    opts.onStatus?.("Live STT unavailable — empty token");
+  const accessToken = await grantAccessToken();
+  if (!accessToken) {
+    opts.onStatus?.("Live STT unavailable — token grant failed");
     return null;
   }
 
-  const pcmWs = openDeepgramSocket(access_token, {
-    model: "nova-3",
-    language: "de",
-    smart_format: "true",
-    punctuate: "true",
-    interim_results: "true",
-    encoding: "linear16",
-    sample_rate: "16000",
-    channels: "1",
-  });
+  const pcmWs = openDeepgramSocket(
+    accessToken,
+    deepgramLiveQuery({ encoding: "linear16", sampleRate: 16000 }),
+  );
 
   try {
     await waitForOpen(pcmWs, "Deepgram PCM socket");
@@ -135,11 +147,13 @@ export async function startDeepgramLiveSession(opts: {
   opts.onStatus?.("Live transcription connected");
 
   let state = { finals: [] as string[], interim: "" };
-  let closed = false;
+  let stopped = false;
   let gotResult = false;
   let processor: ScriptProcessorNode | null = null;
   let source: MediaStreamAudioSourceNode | null = null;
-  let mute: GainNode | null = null;
+  let processorSink: MediaStreamAudioDestinationNode | null = null;
+  let keepAliveOsc: OscillatorNode | null = null;
+  let keepAliveGain: GainNode | null = null;
   let keepAliveId: number | null = null;
   let webmWs: WebSocket | null = null;
   let webmStarted = false;
@@ -154,6 +168,7 @@ export async function startDeepgramLiveSession(opts: {
       const msg = JSON.parse(raw) as {
         type?: string;
         is_final?: boolean;
+        speech_final?: boolean;
         channel?: { alternatives?: Array<{ transcript?: string }> };
       };
       if (msg.type === "Error") {
@@ -165,20 +180,26 @@ export async function startDeepgramLiveSession(opts: {
       if (!transcript.trim()) return;
       gotResult = true;
       const next = applyLiveResult(state, {
-        is_final: msg.is_final,
+        is_final: Boolean(msg.is_final || msg.speech_final),
         transcript,
       });
       state = { finals: next.finals, interim: next.interim };
       opts.onDisplay(next.display);
     } catch {
-      /* ignore malformed frames */
+      /* ignore */
     }
   };
 
   pcmWs.onmessage = handleMessage;
   pcmWs.onclose = () => {
-    closed = true;
-    if (keepAliveId != null) window.clearInterval(keepAliveId);
+    // Do not kill the whole session — fall back to webm if still recording.
+    if (!stopped && !gotResult) {
+      opts.onStatus?.("PCM socket closed — trying webm…");
+      void ensureWebmSocket();
+    } else if (!stopped) {
+      opts.onStatus?.("PCM socket closed — webm fallback if needed");
+      void ensureWebmSocket();
+    }
   };
 
   keepAliveId = window.setInterval(() => {
@@ -188,30 +209,19 @@ export async function startDeepgramLiveSession(opts: {
     if (webmWs?.readyState === WebSocket.OPEN) {
       webmWs.send(JSON.stringify({ type: "KeepAlive" }));
     }
-  }, 8000);
+  }, 5000);
 
   async function ensureWebmSocket() {
-    if (webmStarted || closed) return;
+    if (webmStarted || stopped) return;
     webmStarted = true;
     try {
-      // Fresh JWT — previous one may be near expiry after the PCM handshake.
-      const res = await fetch("/api/deepgram/token", { method: "POST" });
-      if (!res.ok) return;
-      const { access_token: token } = (await res.json()) as {
-        access_token: string;
-      };
+      const token = await grantAccessToken();
       if (!token) return;
-      const ws = openDeepgramSocket(token, {
-        model: "nova-3",
-        language: "de",
-        smart_format: "true",
-        punctuate: "true",
-        interim_results: "true",
-      });
+      const ws = openDeepgramSocket(token, deepgramLiveQuery({}));
       await waitForOpen(ws, "Deepgram webm socket");
       webmWs = ws;
       ws.onmessage = handleMessage;
-      opts.onStatus?.("Live transcription (webm fallback)");
+      opts.onStatus?.("Live transcription (webm)");
       while (webmQueue.length > 0 && webmWs.readyState === WebSocket.OPEN) {
         const blob = webmQueue.shift();
         if (!blob) break;
@@ -219,7 +229,7 @@ export async function startDeepgramLiveSession(opts: {
         if (webmWs.readyState === WebSocket.OPEN) webmWs.send(buf);
       }
     } catch {
-      /* PCM path may still work */
+      /* ignore */
     }
   }
 
@@ -228,15 +238,24 @@ export async function startDeepgramLiveSession(opts: {
       if (audioContext.state === "suspended") {
         await audioContext.resume();
       }
+
+      // Keep the audio graph running WITHOUT routing mic to speakers.
+      // Mic→destination (even gain 0) can trip browser AEC and mute the track.
+      keepAliveOsc = audioContext.createOscillator();
+      keepAliveGain = audioContext.createGain();
+      keepAliveGain.gain.value = 0;
+      keepAliveOsc.connect(keepAliveGain);
+      keepAliveGain.connect(audioContext.destination);
+      keepAliveOsc.start();
+
       source = audioContext.createMediaStreamSource(stream);
-      // 2048 ≈ 40ms at 48kHz — snappier interim results
-      processor = audioContext.createScriptProcessor(2048, 1, 1);
-      mute = audioContext.createGain();
-      mute.gain.value = 0;
+      processor = audioContext.createScriptProcessor(4096, 1, 1);
+      processorSink = audioContext.createMediaStreamDestination();
 
       let sentChunks = 0;
       processor.onaudioprocess = (e) => {
-        if (closed || pcmWs.readyState !== WebSocket.OPEN) return;
+        if (stopped) return;
+        if (pcmWs.readyState !== WebSocket.OPEN) return;
         const input = e.inputBuffer.getChannelData(0);
         const pcm = downsampleTo16k(input, audioContext.sampleRate);
         pcmWs.send(pcmChunkToArrayBuffer(pcm));
@@ -246,51 +265,53 @@ export async function startDeepgramLiveSession(opts: {
         }
       };
 
-      // ScriptProcessor only fires when connected through to destination.
       source.connect(processor);
-      processor.connect(mute);
-      mute.connect(audioContext.destination);
+      processor.connect(processorSink);
 
-      // If PCM produces nothing, spin up containerized webm fallback.
       window.setTimeout(() => {
-        if (!gotResult && !closed) void ensureWebmSocket();
-      }, 2500);
+        if (!gotResult && !stopped) void ensureWebmSocket();
+      }, 3000);
     },
 
     feedWebmChunk(chunk: Blob) {
-      if (closed || chunk.size === 0) return;
+      if (stopped || chunk.size === 0) return;
       if (webmWs?.readyState === WebSocket.OPEN) {
         void chunk.arrayBuffer().then((buf) => {
           if (webmWs?.readyState === WebSocket.OPEN) webmWs.send(buf);
         });
         return;
       }
-      // Buffer recent slices; flushed if PCM produces no results and fallback starts.
       webmQueue.push(chunk);
       if (webmQueue.length > 40) webmQueue.shift();
       if (webmStarted) void ensureWebmSocket();
     },
 
     async stop() {
+      stopped = true;
       if (keepAliveId != null) {
         window.clearInterval(keepAliveId);
         keepAliveId = null;
       }
       try {
+        keepAliveOsc?.stop();
+        keepAliveOsc?.disconnect();
+        keepAliveGain?.disconnect();
         processor?.disconnect();
         source?.disconnect();
-        mute?.disconnect();
+        processorSink?.disconnect();
       } catch {
         /* ignore */
       }
+      keepAliveOsc = null;
+      keepAliveGain = null;
       processor = null;
       source = null;
-      mute = null;
+      processorSink = null;
 
       const finalize = async (ws: WebSocket | null) => {
         if (!ws || ws.readyState !== WebSocket.OPEN) return;
         ws.send(JSON.stringify({ type: "Finalize" }));
-        await new Promise((r) => setTimeout(r, 500));
+        await new Promise((r) => setTimeout(r, 600));
         ws.send(JSON.stringify({ type: "CloseStream" }));
         try {
           ws.close();
@@ -300,10 +321,7 @@ export async function startDeepgramLiveSession(opts: {
       };
       await finalize(pcmWs);
       await finalize(webmWs);
-      closed = true;
-      const finals = state.finals.join(" ").trim();
-      const interim = state.interim.trim();
-      return finals || interim;
+      return state.finals.join(" ").trim() || state.interim.trim();
     },
   };
 }

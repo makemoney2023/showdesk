@@ -135,8 +135,9 @@ export default function RecordPage() {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
+          // AEC + mic routed through Web Audio can mute the track mid-recording.
+          echoCancellation: false,
+          noiseSuppression: false,
           autoGainControl: true,
         },
       });
@@ -373,7 +374,8 @@ export default function RecordPage() {
             Live transcript
           </p>
           <p className="text-xs text-sss-text-muted">
-            Streams while you speak. After stop it fills Narrative (draft) on Review.
+            Live STT (English). Continues while you speak — fills Narrative on
+            Review after stop.
           </p>
           <p className="min-h-[4.5rem] whitespace-pre-wrap text-sm leading-relaxed text-sss-text">
             {liveTranscript || "Listening…"}

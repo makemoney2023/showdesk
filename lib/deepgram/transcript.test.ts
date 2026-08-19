@@ -61,15 +61,15 @@ describe("mergeLiveAndBatchTranscript", () => {
 });
 
 describe("deepgramListenUrl", () => {
-  it("builds a German nova-3 listen URL with interim results", () => {
+  it("builds an English nova-3 listen URL with interim results", () => {
     const url = deepgramListenUrl({
       model: "nova-3",
-      language: "de",
+      language: "en-US",
       interimResults: true,
     });
     expect(url).toContain("wss://api.deepgram.com/v1/listen?");
     expect(url).toContain("model=nova-3");
-    expect(url).toContain("language=de");
+    expect(url).toContain("language=en-US");
     expect(url).toContain("interim_results=true");
     expect(url).toContain("smart_format=true");
   });

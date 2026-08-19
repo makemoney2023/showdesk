@@ -56,7 +56,7 @@ export async function transcribeWithDeepgram(
 
   const params = new URLSearchParams({
     model: "nova-3",
-    language: "de",
+    language: "en-US",
     smart_format: "true",
     punctuate: "true",
   });

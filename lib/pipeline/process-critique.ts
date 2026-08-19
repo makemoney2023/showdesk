@@ -110,7 +110,7 @@ export async function transcribeAudio(
       },
       body: JSON.stringify({
         audio_url: upload_url,
-        language_code: "de",
+        language_code: "en",
       }),
     });
     if (!transcriptRes.ok) throw new Error("AssemblyAI transcript request failed");
@@ -152,7 +152,7 @@ export async function runLemurStructuring(
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        prompt: `Extract ADRK critique draft from this German ringside transcript. Return JSON with keys: narrative (free-form German prose), formwert (one of vv,V,vsp,Sg,wv,G,disq.,Ggd,oB,zgz,ne or null), placement (1-4 or null), titles (array of title strings). Do NOT use anatomical section keys as official fields.\n\nTranscript:\n${transcript}`,
+        prompt: `Extract ADRK critique draft from this English ringside transcript. Return JSON with keys: narrative (free-form English prose), formwert (one of vv,V,vsp,Sg,wv,G,disq.,Ggd,oB,zgz,ne or null), placement (1-4 or null), titles (array of title strings). Do NOT use anatomical section keys as official fields.\n\nTranscript:\n${transcript}`,
         final_model: "anthropic/claude-3-5-sonnet",
       }),
     });
