@@ -50,7 +50,7 @@ export async function buildAdrkRichterberichtPdf(
 
   draw(`Sex: ${entry.sex === "R" ? "[x] R" : "[ ] R"}  ${entry.sex === "H" ? "[x] H" : "[ ] H"}`);
   draw(`Kat.-Nr. / Armband: ${entry.armband}`);
-  draw(`Name: ${entry.dog_name}`);
+  draw(entry.dog_name, 16, true);
   draw(`ZB-Nr.: ${entry.zb_number}`);
   draw(`WT: ${entry.wt}`);
   draw(`Eigentümer: ${entry.owner}`);
@@ -78,7 +78,10 @@ export async function buildAdrkRichterberichtPdf(
   y -= 8;
 
   draw("Narrative critique (draft — free-form):", 10, true);
-  const narrativeLines = wrapText(draft.narrative || "(pending secretary edit)", 80);
+  const narrativeLines = wrapText(
+    draft.narrative || "(pending secretary edit)",
+    80,
+  );
   for (const line of narrativeLines.slice(0, 12)) {
     draw(line, 9);
   }

@@ -3,27 +3,58 @@ import {
   TNRK_CRITIQUE_FIELD_TOP,
   TNRK_CRITIQUE_FIELD_X,
   buildTnrkCritiquePdf,
+  resolveCritiqueCertificateNarrative,
 } from "./tnrk-critique-pdf";
+
+describe("resolveCritiqueCertificateNarrative", () => {
+  it("prefers editable draft narrative", () => {
+    expect(
+      resolveCritiqueCertificateNarrative({
+        draftNarrative: " Edited narrative ",
+        transcript: "Raw STT",
+        seNarrative: "SE text",
+      }),
+    ).toBe("Edited narrative");
+  });
+
+  it("falls back to transcript when draft narrative is empty", () => {
+    expect(
+      resolveCritiqueCertificateNarrative({
+        draftNarrative: "  ",
+        transcript: "Live STT body",
+        seNarrative: "SE text",
+      }),
+    ).toBe("Live STT body");
+  });
+
+  it("falls back to SE narrative last", () => {
+    expect(
+      resolveCritiqueCertificateNarrative({
+        draftNarrative: "",
+        transcript: "",
+        seNarrative: "From SE form",
+      }),
+    ).toBe("From SE form");
+  });
+});
 
 describe("tnrk-critique-pdf layout", () => {
   it("places fill-ins below label bands (not on CRITIQUE title)", () => {
-    // Title CRITIQUE / RICHTERBERICHT sits ~141–166 from top.
     expect(TNRK_CRITIQUE_FIELD_TOP.dog_name).toBeGreaterThan(200);
     expect(TNRK_CRITIQUE_FIELD_TOP.narrative_start).toBeGreaterThan(
       TNRK_CRITIQUE_FIELD_TOP.dog_name,
     );
     expect(TNRK_CRITIQUE_FIELD_TOP.class_and_rating).toBeGreaterThan(440);
-    // Dog value must start after "NAME DES HUNDES" label (~184).
     expect(TNRK_CRITIQUE_FIELD_X.dog_name).toBeGreaterThan(184);
     expect(TNRK_CRITIQUE_FIELD_X.dob).toBeGreaterThan(648);
   });
 
-  it("builds a non-empty PDF from SE-synced narrative fields", async () => {
+  it("builds a PDF with bold dog title and transcript body", async () => {
     const bytes = await buildTnrkCritiquePdf({
       dog_name: "Rex Happy Path",
       dob: "2024-01-01",
       armband: "101",
-      narrative: "Strong male. Moves freely.\n\nSE result: PASS.",
+      narrative: "Strong male. Moves freely. Vorzüglicher Rüde.",
       class_and_rating: "Zwischenklasse — V",
       date: "2026-08-13",
       owner: "Max Mustermann",

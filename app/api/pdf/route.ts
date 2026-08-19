@@ -45,6 +45,10 @@ export async function GET(request: Request) {
     entry,
     draft: {
       ...critique.draft,
+      narrative:
+        critique.draft.narrative.trim() ||
+        critique.transcript.trim() ||
+        critique.draft.narrative,
       placement: placement?.placement ?? critique.draft.placement,
     },
   });

@@ -1,14 +1,39 @@
 import { describe, expect, it } from "vitest";
-import { structureDraftFromTranscript } from "./process-critique";
+import {
+  ensureNarrativeFromTranscript,
+  structureDraftFromTranscript,
+} from "./process-critique";
 import { mergeLiveAndBatchTranscript } from "@/lib/deepgram/transcript";
+import { createEmptyDraft } from "@/lib/domain/adrk-template";
 
 describe("structureDraftFromTranscript", () => {
-  it("extracts formwert V from German praise", () => {
+  it("puts transcription into narrative for editing", () => {
     const draft = structureDraftFromTranscript(
-      "Vorzüglicher Rüde. Formwert V.",
+      "Vorzüglicher Rüde mit kräftigen Knochen. Formwert V.",
     );
     expect(draft.formwert).toBe("V");
-    expect(draft.narrative.length).toBeGreaterThan(0);
+    expect(draft.narrative).toContain("Vorzüglicher Rüde");
+    expect(draft.narrative).toContain("kräftigen Knochen");
+  });
+});
+
+describe("ensureNarrativeFromTranscript", () => {
+  it("seeds empty narrative from STT", () => {
+    const draft = ensureNarrativeFromTranscript(
+      createEmptyDraft(),
+      "Live German ringside text.",
+    );
+    expect(draft.narrative).toBe("Live German ringside text.");
+  });
+
+  it("does not overwrite an existing narrative", () => {
+    const existing = createEmptyDraft();
+    existing.narrative = "Secretary edit";
+    const draft = ensureNarrativeFromTranscript(
+      existing,
+      "Fresh transcript",
+    );
+    expect(draft.narrative).toBe("Secretary edit");
   });
 });
 

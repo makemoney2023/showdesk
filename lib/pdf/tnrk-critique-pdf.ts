@@ -19,7 +19,9 @@ const TEMPLATE = path.join(
  */
 export const TNRK_CRITIQUE_FIELD_TOP = {
   dog_name: 214,
-  narrative_start: 235,
+  /** Bold dog title inside the critique body band */
+  body_title: 235,
+  narrative_start: 258,
   class_and_rating: 472,
   date: 468,
   owner: 500,
@@ -39,6 +41,23 @@ export const TNRK_CRITIQUE_FIELD_X = {
   judge_signature: 385,
 } as const;
 
+/** Prefer secretary draft → STT transcript → SE-derived text. */
+export function resolveCritiqueCertificateNarrative(input: {
+  draftNarrative?: string | null;
+  transcript?: string | null;
+  seNarrative?: string | null;
+}): string {
+  for (const candidate of [
+    input.draftNarrative,
+    input.transcript,
+    input.seNarrative,
+  ]) {
+    const text = candidate?.trim();
+    if (text) return text;
+  }
+  return "";
+}
+
 /** Overlay critique fields onto TNRK landscape Critique / Richterbericht blank. */
 export async function buildTnrkCritiquePdf(
   form: TnrkCritiqueForm,
@@ -47,30 +66,47 @@ export async function buildTnrkCritiquePdf(
   const pdf = await PDFDocument.load(bytes);
   const page = pdf.getPages()[0];
   const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const { height } = page.getSize();
   const mediaY = page.getMediaBox().y;
   const yFromTop = (fromTop: number) => height - fromTop + mediaY;
   const baseline = (bottomFromTop: number, inset = 10) =>
     yFromTop(bottomFromTop - inset);
 
-  const draw = (text: string, x: number, y: number, size = 10) => {
+  const draw = (
+    text: string,
+    x: number,
+    y: number,
+    size = 10,
+    useBold = false,
+  ) => {
     if (!text?.trim()) return;
     page.drawText(text.slice(0, 140), {
       x,
       y,
       size,
-      font,
+      font: useBold ? bold : font,
       color: rgb(0.05, 0.05, 0.05),
     });
   };
 
+  // Header form fields (template NAME DES HUNDES row)
   const yHeader = baseline(TNRK_CRITIQUE_FIELD_TOP.dog_name);
-  draw(form.dog_name, TNRK_CRITIQUE_FIELD_X.dog_name, yHeader, 11);
+  draw(form.dog_name, TNRK_CRITIQUE_FIELD_X.dog_name, yHeader, 12, true);
   draw(form.dob, TNRK_CRITIQUE_FIELD_X.dob, yHeader, 10);
   draw(form.armband, TNRK_CRITIQUE_FIELD_X.armband, yHeader, 10);
 
+  // Body: dog name as bold title, transcript/narrative underneath
+  draw(
+    form.dog_name,
+    TNRK_CRITIQUE_FIELD_X.narrative,
+    baseline(TNRK_CRITIQUE_FIELD_TOP.body_title),
+    14,
+    true,
+  );
+
   const lines = wrap(form.narrative, 105);
-  lines.slice(0, 14).forEach((line, i) => {
+  lines.slice(0, 12).forEach((line, i) => {
     draw(
       line,
       TNRK_CRITIQUE_FIELD_X.narrative,

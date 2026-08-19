@@ -99,7 +99,19 @@ export default function AdminReviewPage() {
     : undefined;
 
   useEffect(() => {
-    if (selected) setDraft(selected.draft);
+    if (!selected) {
+      setDraft(null);
+      return;
+    }
+    // Prefer saved draft; if narrative is empty, seed from STT so secretary can edit.
+    const seeded =
+      selected.draft.narrative.trim()
+        ? selected.draft
+        : {
+            ...selected.draft,
+            narrative: selected.transcript.trim(),
+          };
+    setDraft(seeded);
   }, [selected]);
 
   async function saveDraft() {
@@ -315,9 +327,13 @@ export default function AdminReviewPage() {
               )}
               <div className="space-y-2">
                 <Label htmlFor="narrative-draft">Narrative (draft)</Label>
+                <p className="text-xs text-sss-text-muted">
+                  Pre-filled from speech-to-text — edit before approve.
+                </p>
                 <Textarea
                   id="narrative-draft"
                   value={draft.narrative}
+                  rows={8}
                   onChange={(e) =>
                     setDraft({ ...draft, narrative: e.target.value })
                   }

@@ -357,6 +357,9 @@ export default function RecordPage() {
           <p className="text-xs uppercase tracking-wide text-sss-text-secondary">
             Live transcript
           </p>
+          <p className="text-xs text-sss-text-muted">
+            Streams while you speak. After stop it fills Narrative (draft) on Review.
+          </p>
           <p className="min-h-[4.5rem] whitespace-pre-wrap text-sm leading-relaxed text-sss-text">
             {liveTranscript || "Listening…"}
           </p>

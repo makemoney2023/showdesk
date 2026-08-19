@@ -35,9 +35,10 @@ function mapRatingToFormwert(text: string): AdrkFormwertCode | null {
 }
 
 function buildNarrativeFromTranscript(transcript: string): string {
+  // Full STT text is the editable narrative; only strip noisy bookends.
   return transcript
     .replace(/Arm band \d+\.\s*/i, "")
-    .replace(/Formwert [A-Za-z.]+\.\s*/i, "")
+    .replace(/Formwert [A-Za-z.]+\.\s*$/i, "")
     .trim();
 }
 
@@ -52,6 +53,17 @@ export function structureDraftFromTranscript(
     raw_excerpt: transcript.slice(0, 200),
   };
   return draft;
+}
+
+/** Prefer existing narrative; otherwise seed from STT for the review textarea. */
+export function ensureNarrativeFromTranscript(
+  draft: DraftCritiqueSchema,
+  transcript: string,
+): DraftCritiqueSchema {
+  if (draft.narrative.trim()) return draft;
+  const fromStt = buildNarrativeFromTranscript(transcript);
+  if (!fromStt) return draft;
+  return { ...draft, narrative: fromStt };
 }
 
 export async function transcribeAudio(
@@ -148,7 +160,9 @@ export async function runLemurStructuring(
     const data = (await res.json()) as { response?: string };
     const parsed = JSON.parse(data.response ?? "{}") as Partial<DraftCritiqueSchema>;
     const draft = createEmptyDraft();
-    draft.narrative = parsed.narrative ?? structureDraftFromTranscript(transcript).narrative;
+    const fromStt = structureDraftFromTranscript(transcript).narrative;
+    // Empty string from LeMUR must not wipe the STT narrative.
+    draft.narrative = parsed.narrative?.trim() || fromStt;
     if (parsed.formwert && isValidFormwert(parsed.formwert)) {
       draft.formwert = parsed.formwert;
     } else {
@@ -156,7 +170,7 @@ export async function runLemurStructuring(
     }
     draft.placement = parsed.placement ?? null;
     draft.titles = parsed.titles ?? [];
-    return draft;
+    return ensureNarrativeFromTranscript(draft, transcript);
   } catch {
     return structureDraftFromTranscript(transcript);
   }
@@ -171,7 +185,10 @@ export async function processCritique(
     batch: batch.transcript,
     batchMock: batch.mock,
   });
-  const draft = await runLemurStructuring(merged.transcript);
+  const draft = ensureNarrativeFromTranscript(
+    await runLemurStructuring(merged.transcript),
+    merged.transcript,
+  );
   return {
     transcript: merged.transcript,
     draft,

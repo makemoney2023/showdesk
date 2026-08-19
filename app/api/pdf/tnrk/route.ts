@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { readStore } from "@/lib/store";
 import { buildTnrkSePdf } from "@/lib/pdf/tnrk-se-pdf";
-import { buildTnrkCritiquePdf } from "@/lib/pdf/tnrk-critique-pdf";
+import {
+  buildTnrkCritiquePdf,
+  resolveCritiqueCertificateNarrative,
+} from "@/lib/pdf/tnrk-critique-pdf";
 import { buildTnrkAwardPdf } from "@/lib/pdf/tnrk-award-pdf";
 import { getAdrkClassLabel } from "@/lib/domain/adrk-template";
 import type { AdrkClassId } from "@/lib/domain/adrk-template";
@@ -70,19 +73,27 @@ export async function GET(request: Request) {
     );
     const seSynced =
       critique?.draft.draftAssist?.note?.includes("SE form") ?? false;
-    const narrative =
-      (critique?.draft.narrative?.trim()
-        ? critique.draft.narrative
-        : "") ||
-      (se
-        ? [se.form.overall_appearance, se.form.comments, se.form.final_result ? `SE result: ${se.form.final_result.toUpperCase()}` : ""]
-            .map((s) => s.trim())
-            .filter(Boolean)
-            .join("\n\n")
-        : "");
+    const seNarrative = se
+      ? [
+          se.form.overall_appearance,
+          se.form.comments,
+          se.form.final_result
+            ? `SE result: ${se.form.final_result.toUpperCase()}`
+            : "",
+        ]
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .join("\n\n")
+      : "";
+    const narrative = resolveCritiqueCertificateNarrative({
+      draftNarrative: critique?.draft.narrative,
+      transcript: critique?.transcript,
+      seNarrative,
+    });
+    const dogName = se?.form.dog_name?.trim() || entry.dog_name;
 
     const pdfBytes = await buildTnrkCritiquePdf({
-      dog_name: se?.form.dog_name?.trim() || entry.dog_name,
+      dog_name: dogName,
       dob: se?.form.date_of_birth?.trim() || entry.wt,
       armband: entry.armband,
       narrative,
