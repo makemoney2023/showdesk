@@ -53,6 +53,18 @@ describe("tnrk-critique-pdf layout", () => {
     expect(TNRK_CRITIQUE_FIELD_X.dob).toBeGreaterThan(648);
   });
 
+  it("shifts body dog title and critique 20% lower to clear certificate print", () => {
+    // Previous band tops were 235 / 258; +20% keeps them below header print.
+    expect(TNRK_CRITIQUE_FIELD_TOP.body_title).toBe(Math.round(235 * 1.2));
+    expect(TNRK_CRITIQUE_FIELD_TOP.narrative_start).toBe(Math.round(258 * 1.2));
+    expect(TNRK_CRITIQUE_FIELD_TOP.body_title).toBeLessThan(
+      TNRK_CRITIQUE_FIELD_TOP.narrative_start,
+    );
+    expect(TNRK_CRITIQUE_FIELD_TOP.narrative_start).toBeLessThan(
+      TNRK_CRITIQUE_FIELD_TOP.class_and_rating,
+    );
+  });
+
   it("makes the body dog title at least 24pt and 20% larger than base", () => {
     expect(TNRK_CRITIQUE_BODY_TITLE_BASE_SIZE).toBeGreaterThanOrEqual(24);
     expect(TNRK_CRITIQUE_BODY_TITLE_SIZE).toBe(

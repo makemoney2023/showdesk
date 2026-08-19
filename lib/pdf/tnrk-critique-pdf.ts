@@ -16,12 +16,17 @@ const TEMPLATE = path.join(
  *  DOG/DOB/ARMBAND ~188–201 · CLASS/DATE ~447–461 · OWNER ~481 ·
  *  CO-OWNER ~507 · JUDGE SIGNATURE ~537–548
  * Narrative band sits between header row (~210) and CLASS (~440).
+ * Body title + critique are shifted +20% from the original band tops
+ * (235 / 258) so they clear printed certificate text.
  */
+const TNRK_CRITIQUE_BODY_TOP_SHIFT = 1.2;
+
 export const TNRK_CRITIQUE_FIELD_TOP = {
   dog_name: 214,
-  /** Bold dog title inside the critique body band */
-  body_title: 235,
-  narrative_start: 258,
+  /** Bold dog title inside the critique body band (+20% lower) */
+  body_title: Math.round(235 * TNRK_CRITIQUE_BODY_TOP_SHIFT),
+  /** Critique lines start (+20% lower) */
+  narrative_start: Math.round(258 * TNRK_CRITIQUE_BODY_TOP_SHIFT),
   class_and_rating: 472,
   date: 468,
   owner: 500,
