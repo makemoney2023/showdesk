@@ -46,7 +46,7 @@ const COPY = {
   },
   "no-selection": {
     title: "Select a critique",
-    body: "Pick an item from the queue to review the draft.",
+    body: "Pick a dog in the queue — the review editor opens directly beneath it.",
     href: null,
     cta: null,
   },

@@ -18,6 +18,11 @@ import {
   pendingReviewCount,
 } from "@/lib/domain/critique-status";
 import { reviewPrimaryAction } from "@/lib/domain/review-primary-action";
+import {
+  buildReviewQueueRows,
+  tnrkCritiquePdfHref,
+  tnrkCritiquePdfLabel,
+} from "@/lib/domain/review-queue-layout";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { pushToast } from "@/components/feedback/toast";
 import {
@@ -181,7 +186,9 @@ export default function AdminReviewPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ show_id: showId, critique_id: selectedId }),
     });
-    const releaseData = (await release.json()) as { email?: { mock?: boolean; sent?: boolean } };
+    const releaseData = (await release.json()) as {
+      email?: { mock?: boolean; sent?: boolean };
+    };
     const msg = releaseData.email?.mock
       ? "Approved — email mocked (no RESEND_API_KEY)"
       : "Approved and release attempted";
@@ -200,6 +207,10 @@ export default function AdminReviewPage() {
       s === "PENDING_REVIEW" ? 0 : s === "ERROR" ? 1 : s === "PROCESSING" ? 2 : 3;
     return rank(a.status) - rank(b.status) || b.updated_at.localeCompare(a.updated_at);
   });
+  const rows = buildReviewQueueRows(
+    queue.map((c) => c.id),
+    selectedId,
+  );
 
   return (
     <div className="space-y-6">
@@ -212,240 +223,263 @@ export default function AdminReviewPage() {
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="font-medium">
-              {pendingOnly ? `Pending (${pendingCount})` : `All (${critiques.length})`}
-            </h2>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPendingOnly((v) => !v)}
-              >
-                {pendingOnly ? "Show all" : "Pending only"}
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => void load()}>
-                Refresh
-              </Button>
-            </div>
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="font-medium">
+            {pendingOnly ? `Pending (${pendingCount})` : `All (${critiques.length})`}
+          </h2>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPendingOnly((v) => !v)}
+            >
+              {pendingOnly ? "Show all" : "Pending only"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => void load()}>
+              Refresh
+            </Button>
           </div>
-          <p className="text-xs text-sss-text-muted">
-            Includes ringside recordings and SE forms synced into review.
-          </p>
-          <ul className="space-y-2">
-            {queue.map((c) => {
-              const e = entries.find((en) => en.id === c.entry_id);
-              const se = evaluations.find((ev) => ev.entry_id === c.entry_id);
-              const fromSe =
-                Boolean(c.draft.draftAssist?.se_sync) ||
-                c.draft.draftAssist?.note?.includes("SE form") ||
-                c.transcript.startsWith("Ringside SE");
+        </div>
+        <p className="text-xs text-sss-text-muted">
+          Includes ringside recordings and SE forms synced into review. Select a
+          dog to open the editor directly beneath it.
+        </p>
+        <ul className="space-y-2">
+          {rows.map((row) => {
+            if (row.kind === "editor") {
+              if (!selected || !draft || selected.id !== row.critiqueId) {
+                return null;
+              }
               return (
-                <li key={c.id}>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedId(c.id)}
-                    className={`w-full rounded-md border p-3 text-left ${
-                      selectedId === c.id
-                        ? "border-sss-accent bg-sss-lifted"
-                        : "border-sss-border"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="font-medium">{e?.dog_name ?? "Unknown dog"}</div>
-                      <StatusChip
-                        label={labelCritiqueStatus(c.status)}
-                        tone={critiqueChipTone(c.status)}
+                <li key={`editor-${row.critiqueId}`}>
+                  <div className="space-y-4 rounded-lg border border-sss-accent bg-sss-lifted p-4">
+                    <div>
+                      <h2 className="font-medium">{entry?.dog_name}</h2>
+                      <details className="text-xs text-sss-text-muted">
+                        <summary className="cursor-pointer">Show transcript</summary>
+                        <p className="mt-2">{selected.transcript}</p>
+                      </details>
+                      {seForSelected ? (
+                        <p className="mt-1 text-xs text-sss-text-secondary">
+                          Ringside SE: <strong>{seForSelected.status}</strong>
+                          {seForSelected.form.final_result
+                            ? ` · ${seForSelected.form.final_result.toUpperCase()}`
+                            : ""}
+                          {seForSelected.form.comments?.trim()
+                            ? ` · “${seForSelected.form.comments.trim().slice(0, 80)}${seForSelected.form.comments.trim().length > 80 ? "…" : ""}”`
+                            : ""}
+                          {showId ? (
+                            <>
+                              {" · "}
+                              <a
+                                className="text-sss-accent-deep underline"
+                                href={`/api/pdf/tnrk?kind=se&show_id=${showId}&evaluation_id=${seForSelected.id}`}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                SE PDF
+                              </a>
+                            </>
+                          ) : null}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-xs text-sss-text-muted">
+                          No SE form synced for this dog yet.
+                        </p>
+                      )}
+                    </div>
+                    {selected.audio_path ? (
+                      <div className="space-y-1">
+                        <Label>Recording</Label>
+                        <audio
+                          controls
+                          className="w-full"
+                          src={`/api/audio/${selected.id}`}
+                          preload="metadata"
+                        >
+                          Your browser does not support audio.
+                        </audio>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-sss-text-muted">
+                        No retained audio for this critique.
+                      </p>
+                    )}
+                    <div className="space-y-2">
+                      <Label htmlFor="narrative-draft">Narrative (draft)</Label>
+                      <p className="text-xs text-sss-text-muted">
+                        Pre-filled from speech-to-text — edit before approve.
+                      </p>
+                      <Textarea
+                        id="narrative-draft"
+                        value={draft.narrative}
+                        rows={8}
+                        onChange={(e) =>
+                          setDraft({ ...draft, narrative: e.target.value })
+                        }
                       />
                     </div>
-                    <div className="text-xs text-sss-text-muted">
-                      {fromSe ? "SE form" : "Audio"}
-                      {se ? ` · ${se.status === "complete" ? "SE complete" : "Draft"}` : ""}
+                    <div className="space-y-2">
+                      <Label>Formwert</Label>
+                      <Select
+                        value={draft.formwert ?? "none"}
+                        onValueChange={(v) =>
+                          setDraft({
+                            ...draft,
+                            formwert:
+                              v === "none" ? null : (v as typeof draft.formwert),
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">—</SelectItem>
+                          {ADRK_FORMWERT_CODES.map((code) => (
+                            <SelectItem key={code} value={code}>
+                              {code}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  </button>
+                    {showId && selectedId ? (
+                      <div className="flex flex-wrap gap-2">
+                        <Button asChild>
+                          <a
+                            href={tnrkCritiquePdfHref(showId, selectedId)}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {tnrkCritiquePdfLabel()}
+                          </a>
+                        </Button>
+                      </div>
+                    ) : null}
+                    <details className="text-sm">
+                      <summary className="cursor-pointer text-sss-text-secondary">
+                        More actions
+                      </summary>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() => void saveDraft()}
+                        >
+                          Save draft
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => void discardAndRerun()}
+                          disabled={
+                            busy ||
+                            (selected.status !== "PENDING_REVIEW" &&
+                              selected.status !== "ERROR")
+                          }
+                        >
+                          Discard &amp; rerun
+                        </Button>
+                        {showId && selectedId ? (
+                          <Button asChild variant="link">
+                            <a
+                              href={`/api/pdf?show_id=${showId}&critique_id=${selectedId}`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              ADRK draft PDF
+                            </a>
+                          </Button>
+                        ) : null}
+                      </div>
+                    </details>
+                    <StickyDeskBar
+                      primaryLabel={reviewPrimaryAction(selected.status).label}
+                      primaryDisabled={
+                        busy || reviewPrimaryAction(selected.status).disabled
+                      }
+                      primaryHref={
+                        reviewPrimaryAction(selected.status).kind === "reports"
+                          ? "/admin/reports"
+                          : undefined
+                      }
+                      onPrimary={() => {
+                        const kind = reviewPrimaryAction(selected.status).kind;
+                        if (kind === "approve") setConfirmOpen(true);
+                        if (kind === "retry") void discardAndRerun();
+                      }}
+                    />
+                    <ConfirmDialog
+                      open={confirmOpen}
+                      title="Release this critique to the owner?"
+                      body="Nothing leaves the desk until you confirm."
+                      confirmLabel="Confirm"
+                      onConfirm={() => void approve()}
+                      onCancel={() => setConfirmOpen(false)}
+                    />
+                    {!canRelease(selected.status) && (
+                      <p className="text-xs text-sss-text-muted">
+                        Release blocked until secretary approves.
+                      </p>
+                    )}
+                    {statusMsg ? (
+                      <p className="text-sm text-sss-accent">{statusMsg}</p>
+                    ) : null}
+                  </div>
                 </li>
               );
-            })}
-          </ul>
-          {queue.length === 0 ? <EmptyDesk variant="no-queue" /> : null}
-        </section>
+            }
 
-        <section className="space-y-4 rounded-lg border border-sss-border p-4">
-          {selected && draft ? (
-            <>
-              <div>
-                <h2 className="font-medium">{entry?.dog_name}</h2>
-                <details className="text-xs text-sss-text-muted">
-                  <summary className="cursor-pointer">Show transcript</summary>
-                  <p className="mt-2">{selected.transcript}</p>
-                </details>
-                {seForSelected ? (
-                  <p className="mt-1 text-xs text-sss-text-secondary">
-                    Ringside SE: <strong>{seForSelected.status}</strong>
-                    {seForSelected.form.final_result
-                      ? ` · ${seForSelected.form.final_result.toUpperCase()}`
-                      : ""}
-                    {seForSelected.form.comments?.trim()
-                      ? ` · “${seForSelected.form.comments.trim().slice(0, 80)}${seForSelected.form.comments.trim().length > 80 ? "…" : ""}”`
-                      : ""}
-                    {showId ? (
-                      <>
-                        {" · "}
-                        <a
-                          className="text-sss-accent-deep underline"
-                          href={`/api/pdf/tnrk?kind=se&show_id=${showId}&evaluation_id=${seForSelected.id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          SE PDF
-                        </a>
-                      </>
-                    ) : null}
-                  </p>
-                ) : (
-                  <p className="mt-1 text-xs text-sss-text-muted">
-                    No SE form synced for this dog yet.
-                  </p>
-                )}
-              </div>
-              {selected.audio_path ? (
-                <div className="space-y-1">
-                  <Label>Recording</Label>
-                  <audio
-                    controls
-                    className="w-full"
-                    src={`/api/audio/${selected.id}`}
-                    preload="metadata"
-                  >
-                    Your browser does not support audio.
-                  </audio>
-                </div>
-              ) : (
-                <p className="text-xs text-sss-text-muted">No retained audio for this critique.</p>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="narrative-draft">Narrative (draft)</Label>
-                <p className="text-xs text-sss-text-muted">
-                  Pre-filled from speech-to-text — edit before approve.
-                </p>
-                <Textarea
-                  id="narrative-draft"
-                  value={draft.narrative}
-                  rows={8}
-                  onChange={(e) =>
-                    setDraft({ ...draft, narrative: e.target.value })
+            const c = queue.find((item) => item.id === row.critiqueId);
+            if (!c) return null;
+            const e = entries.find((en) => en.id === c.entry_id);
+            const se = evaluations.find((ev) => ev.entry_id === c.entry_id);
+            const fromSe =
+              Boolean(c.draft.draftAssist?.se_sync) ||
+              c.draft.draftAssist?.note?.includes("SE form") ||
+              c.transcript.startsWith("Ringside SE");
+            return (
+              <li key={c.id}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedId((prev) => (prev === c.id ? null : c.id))
                   }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Formwert</Label>
-                <Select
-                  value={draft.formwert ?? "none"}
-                  onValueChange={(v) =>
-                    setDraft({
-                      ...draft,
-                      formwert: v === "none" ? null : (v as typeof draft.formwert),
-                    })
-                  }
+                  className={`w-full rounded-md border p-3 text-left ${
+                    selectedId === c.id
+                      ? "border-sss-accent bg-sss-lifted"
+                      : "border-sss-border"
+                  }`}
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">—</SelectItem>
-                    {ADRK_FORMWERT_CODES.map((code) => (
-                      <SelectItem key={code} value={code}>
-                        {code}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <details className="text-sm">
-                <summary className="cursor-pointer text-sss-text-secondary">
-                  More actions
-                </summary>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => void saveDraft()}
-                  >
-                    Save draft
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => void discardAndRerun()}
-                    disabled={
-                      busy ||
-                      (selected.status !== "PENDING_REVIEW" &&
-                        selected.status !== "ERROR")
-                    }
-                  >
-                    Discard &amp; rerun
-                  </Button>
-                  {showId && selectedId ? (
-                    <>
-                      <Button asChild variant="link">
-                        <a
-                          href={`/api/pdf/tnrk?kind=critique&show_id=${showId}&critique_id=${selectedId}`}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          TNRK critique PDF
-                        </a>
-                      </Button>
-                      <Button asChild variant="link">
-                        <a
-                          href={`/api/pdf?show_id=${showId}&critique_id=${selectedId}`}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          ADRK draft PDF
-                        </a>
-                      </Button>
-                    </>
-                  ) : null}
-                </div>
-              </details>
-              <StickyDeskBar
-                primaryLabel={reviewPrimaryAction(selected.status).label}
-                primaryDisabled={
-                  busy || reviewPrimaryAction(selected.status).disabled
-                }
-                primaryHref={
-                  reviewPrimaryAction(selected.status).kind === "reports"
-                    ? "/admin/reports"
-                    : undefined
-                }
-                onPrimary={() => {
-                  const kind = reviewPrimaryAction(selected.status).kind;
-                  if (kind === "approve") setConfirmOpen(true);
-                  if (kind === "retry") void discardAndRerun();
-                }}
-              />
-              <ConfirmDialog
-                open={confirmOpen}
-                title="Release this critique to the owner?"
-                body="Nothing leaves the desk until you confirm."
-                confirmLabel="Confirm"
-                onConfirm={() => void approve()}
-                onCancel={() => setConfirmOpen(false)}
-              />
-              {!canRelease(selected.status) && (
-                <p className="text-xs text-sss-text-muted">
-                  Release blocked until secretary approves.
-                </p>
-              )}
-            </>
-          ) : (
-            <EmptyDesk variant="no-selection" />
-          )}
-          {statusMsg && <p className="text-sm text-sss-accent">{statusMsg}</p>}
-        </section>
-      </div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="font-medium">
+                      {e?.dog_name ?? "Unknown dog"}
+                    </div>
+                    <StatusChip
+                      label={labelCritiqueStatus(c.status)}
+                      tone={critiqueChipTone(c.status)}
+                    />
+                  </div>
+                  <div className="text-xs text-sss-text-muted">
+                    {fromSe ? "SE form" : "Audio"}
+                    {se
+                      ? ` · ${se.status === "complete" ? "SE complete" : "Draft"}`
+                      : ""}
+                  </div>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        {queue.length === 0 ? <EmptyDesk variant="no-queue" /> : null}
+        {queue.length > 0 && !selectedId ? (
+          <EmptyDesk variant="no-selection" />
+        ) : null}
+        {statusMsg && !selectedId ? (
+          <p className="text-sm text-sss-accent">{statusMsg}</p>
+        ) : null}
+      </section>
     </div>
   );
 }

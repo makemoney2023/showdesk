@@ -106,6 +106,12 @@ If public env is missing on Vercel, the deploy stays in DEMO MODE (file store + 
 
 Operator checklist: `docs/orgs/velocity-agency/customers/blacksage-kennels/initiatives/sieger-show-secretary/business-idea/WIRE/phase-9-mvp.md`.
 
+## Review queue (`/admin/review`)
+
+- Selecting a dog opens the draft editor **directly beneath that row** (single-column queue).
+- **TNRK PDF Preview** is a primary action on the open editor (not under More actions). ADRK draft PDF and save/rerun stay under More actions.
+- Certificate narrative prefers secretary draft → live/batch STT transcript → SE-derived text.
+
 ## Scripts
 
 - `npm test` — vitest domain tests
