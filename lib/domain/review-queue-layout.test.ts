@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   buildReviewQueueRows,
+  reviewPdfPreviewActions,
   tnrkCritiquePdfHref,
   tnrkCritiquePdfLabel,
+  tnrkSePdfHref,
+  tnrkSePdfLabel,
 } from "./review-queue-layout";
 
 describe("buildReviewQueueRows", () => {
@@ -36,5 +39,51 @@ describe("TNRK PDF preview affordance", () => {
     expect(tnrkCritiquePdfHref("show-1", "crit-9")).toBe(
       "/api/pdf/tnrk?kind=critique&show_id=show-1&critique_id=crit-9",
     );
+  });
+});
+
+describe("SE PDF preview affordance", () => {
+  it("exposes a prominent SE preview label and evaluation PDF href", () => {
+    expect(tnrkSePdfLabel()).toBe("SE PDF Preview");
+    expect(tnrkSePdfHref("show-1", "eval-3")).toBe(
+      "/api/pdf/tnrk?kind=se&show_id=show-1&evaluation_id=eval-3",
+    );
+  });
+
+  it("includes SE preview in review actions when an SE form exists", () => {
+    expect(
+      reviewPdfPreviewActions({
+        showId: "show-1",
+        critiqueId: "crit-9",
+        seEvaluationId: "eval-3",
+      }),
+    ).toEqual([
+      {
+        kind: "critique",
+        label: "TNRK PDF Preview",
+        href: "/api/pdf/tnrk?kind=critique&show_id=show-1&critique_id=crit-9",
+      },
+      {
+        kind: "se",
+        label: "SE PDF Preview",
+        href: "/api/pdf/tnrk?kind=se&show_id=show-1&evaluation_id=eval-3",
+      },
+    ]);
+  });
+
+  it("omits SE preview when no SE form is linked", () => {
+    expect(
+      reviewPdfPreviewActions({
+        showId: "show-1",
+        critiqueId: "crit-9",
+        seEvaluationId: null,
+      }),
+    ).toEqual([
+      {
+        kind: "critique",
+        label: "TNRK PDF Preview",
+        href: "/api/pdf/tnrk?kind=critique&show_id=show-1&critique_id=crit-9",
+      },
+    ]);
   });
 });

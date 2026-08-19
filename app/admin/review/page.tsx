@@ -20,8 +20,7 @@ import {
 import { reviewPrimaryAction } from "@/lib/domain/review-primary-action";
 import {
   buildReviewQueueRows,
-  tnrkCritiquePdfHref,
-  tnrkCritiquePdfLabel,
+  reviewPdfPreviewActions,
 } from "@/lib/domain/review-queue-layout";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { pushToast } from "@/components/feedback/toast";
@@ -269,19 +268,6 @@ export default function AdminReviewPage() {
                           {seForSelected.form.comments?.trim()
                             ? ` · “${seForSelected.form.comments.trim().slice(0, 80)}${seForSelected.form.comments.trim().length > 80 ? "…" : ""}”`
                             : ""}
-                          {showId ? (
-                            <>
-                              {" · "}
-                              <a
-                                className="text-sss-accent-deep underline"
-                                href={`/api/pdf/tnrk?kind=se&show_id=${showId}&evaluation_id=${seForSelected.id}`}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                SE PDF
-                              </a>
-                            </>
-                          ) : null}
                         </p>
                       ) : (
                         <p className="mt-1 text-xs text-sss-text-muted">
@@ -347,15 +333,21 @@ export default function AdminReviewPage() {
                     </div>
                     {showId && selectedId ? (
                       <div className="flex flex-wrap gap-2">
-                        <Button asChild>
-                          <a
-                            href={tnrkCritiquePdfHref(showId, selectedId)}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            {tnrkCritiquePdfLabel()}
-                          </a>
-                        </Button>
+                        {reviewPdfPreviewActions({
+                          showId,
+                          critiqueId: selectedId,
+                          seEvaluationId: seForSelected?.id ?? null,
+                        }).map((action) => (
+                          <Button key={action.kind} asChild>
+                            <a
+                              href={action.href}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {action.label}
+                            </a>
+                          </Button>
+                        ))}
                       </div>
                     ) : null}
                     <details className="text-sm">

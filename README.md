@@ -110,6 +110,7 @@ Operator checklist: `docs/orgs/velocity-agency/customers/blacksage-kennels/initi
 
 - Selecting a dog opens the draft editor **directly beneath that row** (single-column queue).
 - **TNRK PDF Preview** is a primary action on the open editor (not under More actions). ADRK draft PDF and save/rerun stay under More actions.
+- When an SE form exists for the dog, **SE PDF Preview** appears beside the TNRK button.
 - Certificate narrative prefers secretary draft → live/batch STT transcript → SE-derived text.
 
 ## Scripts
