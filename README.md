@@ -65,7 +65,7 @@ SQL lives under `supabase/migrations/`. Apply **in order** on project `emiwbvbyt
 3. `supabase/migrations/20260818120200_show_judges_and_critique_judge.sql` — `shows.judges` jsonb + `critiques.judge` text.
 4. `supabase/migrations/20260820010000_critique_status_checks.sql` — CHECK constraints on `critiques.status` and `delivery_status`.
 
-**Status:** 1–3 applied on project `emiwbvbytmfbonbnemli` (schema + Storage + judges columns). Apply migration 4 on that project before relying on the new CHECKs.
+**Status:** 1–4 applied on project `emiwbvbytmfbonbnemli` (schema + Storage + judges columns + critique status CHECKs).
 
 ## Auth (self-serve signup)
 
