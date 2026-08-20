@@ -60,12 +60,18 @@ export default function RecordPage() {
     void refreshQueue();
     async function loadEntry() {
       const showRes = await fetch("/api/shows");
-      if (!showRes.ok) return;
+      if (!showRes.ok) {
+        setEntryLoaded(true);
+        return;
+      }
       const showData = (await showRes.json()) as {
         shows: Show[];
         active_show_id: string | null;
       };
-      if (!showData.active_show_id) return;
+      if (!showData.active_show_id) {
+        setEntryLoaded(true);
+        return;
+      }
       setShowId(showData.active_show_id);
       const active =
         showData.shows.find((s) => s.id === showData.active_show_id) ?? null;
