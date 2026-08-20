@@ -18,6 +18,7 @@ import { blankRosterEntryDraft } from "@/lib/domain/roster-draft";
 import { blankShowDraft, validateShowCreate } from "@/lib/domain/show-draft";
 import type { ShowCreateInput } from "@/lib/domain/show-draft";
 import { CsvImportDialog } from "@/components/roster/CsvImportDialog";
+import { DogPhotoField } from "@/components/roster/DogPhotoField";
 import { JudgeListFields } from "@/components/show/JudgeListFields";
 import {
   Dialog,
@@ -241,8 +242,14 @@ export default function AdminEntriesPage() {
         setMessage(data.error ?? "Create failed");
         return;
       }
-      setMessage("Entry created");
-      closeEntryForm();
+      const created = (await res.json()) as { entry?: RosterEntryRecord };
+      setMessage("Entry created — add a photo if you have one");
+      if (created.entry) {
+        setEntryDraft(created.entry);
+        setEntryFormMode("edit");
+      } else {
+        closeEntryForm();
+      }
       await load();
       return;
     }
@@ -482,7 +489,19 @@ export default function AdminEntriesPage() {
               {filtered.map((e) => (
                 <tr key={e.id} className="border-t border-sss-border">
                   <td className="p-2">{e.armband}</td>
-                  <td className="p-2">{e.dog_name}</td>
+                  <td className="p-2">
+                    <span className="inline-flex items-center gap-2">
+                      {e.photo_path && showId ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={`/api/photos/${e.id}?show_id=${encodeURIComponent(showId)}`}
+                          alt=""
+                          className="h-8 w-8 rounded object-cover"
+                        />
+                      ) : null}
+                      {e.dog_name}
+                    </span>
+                  </td>
                   <td className="p-2">{e.owner}</td>
                   <td className="p-2">
                     {ADRK_CLASSES.find((c) => c.id === e.class_id)?.label ?? e.class_id}
@@ -527,6 +546,16 @@ export default function AdminEntriesPage() {
           </DialogHeader>
           {entryDraft ? (
         <section id="entry-profile-form" className="space-y-3">
+          {showId ? (
+            <DogPhotoField
+              showId={entryDraft.show_id || showId}
+              entryId={entryDraft.id || undefined}
+              photoPath={entryDraft.photo_path}
+              onChanged={(photo_path) =>
+                setEntryDraft({ ...entryDraft, photo_path })
+              }
+            />
+          ) : null}
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor="armband">Armband</Label>

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { purgeShowData, deleteShowAudio } from "@/lib/store";
+import { purgeShowData, deleteShowAudio, deleteShowPhotos } from "@/lib/store";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
 
 export async function POST(request: Request) {
@@ -18,6 +18,7 @@ export async function POST(request: Request) {
   }
 
   await deleteShowAudio(body.show_id);
+  await deleteShowPhotos(body.show_id);
   const store = await purgeShowData(body.show_id);
   return NextResponse.json({
     ok: true,

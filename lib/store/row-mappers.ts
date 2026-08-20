@@ -71,6 +71,7 @@ export function toEntryRow(entry: RosterEntryRecord): EntryRow {
     email: entry.email,
     sex: entry.sex,
     class_id: entry.class_id,
+    photo_path: entry.photo_path ?? null,
   };
 }
 
@@ -86,6 +87,7 @@ export function mapEntryRow(row: EntryRow): RosterEntryRecord {
     email: row.email,
     sex: row.sex,
     class_id: row.class_id,
+    photo_path: optionalText(row.photo_path),
   };
 }
 

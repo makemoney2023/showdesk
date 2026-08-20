@@ -64,8 +64,9 @@ SQL lives under `supabase/migrations/`. Apply **in order** on project `emiwbvbyt
 2. `supabase/migrations/20260818120100_critique_audio_bucket.sql` — private bucket `critique-audio` + authenticated Storage policies.
 3. `supabase/migrations/20260818120200_show_judges_and_critique_judge.sql` — `shows.judges` jsonb + `critiques.judge` text.
 4. `supabase/migrations/20260820010000_critique_status_checks.sql` — CHECK constraints on `critiques.status` and `delivery_status`.
+5. `supabase/migrations/20260820020000_dog_photos.sql` — `entries.photo_path` + private bucket `dog-photos`.
 
-**Status:** 1–4 applied on project `emiwbvbytmfbonbnemli` (schema + Storage + judges columns + critique status CHECKs).
+**Status:** 1–5 applied on project `emiwbvbytmfbonbnemli` (including `dog-photos` Storage).
 
 ## Auth (self-serve signup)
 
@@ -82,13 +83,18 @@ Existing users use **Sign in**. Duplicate emails return a clear error (409).
 
 ## Storage (production)
 
-Private bucket: `critique-audio`.
+Private buckets:
 
-Object path: `{show_id}/{critique_id}.webm` (same layout as local `.data/audio/`).
+| Bucket | Object path | Local demo |
+|--------|-------------|------------|
+| `critique-audio` | `{show_id}/{critique_id}.webm` | `.data/audio/` |
+| `dog-photos` | `{show_id}/{entry_id}.{jpg\|png\|webp}` | `.data/photos/` |
 
-Authenticated users may INSERT, SELECT, UPDATE (upsert), and DELETE objects in that bucket. `/api/audio/[critiqueId]` streams via the session (or service role when needed).
+Authenticated users may INSERT, SELECT, UPDATE (upsert), and DELETE objects in those buckets. `/api/audio/[critiqueId]` and `/api/photos/[entryId]` stream via the session (`show_id` required).
 
-**Cascade:** Deleting an entry (or a show) CASCADE-deletes its critiques, SE evaluations, placements, and the ringside audio object. Demo file-store matches that wipe. Roster DELETE is not a soft unlink.
+Roster and SE share one dog photo on `entries.photo_path`. JPEG, PNG, or WebP, 5 MB max.
+
+**Cascade:** Deleting an entry (or a show) CASCADE-deletes its critiques, SE evaluations, placements, ringside audio, and dog photo. Demo file-store matches that wipe. Roster DELETE is not a soft unlink.
 
 CSV import **upserts by armband** on the active show (re-import updates existing dogs instead of duplicating).
 

@@ -131,6 +131,11 @@ export default function RingsidePage() {
               }
               statusLabel={labelCritiqueStatus(status)}
               statusTone={critiqueChipTone(status)}
+              photoHref={
+                e.photo_path && activeShowId
+                  ? `/api/photos/${e.id}?show_id=${encodeURIComponent(activeShowId)}`
+                  : undefined
+              }
             />
           );
         })}

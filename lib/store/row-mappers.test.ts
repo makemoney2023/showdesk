@@ -119,6 +119,12 @@ describe("entry row mappers", () => {
   it("round-trips roster entries", () => {
     expect(mapEntryRow(toEntryRow(entry))).toEqual(entry);
   });
+
+  it("round-trips optional dog photo path", () => {
+    const withPhoto = { ...entry, photo_path: "show-1/entry-1.jpg" };
+    expect(mapEntryRow(toEntryRow(withPhoto))).toEqual(withPhoto);
+    expect(toEntryRow(entry).photo_path).toBeNull();
+  });
 });
 
 describe("critique row mappers", () => {

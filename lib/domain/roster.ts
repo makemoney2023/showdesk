@@ -12,6 +12,7 @@ export interface RosterEntry {
   sex: "R" | "H";
   class_id: AdrkClassId;
   email: string;
+  photo_path?: string;
 }
 
 export interface RosterParseResult {
@@ -152,7 +153,12 @@ export function mergeImportedEntries<T extends RosterEntry>(
       next.push({ ...row, id: newId() } as T);
       added += 1;
     } else {
-      next[idx] = { ...next[idx], ...row, id: next[idx].id };
+      next[idx] = {
+        ...next[idx],
+        ...row,
+        id: next[idx].id,
+        photo_path: next[idx].photo_path,
+      };
       updated += 1;
     }
   }

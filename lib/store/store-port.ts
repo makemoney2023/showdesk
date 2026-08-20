@@ -32,6 +32,7 @@ export interface EntryRow {
   email: string;
   sex: "R" | "H";
   class_id: AdrkClassId;
+  photo_path: string | null;
 }
 
 /** Postgres `critiques` row. */

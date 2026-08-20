@@ -20,6 +20,7 @@ import { seSectionProgress } from "@/lib/domain/show-day";
 import { canRecordWithJudge, syncShowJudges } from "@/lib/domain/show-judges";
 import { stickyJudgeForShow } from "@/lib/client/sticky-judge";
 import { EmptyDesk } from "@/components/desk/EmptyDesk";
+import { DogPhotoField } from "@/components/roster/DogPhotoField";
 import type { RosterEntryRecord, SeEvaluationRecord, Show } from "@/lib/types";
 
 const HEAD_LABELS: Record<(typeof HEAD_SHAPE_OPTIONS)[number], string> = {
@@ -246,7 +247,16 @@ export default function StewardSeFormPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-8 pb-40">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="flex flex-wrap items-start gap-3">
+          {showId && entry.photo_path ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={`/api/photos/${entry.id}?show_id=${encodeURIComponent(showId)}`}
+              alt=""
+              className="h-16 w-16 rounded-md border border-sss-border object-cover"
+            />
+          ) : null}
+          <div>
           <p className="text-xs uppercase tracking-wide text-sss-text-muted">
             Ring steward · Standard Evaluation (SE)
           </p>
@@ -256,6 +266,7 @@ export default function StewardSeFormPage() {
           <p className="text-sm text-sss-text-secondary">
             #{entry.armband} · {status}
           </p>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/ringside">
@@ -298,6 +309,16 @@ export default function StewardSeFormPage() {
         <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-sss-text-muted">
           Identification
         </h2>
+        {showId ? (
+          <DogPhotoField
+            showId={showId}
+            entryId={entry.id}
+            photoPath={entry.photo_path}
+            onChanged={(photo_path) =>
+              setEntry({ ...entry, photo_path })
+            }
+          />
+        ) : null}
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Date">
             <Input

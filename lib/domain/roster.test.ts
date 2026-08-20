@@ -113,6 +113,7 @@ describe("roster", () => {
         sex: "R",
         class_id: "zwischenklasse",
         email: "old@test.com",
+        photo_path: "show-1/entry-keep.jpg",
       },
     ];
     const merged = mergeImportedEntries(
@@ -148,6 +149,7 @@ describe("roster", () => {
     expect(merged.entries).toHaveLength(2);
     expect(merged.entries[0].id).toBe("entry-keep");
     expect(merged.entries[0].dog_name).toBe("Rex Updated");
+    expect(merged.entries[0].photo_path).toBe("show-1/entry-keep.jpg");
     expect(merged.entries[1].id).toBe("entry-new");
   });
 

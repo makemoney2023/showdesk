@@ -27,6 +27,7 @@ export interface RosterEntryRecord {
   sex: "R" | "H";
   class_id: AdrkClassId;
   email: string;
+  photo_path?: string;
 }
 
 export interface CritiqueRecord {

@@ -4,6 +4,7 @@ import {
   updateStore,
   newId,
   deleteCritiqueAudio,
+  deleteDogPhoto,
 } from "@/lib/store";
 import { filterByShow } from "@/lib/domain/show-scope";
 import {
@@ -106,6 +107,7 @@ export async function POST(request: Request) {
     ...body.entry,
     id: newId("entry"),
     show_id: body.show_id,
+    photo_path: undefined,
   };
   await updateStore((s) => ({ ...s, entries: [...s.entries, entry] }));
   return NextResponse.json({ entry });
@@ -132,20 +134,25 @@ export async function PUT(request: Request) {
   }
 
   const store = await readStore();
-  const exists = store.entries.some(
+  const existing = store.entries.find(
     (e) => e.id === body.entry.id && e.show_id === body.show_id,
   );
-  if (!exists) {
+  if (!existing) {
     return NextResponse.json({ error: "Entry not found" }, { status: 404 });
   }
+
+  const nextEntry: RosterEntryRecord = {
+    ...body.entry,
+    photo_path: body.entry.photo_path ?? existing.photo_path,
+  };
 
   await updateStore((s) => ({
     ...s,
     entries: s.entries.map((e) =>
-      e.id === body.entry.id && e.show_id === body.show_id ? body.entry : e,
+      e.id === body.entry.id && e.show_id === body.show_id ? nextEntry : e,
     ),
   }));
-  return NextResponse.json({ ok: true, entry: body.entry });
+  return NextResponse.json({ ok: true, entry: nextEntry });
 }
 
 export async function DELETE(request: Request) {
@@ -165,15 +172,19 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Entry not found" }, { status: 404 });
   }
 
+  const target = store.entries.find((e) => e.id === id && e.show_id === showId);
   const audioPaths = critiquesForEntry(store.critiques, id, showId)
     .map((critique) => critique.audio_path)
     .filter((path): path is string => Boolean(path));
 
   await updateStore((s) => removeEntryAndChildren(s, id, showId));
-  await Promise.all(
-    audioPaths.map((relativePath) =>
+  await Promise.all([
+    ...audioPaths.map((relativePath) =>
       deleteCritiqueAudio(relativePath).catch(() => undefined),
     ),
-  );
+    target?.photo_path
+      ? deleteDogPhoto(target.photo_path).catch(() => undefined)
+      : Promise.resolve(),
+  ]);
   return NextResponse.json({ ok: true });
 }

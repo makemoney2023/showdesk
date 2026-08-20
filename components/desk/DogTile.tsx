@@ -10,6 +10,7 @@ export function DogTile({
   classLabel,
   statusLabel,
   statusTone,
+  photoHref,
 }: {
   entryId: string;
   armband: string;
@@ -17,16 +18,27 @@ export function DogTile({
   classLabel: string;
   statusLabel: string;
   statusTone: ChipTone;
+  photoHref?: string;
 }) {
   return (
     <li className="sss-paper p-4">
       <div className="mb-3 flex items-start justify-between gap-3">
-        <div>
+        <div className="flex items-start gap-3">
+          {photoHref ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={photoHref}
+              alt=""
+              className="h-14 w-14 rounded-md object-cover"
+            />
+          ) : null}
+          <div>
           <div className="font-[family-name:var(--font-fraunces)] text-2xl font-semibold">
             #{armband}
           </div>
           <div className="font-medium">{dogName}</div>
           <div className="text-sm text-sss-text-muted">{classLabel}</div>
+          </div>
         </div>
         <StatusChip label={statusLabel} tone={statusTone} />
       </div>
