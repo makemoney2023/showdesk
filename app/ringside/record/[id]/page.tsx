@@ -46,6 +46,10 @@ export default function RecordPage() {
     ReturnType<typeof startDeepgramLiveSession>
   > | null>(null);
   const liveFinalRef = useRef("");
+  const recordingRef = useRef(recording);
+  recordingRef.current = recording;
+  const startRecordingRef = useRef<() => Promise<void> | void>(() => undefined);
+  const stopRecordingRef = useRef<() => void>(() => undefined);
 
   const refreshQueue = useCallback(async () => {
     const items = await listQueuedRecordings();
@@ -97,19 +101,6 @@ export default function RecordPage() {
     }, 250);
     return () => window.clearInterval(id);
   }, [recording, paused]);
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.code !== "Space") return;
-      const tag = (e.target as HTMLElement | null)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      e.preventDefault();
-      if (recording) stopRecording();
-      else void startRecording();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [recording]);
 
   function updateVuMeter() {
     const analyser = analyserRef.current;
@@ -228,6 +219,22 @@ export default function RecordPage() {
     setPaused(false);
     setVuLevel(0);
   }
+
+  startRecordingRef.current = startRecording;
+  stopRecordingRef.current = stopRecording;
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.code !== "Space") return;
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      e.preventDefault();
+      if (recordingRef.current) stopRecordingRef.current();
+      else void startRecordingRef.current();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   async function handleStop() {
     const blob = new Blob(chunksRef.current, { type: "audio/webm" });

@@ -16,7 +16,7 @@ describe("wrapCritiqueNarrative", () => {
   it("flags narratives that exceed the printed 12-line band", () => {
     const long = Array.from(
       { length: TNRK_CRITIQUE_MAX_NARRATIVE_LINES + 2 },
-      (_, i) => `Line number ${i} with extra words to fill the certificate row.`,
+      () => "word ".repeat(20).trim(),
     ).join(" ");
     expect(critiqueNarrativeOverflowsCertificate(long)).toBe(true);
     expect(critiqueNarrativeOverflowsCertificate("Short critique.")).toBe(false);
