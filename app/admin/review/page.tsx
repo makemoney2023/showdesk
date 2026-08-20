@@ -17,9 +17,10 @@ import {
 } from "@/lib/domain/adrk-template";
 import {
   canRelease,
-  isReviewable,
-  pendingReviewCount,
+  deskAttentionCount,
+  needsDeskAttention,
 } from "@/lib/domain/critique-status";
+import { critiqueNarrativeOverflowsCertificate } from "@/lib/domain/tnrk-critique-wrap";
 import { reviewPrimaryAction } from "@/lib/domain/review-primary-action";
 import {
   buildReviewQueueRows,
@@ -183,27 +184,49 @@ export default function AdminReviewPage() {
       setConfirmOpen(false);
       return;
     }
+    await releaseCritique(true);
+  }
+
+  async function releaseCritique(afterApprove: boolean) {
+    if (!showId || !selectedId || busy) return;
+    setBusy(true);
     const release = await fetch("/api/approve", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ show_id: showId, critique_id: selectedId }),
     });
-    const releaseData = (await release.json()) as {
-      email?: { mock?: boolean; sent?: boolean };
+    const releaseData = (await release.json().catch(() => ({}))) as {
+      email?: { mock?: boolean; sent?: boolean; error?: string };
+      already_sent?: boolean;
+      error?: string;
     };
-    const msg = releaseData.email?.mock
-      ? "Approved — email mocked (no RESEND_API_KEY)"
-      : "Approved and release attempted";
+    const prefix = afterApprove ? "Approved" : "Release";
+    let msg: string;
+    let ok = release.ok;
+    if (!release.ok) {
+      msg = `${prefix} — release failed${releaseData.error ? `: ${releaseData.error}` : ""}`;
+    } else if (releaseData.already_sent) {
+      msg = `${prefix} — already emailed`;
+    } else if (releaseData.email?.error) {
+      msg = `${prefix} — ${releaseData.email.error}`;
+      ok = false;
+    } else if (releaseData.email?.mock) {
+      msg = `${prefix} — email mocked (no RESEND_API_KEY)`;
+    } else if (releaseData.email?.sent) {
+      msg = `${prefix} and emailed to owner`;
+    } else {
+      msg = `${prefix} — delivery pending`;
+    }
     setStatusMsg(msg);
-    pushToast(msg);
+    pushToast(msg, ok ? "ok" : "error");
     setBusy(false);
     setConfirmOpen(false);
     await load();
   }
 
-  const pendingCount = pendingReviewCount(critiques.map((c) => c.status));
-  const pending = critiques.filter((c) => isReviewable(c.status));
-  const visible = pendingOnly ? pending : critiques;
+  const attentionCount = deskAttentionCount(critiques.map((c) => c.status));
+  const attention = critiques.filter((c) => needsDeskAttention(c.status));
+  const visible = pendingOnly ? attention : critiques;
   const queue = [...visible].toSorted((a, b) => {
     const rank = (s: string) =>
       s === "PENDING_REVIEW" ? 0 : s === "ERROR" ? 1 : s === "PROCESSING" ? 2 : 3;
@@ -228,7 +251,9 @@ export default function AdminReviewPage() {
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-medium">
-            {pendingOnly ? `Pending (${pendingCount})` : `All (${critiques.length})`}
+            {pendingOnly
+              ? `Needs attention (${attentionCount})`
+              : `All (${critiques.length})`}
           </h2>
           <div className="flex gap-2">
             <Button
@@ -236,7 +261,7 @@ export default function AdminReviewPage() {
               size="sm"
               onClick={() => setPendingOnly((v) => !v)}
             >
-              {pendingOnly ? "Show all" : "Pending only"}
+              {pendingOnly ? "Show all" : "Needs attention"}
             </Button>
             <Button variant="outline" size="sm" onClick={() => void load()}>
               Refresh
@@ -284,7 +309,7 @@ export default function AdminReviewPage() {
                         <audio
                           controls
                           className="w-full"
-                          src={`/api/audio/${selected.id}`}
+                          src={`/api/audio/${selected.id}?show_id=${encodeURIComponent(showId ?? "")}`}
                           preload="metadata"
                         >
                           Your browser does not support audio.
@@ -297,9 +322,21 @@ export default function AdminReviewPage() {
                     )}
                     <div className="space-y-2">
                       <Label htmlFor="narrative-draft">Narrative (draft)</Label>
+                      {selected.status === "ERROR" && selected.error_message ? (
+                        <p className="text-sm text-destructive">
+                          Processing failed: {selected.error_message}
+                        </p>
+                      ) : null}
                       <p className="text-xs text-sss-text-muted">
                         Pre-filled from speech-to-text — edit before approve.
                       </p>
+                      {draft.narrative &&
+                      critiqueNarrativeOverflowsCertificate(draft.narrative) ? (
+                        <p className="text-xs text-destructive">
+                          Narrative is longer than the printed certificate
+                          (12 lines). Extra text is cut on the TNRK PDF.
+                        </p>
+                      ) : null}
                       <Textarea
                         id="narrative-draft"
                         value={draft.narrative}
@@ -413,6 +450,16 @@ export default function AdminReviewPage() {
                       onConfirm={() => void approve()}
                       onCancel={() => setConfirmOpen(false)}
                     />
+                    {canRelease(selected.status) &&
+                    selected.delivery_status !== "sent" ? (
+                      <Button
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => void releaseCritique(false)}
+                      >
+                        Retry email
+                      </Button>
+                    ) : null}
                     {!canRelease(selected.status) && (
                       <p className="text-xs text-sss-text-muted">
                         Release blocked until secretary approves.

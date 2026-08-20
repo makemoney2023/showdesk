@@ -8,8 +8,12 @@ import {
 } from "@/lib/store";
 import { filterByShow } from "@/lib/domain/show-scope";
 import { processCritique } from "@/lib/pipeline/process-critique";
-import { assertTransition } from "@/lib/domain/critique-status";
+import { canTransition } from "@/lib/domain/critique-status";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
+import { readJsonBody } from "@/lib/api/read-json";
+import type { DraftCritiqueSchema } from "@/lib/domain/adrk-template";
+
+const MAX_AUDIO_BASE64_CHARS = 20 * 1024 * 1024;
 
 export async function GET(request: Request) {
   const auth = await requireApiSession();
@@ -29,13 +33,25 @@ export async function POST(request: Request) {
   const auth = await requireApiSession();
   if (isApiUnauthorized(auth)) return auth;
 
-  const body = (await request.json()) as {
+  const body = await readJsonBody<{
     show_id: string;
     entry_id: string;
     audio_base64?: string;
     live_transcript?: string;
     judge?: string;
-  };
+  }>(request);
+  if (!body?.show_id || !body.entry_id) {
+    return NextResponse.json(
+      { error: "show_id and entry_id required" },
+      { status: 400 },
+    );
+  }
+  if (
+    body.audio_base64 &&
+    body.audio_base64.length > MAX_AUDIO_BASE64_CHARS
+  ) {
+    return NextResponse.json({ error: "Audio too large" }, { status: 413 });
+  }
 
   const store = await readStore();
   const entry = store.entries.find(
@@ -84,7 +100,6 @@ export async function POST(request: Request) {
       showId: body.show_id,
     });
 
-    // Merge placement from store if present
     const placement = (await readStore()).placements.find(
       (p) => p.entry_id === body.entry_id && p.show_id === body.show_id,
     );
@@ -115,6 +130,7 @@ export async function POST(request: Request) {
       source: result.source,
     });
   } catch (err) {
+    const message = err instanceof Error ? err.message : "Processing failed";
     await updateStore((s) => ({
       ...s,
       critiques: s.critiques.map((c) =>
@@ -122,13 +138,13 @@ export async function POST(request: Request) {
           ? {
               ...c,
               status: "ERROR" as const,
-              error_message: err instanceof Error ? err.message : "Processing failed",
+              error_message: message,
               updated_at: new Date().toISOString(),
             }
           : c,
       ),
     }));
-    return NextResponse.json({ error: "Processing failed" }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -136,13 +152,19 @@ export async function PATCH(request: Request) {
   const auth = await requireApiSession();
   if (isApiUnauthorized(auth)) return auth;
 
-  const body = (await request.json()) as {
+  const body = await readJsonBody<{
     show_id: string;
     critique_id: string;
     action: "update_draft" | "rerun" | "approve";
-    draft?: unknown;
+    draft?: DraftCritiqueSchema;
     audio_base64?: string;
-  };
+  }>(request);
+  if (!body?.show_id || !body.critique_id || !body.action) {
+    return NextResponse.json(
+      { error: "show_id, critique_id, and action required" },
+      { status: 400 },
+    );
+  }
 
   const store = await readStore();
   const critique = store.critiques.find(
@@ -153,6 +175,12 @@ export async function PATCH(request: Request) {
   }
 
   if (body.action === "update_draft" && body.draft) {
+    if (critique.status === "APPROVED") {
+      return NextResponse.json(
+        { error: "Approved critiques cannot be edited" },
+        { status: 409 },
+      );
+    }
     await updateStore((s) => ({
       ...s,
       critiques: s.critiques.map((c) =>
@@ -169,36 +197,72 @@ export async function PATCH(request: Request) {
   }
 
   if (body.action === "rerun") {
-    assertTransition(critique.status, "PROCESSING");
-    let audioBase64 = body.audio_base64;
-    if (!audioBase64 && critique.audio_path) {
-      const buf = await readCritiqueAudio(critique.audio_path);
-      audioBase64 = buf.toString("base64");
+    if (!canTransition(critique.status, "PROCESSING")) {
+      return NextResponse.json(
+        { error: `Cannot rerun from ${critique.status}` },
+        { status: 409 },
+      );
     }
-    const result = await processCritique({
-      audioBase64,
-      entryId: critique.entry_id,
-      showId: body.show_id,
-    });
-    await updateStore((s) => ({
-      ...s,
-      critiques: s.critiques.map((c) =>
-        c.id === body.critique_id
-          ? {
-              ...c,
-              status: "PENDING_REVIEW" as const,
-              transcript: result.transcript,
-              draft: result.draft,
-              updated_at: new Date().toISOString(),
-            }
-          : c,
-      ),
-    }));
-    return NextResponse.json({ ok: true, mock: result.mock });
+    try {
+      let audioBase64 = body.audio_base64;
+      if (!audioBase64 && critique.audio_path) {
+        const buf = await readCritiqueAudio(critique.audio_path);
+        audioBase64 = buf.toString("base64");
+      }
+      const result = await processCritique({
+        audioBase64,
+        liveTranscript: critique.transcript || undefined,
+        entryId: critique.entry_id,
+        showId: body.show_id,
+      });
+      const placement = (await readStore()).placements.find(
+        (p) => p.entry_id === critique.entry_id && p.show_id === body.show_id,
+      );
+      await updateStore((s) => ({
+        ...s,
+        critiques: s.critiques.map((c) =>
+          c.id === body.critique_id
+            ? {
+                ...c,
+                status: "PENDING_REVIEW" as const,
+                transcript: result.transcript,
+                draft: {
+                  ...result.draft,
+                  placement: placement?.placement ?? result.draft.placement,
+                },
+                error_message: undefined,
+                updated_at: new Date().toISOString(),
+              }
+            : c,
+        ),
+      }));
+      return NextResponse.json({ ok: true, mock: result.mock });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Processing failed";
+      await updateStore((s) => ({
+        ...s,
+        critiques: s.critiques.map((c) =>
+          c.id === body.critique_id
+            ? {
+                ...c,
+                status: "ERROR" as const,
+                error_message: message,
+                updated_at: new Date().toISOString(),
+              }
+            : c,
+        ),
+      }));
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
   }
 
   if (body.action === "approve") {
-    assertTransition(critique.status, "APPROVED");
+    if (!canTransition(critique.status, "APPROVED")) {
+      return NextResponse.json(
+        { error: `Cannot approve from ${critique.status}` },
+        { status: 409 },
+      );
+    }
     await updateStore((s) => ({
       ...s,
       critiques: s.critiques.map((c) =>

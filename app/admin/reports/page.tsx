@@ -111,6 +111,7 @@ export default function AdminReportsPage() {
           critiqueId: critique?.id ?? null,
           seEvaluationId: se?.id ?? null,
           hasAudio: Boolean(critique?.audio_path),
+          hasPlacement: Boolean(placement),
         });
         return { entry, critique, se, placement, documents };
       });
@@ -202,37 +203,33 @@ function DocumentActions({
 }: {
   documents: ReportDocumentLink[];
 }) {
-  const available = documents.filter((d) => d.available && d.href);
-  if (available.length === 0) {
-    return (
-      <p className="text-xs text-sss-text-muted">
-        No documents generated yet for this dog.
-      </p>
-    );
-  }
   return (
     <ul className="space-y-2">
-      {available.map((doc) => (
+      {documents.map((doc) => (
         <li
           key={doc.kind}
           className="flex flex-wrap items-center justify-between gap-2 border border-sss-border bg-sss-lifted px-3 py-2"
         >
           <span className="text-sm font-medium">{doc.label}</span>
-          <div className="flex flex-wrap gap-2">
-            <Button asChild size="sm" variant="outline">
-              <a href={doc.href} target="_blank" rel="noreferrer">
-                View
-              </a>
-            </Button>
-            <Button asChild size="sm">
-              <a
-                href={reportDocumentDownloadHref(doc.href)}
-                download={doc.filename}
-              >
-                Download
-              </a>
-            </Button>
-          </div>
+          {doc.available && doc.href ? (
+            <div className="flex flex-wrap gap-2">
+              <Button asChild size="sm" variant="outline">
+                <a href={doc.href} target="_blank" rel="noreferrer">
+                  View
+                </a>
+              </Button>
+              <Button asChild size="sm">
+                <a
+                  href={reportDocumentDownloadHref(doc.href)}
+                  download={doc.filename}
+                >
+                  Download
+                </a>
+              </Button>
+            </div>
+          ) : (
+            <span className="text-xs text-sss-text-muted">Not generated yet</span>
+          )}
         </li>
       ))}
     </ul>

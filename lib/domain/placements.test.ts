@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   formwertSortRank,
+  placementEntriesBelongToShow,
   placementsSuggestedFromFormwert,
   resolveFormwertByEntryId,
   sortDogsForPlacement,
@@ -134,6 +135,32 @@ describe("placementsSuggestedFromFormwert", () => {
       { entry_id: "f", class_id: "offene-klasse", placement: 1 },
       { entry_id: "g", class_id: "offene-klasse", placement: 2 },
     ]);
+  });
+
+  it("rejects placements for dogs that are not on the show", () => {
+    expect(
+      placementEntriesBelongToShow(
+        [{ entry_id: "e1", class_id: "zwischenklasse", placement: 1 }],
+        [
+          {
+            id: "e1",
+            show_id: "other",
+            class_id: "zwischenklasse",
+          },
+        ],
+        "s1",
+      ).valid,
+    ).toBe(false);
+  });
+
+  it("rejects class_id that does not match the roster row", () => {
+    expect(
+      placementEntriesBelongToShow(
+        [{ entry_id: "e1", class_id: "offene-klasse", placement: 1 }],
+        [{ id: "e1", show_id: "s1", class_id: "zwischenklasse" }],
+        "s1",
+      ).valid,
+    ).toBe(false);
   });
 
   it("skips unrated dogs when assigning top-4", () => {

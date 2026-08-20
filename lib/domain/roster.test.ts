@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  mergeImportedEntries,
   parseRosterCsv,
   rosterCsvTemplate,
   validateRosterEntry,
   validateRosterEntryUpdate,
 } from "./roster";
+import type { RosterEntry } from "./roster";
 
 describe("roster", () => {
   it("parses valid CSV with required headers", () => {
@@ -96,6 +98,57 @@ describe("roster", () => {
         email: "a@b.com",
       }).valid,
     ).toBe(true);
+  });
+
+  it("upserts CSV rows by show + armband instead of duplicating", () => {
+    const existing: RosterEntry[] = [
+      {
+        id: "entry-keep",
+        show_id: "show-1",
+        armband: "101",
+        dog_name: "Old Name",
+        zb_number: "",
+        wt: "",
+        owner: "Owner",
+        sex: "R",
+        class_id: "zwischenklasse",
+        email: "old@test.com",
+      },
+    ];
+    const merged = mergeImportedEntries(
+      existing,
+      [
+        {
+          show_id: "show-1",
+          armband: "101",
+          dog_name: "Rex Updated",
+          zb_number: "DE-1",
+          wt: "2024-01-01",
+          owner: "Owner",
+          sex: "R",
+          class_id: "zwischenklasse",
+          email: "new@test.com",
+        },
+        {
+          show_id: "show-1",
+          armband: "102",
+          dog_name: "New Dog",
+          zb_number: "",
+          wt: "",
+          owner: "Owner",
+          sex: "H",
+          class_id: "zwischenklasse",
+          email: "",
+        },
+      ],
+      () => "entry-new",
+    );
+    expect(merged.added).toBe(1);
+    expect(merged.updated).toBe(1);
+    expect(merged.entries).toHaveLength(2);
+    expect(merged.entries[0].id).toBe("entry-keep");
+    expect(merged.entries[0].dog_name).toBe("Rex Updated");
+    expect(merged.entries[1].id).toBe("entry-new");
   });
 
   it("collects row-level errors without aborting", () => {

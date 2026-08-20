@@ -44,6 +44,12 @@ const COPY = {
     href: null,
     cta: null,
   },
+  "no-entry": {
+    title: "Dog not on this show",
+    body: "This armband is not on the active roster. Go back and pick another dog.",
+    href: "/ringside",
+    cta: "Back to dogs",
+  },
   "no-selection": {
     title: "Select a critique",
     body: "Pick a dog in the queue — the review editor opens directly beneath it.",

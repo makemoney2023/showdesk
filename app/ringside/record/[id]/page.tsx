@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { enqueueRecording, listQueuedRecordings } from "@/lib/offline/queue";
 import {
-  enqueueRecording,
-  listQueuedRecordings,
-  removeQueuedRecording,
-} from "@/lib/offline/queue";
+  blobToBase64,
+  formatQueueSyncStatus,
+  syncQueuedRecordings,
+} from "@/lib/offline/sync";
 import { formatElapsed, nextDogAfter } from "@/lib/domain/show-day";
 import { canRecordWithJudge, syncShowJudges } from "@/lib/domain/show-judges";
 import { stickyJudgeForShow } from "@/lib/client/sticky-judge";
@@ -15,18 +16,6 @@ import { startDeepgramLiveSession } from "@/lib/client/deepgram-live";
 import type { RosterEntryRecord, Show } from "@/lib/types";
 import { EmptyDesk } from "@/components/desk/EmptyDesk";
 import { VuMeter } from "@/components/desk/VuMeter";
-
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      resolve(result.split(",")[1] ?? "");
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
 
 export default function RecordPage() {
   const params = useParams();
@@ -45,6 +34,7 @@ export default function RecordPage() {
   const [status, setStatus] = useState("Ready");
   const [liveTranscript, setLiveTranscript] = useState("");
   const [queueCount, setQueueCount] = useState(0);
+  const [entryLoaded, setEntryLoaded] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -79,9 +69,14 @@ export default function RecordPage() {
       setJudges(names);
       setJudge(stickyJudgeForShow(showData.active_show_id, names));
       const res = await fetch(`/api/entries?show_id=${showData.active_show_id}`);
+      if (!res.ok) {
+        setEntryLoaded(true);
+        return;
+      }
       const data = (await res.json()) as { entries: RosterEntryRecord[] };
       setEntries(data.entries);
       setEntry(data.entries.find((e) => e.id === entryId) ?? null);
+      setEntryLoaded(true);
     }
     void loadEntry();
     return () => {
@@ -114,7 +109,7 @@ export default function RecordPage() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  });
+  }, [recording]);
 
   function updateVuMeter() {
     const analyser = analyserRef.current;
@@ -127,6 +122,10 @@ export default function RecordPage() {
   }
 
   async function startRecording() {
+    if (!entry) {
+      setStatus("Dog not on this show");
+      return;
+    }
     if (!canRecordWithJudge(judge, judges)) {
       setStatus("Select a judge");
       return;
@@ -232,7 +231,7 @@ export default function RecordPage() {
 
   async function handleStop() {
     const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-    if (!showId || !entryId) return;
+    if (!showId || !entryId || !entry) return;
 
     const live = liveSessionRef.current
       ? await liveSessionRef.current.stop()
@@ -249,6 +248,7 @@ export default function RecordPage() {
         blob,
         createdAt: new Date().toISOString(),
         judge: judge ?? undefined,
+        liveTranscript: liveFinalRef.current || undefined,
       });
       setStatus("Saved to offline queue");
       await refreshQueue();
@@ -283,6 +283,7 @@ export default function RecordPage() {
         blob,
         createdAt: new Date().toISOString(),
         judge: judge ?? undefined,
+        liveTranscript: liveFinalRef.current || undefined,
       });
       setStatus("Upload failed — queued offline");
       await refreshQueue();
@@ -294,23 +295,9 @@ export default function RecordPage() {
       setStatus("Still offline");
       return;
     }
-    const items = await listQueuedRecordings();
-    for (const item of items) {
-      const audioBase64 = await blobToBase64(item.blob);
-      const res = await fetch("/api/critiques", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          show_id: item.showId,
-          entry_id: item.entryId,
-          audio_base64: audioBase64,
-          judge: item.judge,
-        }),
-      });
-      if (res.ok) await removeQueuedRecording(item.id);
-    }
+    const result = await syncQueuedRecordings();
     await refreshQueue();
-    setStatus("Queue sync complete");
+    setStatus(formatQueueSyncStatus(result));
   }
 
   return (
@@ -326,7 +313,8 @@ export default function RecordPage() {
         ) : null}
       </div>
 
-      {!canRecordWithJudge(judge, judges) ? (
+      {entryLoaded && !entry ? <EmptyDesk variant="no-entry" /> : null}
+      {entry && !canRecordWithJudge(judge, judges) ? (
         <EmptyDesk variant="select-judge" />
       ) : null}
 
@@ -342,7 +330,7 @@ export default function RecordPage() {
         <div className="flex flex-wrap gap-2">
           {!recording ? (
             <Button
-              disabled={!canRecordWithJudge(judge, judges)}
+              disabled={!entry || !canRecordWithJudge(judge, judges)}
               onClick={() => void startRecording()}
             >
               Start recording

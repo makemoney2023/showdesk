@@ -49,6 +49,11 @@ export default function RingsidePage() {
       fetch(`/api/entries?show_id=${showData.active_show_id}`),
       fetch(`/api/critiques?show_id=${showData.active_show_id}`),
     ]);
+    if (!entryRes.ok || !critRes.ok) {
+      setFetchFailed(true);
+      setStatus(entryRes.ok ? critRes.status : entryRes.status);
+      return;
+    }
     setEntries(((await entryRes.json()) as { entries: RosterEntryRecord[] }).entries);
     setCritiques(
       ((await critRes.json()) as { critiques: CritiqueRecord[] }).critiques,
@@ -84,6 +89,7 @@ export default function RingsidePage() {
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
+          aria-pressed={classFilter === "all"}
           className={`min-h-11 px-3 text-sm ${
             classFilter === "all"
               ? "sss-paper text-sss-text-primary"
@@ -97,6 +103,7 @@ export default function RingsidePage() {
           <button
             key={c.id}
             type="button"
+            aria-pressed={classFilter === c.id}
             className={`min-h-11 px-3 text-sm ${
               classFilter === c.id
                 ? "sss-paper text-sss-text-primary"

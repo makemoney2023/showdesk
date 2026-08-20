@@ -16,6 +16,10 @@ import {
 } from "@/lib/domain/role-shell";
 import { labelQueuedItem } from "@/lib/domain/show-day";
 import { listQueuedRecordings } from "@/lib/offline/queue";
+import {
+  formatQueueSyncStatus,
+  syncQueuedRecordings,
+} from "@/lib/offline/sync";
 import { isDemoMode } from "@/lib/supabase/config";
 import type { CritiqueRecord, RosterEntryRecord, Show } from "@/lib/types";
 import { AccountMenu } from "./AccountMenu";
@@ -42,6 +46,8 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
     Awaited<ReturnType<typeof listQueuedRecordings>>
   >([]);
   const [queueOpen, setQueueOpen] = useState(false);
+  const [queueStatus, setQueueStatus] = useState("");
+  const [queueBusy, setQueueBusy] = useState(false);
   const queueCount = queueItems.length;
 
   const load = useCallback(async () => {
@@ -154,11 +160,34 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
                 })}
               </ul>
             )}
-            <Button asChild variant="outline">
-              <Link href="/ringside" onClick={() => setQueueOpen(false)}>
-                Back to dogs
-              </Link>
-            </Button>
+            {queueStatus ? (
+              <p className="text-sm text-sss-text-secondary">{queueStatus}</p>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                disabled={queueBusy || queueCount === 0}
+                onClick={() => {
+                  if (!navigator.onLine) {
+                    setQueueStatus("Still offline");
+                    return;
+                  }
+                  setQueueBusy(true);
+                  void syncQueuedRecordings()
+                    .then(async (result) => {
+                      await refreshQueue();
+                      setQueueStatus(formatQueueSyncStatus(result));
+                    })
+                    .finally(() => setQueueBusy(false));
+                }}
+              >
+                {queueBusy ? "Syncing…" : "Sync queue"}
+              </Button>
+              <Button asChild variant="outline">
+                <Link href="/ringside" onClick={() => setQueueOpen(false)}>
+                  Back to dogs
+                </Link>
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

@@ -29,8 +29,8 @@ export function tnrkAwardPdfHref(showId: string, entryId: string): string {
   return `/api/pdf/tnrk?kind=award&show_id=${encodeURIComponent(showId)}&entry_id=${encodeURIComponent(entryId)}`;
 }
 
-export function critiqueAudioHref(critiqueId: string): string {
-  return `/api/audio/${encodeURIComponent(critiqueId)}`;
+export function critiqueAudioHref(showId: string, critiqueId: string): string {
+  return `/api/audio/${encodeURIComponent(critiqueId)}?show_id=${encodeURIComponent(showId)}`;
 }
 
 /** Append download=1 so PDF routes return Content-Disposition: attachment. */
@@ -52,6 +52,7 @@ export function buildReportDocumentsForDog(input: {
   critiqueId: string | null;
   seEvaluationId: string | null;
   hasAudio: boolean;
+  hasPlacement?: boolean;
 }): ReportDocumentLink[] {
   const { showId, entryId, armband, critiqueId, seEvaluationId } = input;
   const docs: ReportDocumentLink[] = [
@@ -83,12 +84,12 @@ export function buildReportDocumentsForDog(input: {
       label: "Award PDF",
       href: tnrkAwardPdfHref(showId, entryId),
       filename: `tnrk-award-${armband}.pdf`,
-      available: true,
+      available: Boolean(input.hasPlacement),
     },
     {
       kind: "audio",
       label: "Recording",
-      href: critiqueId ? critiqueAudioHref(critiqueId) : "",
+      href: critiqueId ? critiqueAudioHref(showId, critiqueId) : "",
       filename: `critique-${armband}.webm`,
       available: Boolean(critiqueId && input.hasAudio),
     },

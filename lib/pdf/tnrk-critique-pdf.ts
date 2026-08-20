@@ -2,6 +2,17 @@ import fs from "fs/promises";
 import path from "path";
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import type { TnrkCritiqueForm } from "@/lib/domain/tnrk-se-form";
+import {
+  TNRK_CRITIQUE_MAX_NARRATIVE_LINES,
+  wrapCritiqueNarrative,
+} from "@/lib/domain/tnrk-critique-wrap";
+
+export {
+  TNRK_CRITIQUE_MAX_NARRATIVE_LINES,
+  TNRK_CRITIQUE_NARRATIVE_WRAP,
+  critiqueNarrativeOverflowsCertificate,
+  wrapCritiqueNarrative,
+} from "@/lib/domain/tnrk-critique-wrap";
 
 const TEMPLATE = path.join(
   process.cwd(),
@@ -140,8 +151,8 @@ export async function buildTnrkCritiquePdf(
     true,
   );
 
-  const lines = wrap(form.narrative, 90);
-  lines.slice(0, 12).forEach((line, i) => {
+  const lines = wrapCritiqueNarrative(form.narrative);
+  lines.slice(0, TNRK_CRITIQUE_MAX_NARRATIVE_LINES).forEach((line, i) => {
     drawCentered(
       line,
       baseline(TNRK_CRITIQUE_FIELD_TOP.narrative_start + i * 14),
@@ -184,20 +195,3 @@ export async function buildTnrkCritiquePdf(
   return pdf.save();
 }
 
-function wrap(text: string, max: number): string[] {
-  if (!text.trim()) return [];
-  const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let cur = "";
-  for (const w of words) {
-    const next = cur ? `${cur} ${w}` : w;
-    if (next.length > max) {
-      if (cur) lines.push(cur);
-      cur = w;
-    } else {
-      cur = next;
-    }
-  }
-  if (cur) lines.push(cur);
-  return lines;
-}

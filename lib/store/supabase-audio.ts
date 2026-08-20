@@ -73,6 +73,16 @@ export async function critiqueAudioExists(
   return (data ?? []).some((file) => file.name === name);
 }
 
+export async function deleteCritiqueAudioObject(
+  client: SupabaseAudioClient,
+  relativePath: string,
+): Promise<void> {
+  const { error } = await client.storage
+    .from(CRITIQUE_AUDIO_BUCKET)
+    .remove([relativePath]);
+  throwIfError(error, "delete critique audio");
+}
+
 export async function deleteShowAudioObjects(
   client: SupabaseAudioClient,
   showId: string,

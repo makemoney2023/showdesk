@@ -52,7 +52,7 @@ Ringside recording uses **live** Deepgram WebSocket STT while the mic is open, a
 |------|-----|
 | Live | Browser gets a short-lived JWT from `POST /api/deepgram/token` (session required), then streams audio to `wss://api.deepgram.com/v1/listen` (`model=nova-3`, `language=en-US`). The long-lived `DEEPGRAM_API_KEY` never reaches the client. |
 | Batch backup | After stop, `POST /api/critiques` saves audio and calls Deepgram prerecorded listen. If `live_transcript` is non-empty it is preferred; otherwise batch (or mock) is used. |
-| Offline queue sync | Audio only → batch path (no live transcript). |
+| Offline queue sync | Stores `live_transcript` with the blob; sync from the record page or the ringside **Queue** dialog. |
 
 Without `DEEPGRAM_API_KEY`, live STT is skipped and processing falls back to AssemblyAI (if set) or an English mock transcript.
 
@@ -63,8 +63,9 @@ SQL lives under `supabase/migrations/`. Apply **in order** on project `emiwbvbyt
 1. `supabase/migrations/20260818120000_showdesk_mvp.sql` — tables, indexes, A1 RLS (`authenticated` CRUD; no anon), seed `app_state` (`id = 1`).
 2. `supabase/migrations/20260818120100_critique_audio_bucket.sql` — private bucket `critique-audio` + authenticated Storage policies.
 3. `supabase/migrations/20260818120200_show_judges_and_critique_judge.sql` — `shows.judges` jsonb + `critiques.judge` text.
+4. `supabase/migrations/20260820010000_critique_status_checks.sql` — CHECK constraints on `critiques.status` and `delivery_status`.
 
-**Status:** applied on project `emiwbvbytmfbonbnemli` (schema + Storage + judges columns).
+**Status:** 1–3 applied on project `emiwbvbytmfbonbnemli` (schema + Storage + judges columns). Apply migration 4 on that project before relying on the new CHECKs.
 
 ## Auth (self-serve signup)
 
@@ -87,7 +88,9 @@ Object path: `{show_id}/{critique_id}.webm` (same layout as local `.data/audio/`
 
 Authenticated users may INSERT, SELECT, UPDATE (upsert), and DELETE objects in that bucket. `/api/audio/[critiqueId]` streams via the session (or service role when needed).
 
-**Cascade:** Deleting an entry (or a show) CASCADE-deletes its critiques, SE evaluations, and placements. That is intentional for the cloud store — roster DELETE is a wipe of child rows, not a soft unlink.
+**Cascade:** Deleting an entry (or a show) CASCADE-deletes its critiques, SE evaluations, placements, and the ringside audio object. Demo file-store matches that wipe. Roster DELETE is not a soft unlink.
+
+CSV import **upserts by armband** on the active show (re-import updates existing dogs instead of duplicating).
 
 ## Vercel
 
@@ -108,10 +111,13 @@ Operator checklist: `docs/orgs/velocity-agency/customers/blacksage-kennels/initi
 
 ## Review queue (`/admin/review`)
 
+- Default filter is **Needs attention**: `PENDING_REVIEW` plus `ERROR` (failed processing stays visible so retry is reachable).
 - Selecting a dog opens the draft editor **directly beneath that row** (single-column queue).
 - **TNRK PDF Preview** is a primary action on the open editor (not under More actions). ADRK draft PDF and save/rerun stay under More actions.
 - When an SE form exists for the dog, **SE PDF Preview** appears beside the TNRK button.
 - Certificate narrative prefers secretary draft → live/batch STT transcript → SE-derived text.
+- Approve then release emails the **TNRK critique certificate** (same PDF as preview), using the ringside judge when set. Failed email shows an error and **Retry email**.
+- Approved drafts cannot be edited.
 
 ## Class placements (`/ringside/placements`)
 
@@ -126,8 +132,10 @@ UI copy, class labels, and ADRK draft PDF text are **English**. Official Formwer
 ## Reports (`/admin/reports`)
 
 Per dog on the active show roster:
-- **View** / **Download** for each generated document that exists: TNRK critique PDF, SE PDF, ADRK draft PDF, Award PDF, and ringside recording (when audio was retained).
+- **View** / **Download** for each generated document that exists: TNRK critique PDF, SE PDF, ADRK draft PDF, Award PDF (when the dog has a class placement), and ringside recording (when audio was retained).
+- Missing documents stay listed as “Not generated yet.”
 - PDF routes accept `download=1` to force an attachment download; View opens inline in a new tab.
+- Audio streams require `show_id` (`/api/audio/{critiqueId}?show_id=`).
 
 ## Scripts
 

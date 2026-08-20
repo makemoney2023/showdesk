@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   canRelease,
   canTransition,
+  deskAttentionCount,
   isReviewable,
+  needsDeskAttention,
   pendingReviewCount,
   assertTransition,
 } from "./critique-status";
@@ -21,6 +23,17 @@ describe("critique-status", () => {
   it("marks pending review as reviewable", () => {
     expect(isReviewable("PENDING_REVIEW")).toBe(true);
     expect(isReviewable("PROCESSING")).toBe(false);
+    expect(isReviewable("ERROR")).toBe(false);
+  });
+
+  it("includes ERROR in the default desk-attention queue", () => {
+    expect(needsDeskAttention("PENDING_REVIEW")).toBe(true);
+    expect(needsDeskAttention("ERROR")).toBe(true);
+    expect(needsDeskAttention("PROCESSING")).toBe(false);
+    expect(needsDeskAttention("APPROVED")).toBe(false);
+    expect(
+      deskAttentionCount(["PENDING_REVIEW", "ERROR", "APPROVED", "PROCESSING"]),
+    ).toBe(2);
   });
 
   it("counts only reviewable statuses for the badge and queue heading", () => {

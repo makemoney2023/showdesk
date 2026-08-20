@@ -3,15 +3,22 @@ import { readStore, readCritiqueAudio, audioExists } from "@/lib/store";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ critiqueId: string }> },
 ) {
   const auth = await requireApiSession();
   if (isApiUnauthorized(auth)) return auth;
 
   const { critiqueId } = await context.params;
+  const showId = new URL(request.url).searchParams.get("show_id");
+  if (!showId) {
+    return NextResponse.json({ error: "show_id required" }, { status: 400 });
+  }
+
   const store = await readStore();
-  const critique = store.critiques.find((c) => c.id === critiqueId);
+  const critique = store.critiques.find(
+    (c) => c.id === critiqueId && c.show_id === showId,
+  );
   if (!critique?.audio_path) {
     return NextResponse.json({ error: "Audio not found" }, { status: 404 });
   }
@@ -20,7 +27,7 @@ export async function GET(
   }
 
   const buf = await readCritiqueAudio(critique.audio_path);
-  const asDownload = new URL(_request.url).searchParams.get("download") === "1";
+  const asDownload = new URL(request.url).searchParams.get("download") === "1";
   return new NextResponse(new Uint8Array(buf), {
     headers: {
       "Content-Type": "audio/webm",

@@ -25,6 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import type { RosterEntryRecord, Show } from "@/lib/types";
 
 type EntryFormMode = "create" | "edit";
@@ -40,6 +41,7 @@ export default function AdminEntriesPage() {
   const [showFormOpen, setShowFormOpen] = useState(false);
   const [csvModalOpen, setCsvModalOpen] = useState(false);
   const [showDraft, setShowDraft] = useState<ShowCreateInput>(() => blankShowDraft());
+  const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const showRes = await fetch("/api/shows");
@@ -63,6 +65,11 @@ export default function AdminEntriesPage() {
     setShowId(active);
     if (active) {
       const entryRes = await fetch(`/api/entries?show_id=${active}`);
+      if (!entryRes.ok) {
+        setMessage("Could not load roster entries");
+        setEntries([]);
+        return;
+      }
       const entryData = (await entryRes.json()) as { entries: RosterEntryRecord[] };
       setEntries(entryData.entries);
     } else {
@@ -155,14 +162,18 @@ export default function AdminEntriesPage() {
     });
     const data = (await res.json()) as {
       imported?: number;
+      added?: number;
+      updated?: number;
       errors?: string[];
       error?: string;
     };
     if (!res.ok) {
       throw new Error(data.error ?? data.errors?.[0] ?? "Import failed");
     }
+    const added = data.added ?? data.imported ?? 0;
+    const updated = data.updated ?? 0;
     setMessage(
-      `Imported ${data.imported ?? 0} entries${data.errors?.length ? ` (${data.errors.length} row warnings)` : ""}`,
+      `Imported ${added} new${updated ? `, updated ${updated}` : ""}${data.errors?.length ? ` (${data.errors.length} row warnings)` : ""}`,
     );
     await load();
   }
@@ -253,8 +264,17 @@ export default function AdminEntriesPage() {
 
   async function deleteEntry(entryId: string) {
     if (!showId) return;
-    await fetch(`/api/entries?id=${entryId}&show_id=${showId}`, { method: "DELETE" });
+    const res = await fetch(`/api/entries?id=${entryId}&show_id=${showId}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      setMessage(data.error ?? "Delete failed");
+      return;
+    }
+    setMessage("Entry deleted — critiques, SE, and placements for this dog were removed");
     if (entryDraft?.id === entryId) closeEntryForm();
+    setDeleteEntryId(null);
     await load();
   }
 
@@ -447,6 +467,18 @@ export default function AdminEntriesPage() {
               </tr>
             </thead>
             <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="p-4 text-sm text-sss-text-muted"
+                  >
+                    {entries.length === 0
+                      ? "No dogs on this roster yet."
+                      : "No dogs match this search."}
+                  </td>
+                </tr>
+              ) : null}
               {filtered.map((e) => (
                 <tr key={e.id} className="border-t border-sss-border">
                   <td className="p-2">{e.armband}</td>
@@ -469,7 +501,7 @@ export default function AdminEntriesPage() {
                       size="sm"
                       variant="ghost"
                       className="text-destructive"
-                      onClick={() => void deleteEntry(e.id)}
+                      onClick={() => setDeleteEntryId(e.id)}
                     >
                       Delete
                     </Button>
@@ -607,6 +639,16 @@ export default function AdminEntriesPage() {
           ) : null}
         </DialogContent>
       </Dialog>
+      <ConfirmDialog
+        open={Boolean(deleteEntryId)}
+        title="Delete this dog from the roster?"
+        body="This also removes critiques, SE forms, placements, and the ringside recording for this dog."
+        confirmLabel="Delete"
+        onConfirm={() => {
+          if (deleteEntryId) void deleteEntry(deleteEntryId);
+        }}
+        onCancel={() => setDeleteEntryId(null)}
+      />
     </div>
   );
 }

@@ -130,3 +130,31 @@ export function validateRosterEntryUpdate(
 export function rosterCsvTemplate(): string {
   return `${REQUIRED_HEADERS.join(",")}\n101,Rex vom Test,DE-12345,2024-01-01,Max Mustermann,R,zwischenklasse,owner@example.com`;
 }
+
+/**
+ * Re-importing the same CSV should update existing armbands, not duplicate dogs.
+ */
+export function mergeImportedEntries<T extends RosterEntry>(
+  existing: T[],
+  incoming: Omit<T, "id">[],
+  newId: () => string,
+): { entries: T[]; added: number; updated: number } {
+  const next = [...existing];
+  let added = 0;
+  let updated = 0;
+  for (const row of incoming) {
+    const idx = next.findIndex(
+      (entry) =>
+        entry.show_id === row.show_id &&
+        entry.armband.trim() === row.armband.trim(),
+    );
+    if (idx === -1) {
+      next.push({ ...row, id: newId() } as T);
+      added += 1;
+    } else {
+      next[idx] = { ...next[idx], ...row, id: next[idx].id };
+      updated += 1;
+    }
+  }
+  return { entries: next, added, updated };
+}

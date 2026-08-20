@@ -11,6 +11,31 @@ export interface PlacementInput {
   placement: 1 | 2 | 3 | 4 | null;
 }
 
+export function placementEntriesBelongToShow(
+  rows: PlacementInput[],
+  entries: Array<{ id: string; show_id: string; class_id: AdrkClassId }>,
+  showId: string,
+): { valid: true } | { valid: false; error: string } {
+  const byId = new Map(
+    entries
+      .filter((entry) => entry.show_id === showId)
+      .map((entry) => [entry.id, entry]),
+  );
+  for (const row of rows) {
+    const entry = byId.get(row.entry_id);
+    if (!entry) {
+      return { valid: false, error: `Unknown entry for this show: ${row.entry_id}` };
+    }
+    if (entry.class_id !== row.class_id) {
+      return {
+        valid: false,
+        error: `class_id mismatch for entry ${row.entry_id}`,
+      };
+    }
+  }
+  return { valid: true };
+}
+
 export function upsertPlacements(
   existing: PlacementRecord[],
   showId: string,

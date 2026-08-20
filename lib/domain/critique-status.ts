@@ -29,8 +29,17 @@ export function isReviewable(status: CritiqueStatus): boolean {
   return status === "PENDING_REVIEW";
 }
 
+/** Default review queue: drafts waiting for the secretary plus failed processing. */
+export function needsDeskAttention(status: CritiqueStatus): boolean {
+  return status === "PENDING_REVIEW" || status === "ERROR";
+}
+
 export function pendingReviewCount(statuses: Iterable<CritiqueStatus>): number {
   return [...statuses].filter(isReviewable).length;
+}
+
+export function deskAttentionCount(statuses: Iterable<CritiqueStatus>): number {
+  return [...statuses].filter(needsDeskAttention).length;
 }
 
 export function assertTransition(

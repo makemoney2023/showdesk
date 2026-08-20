@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CRITIQUE_AUDIO_BUCKET,
   critiqueAudioExists,
+  deleteCritiqueAudioObject,
   deleteShowAudioObjects,
   readCritiqueAudioBytes,
   writeCritiqueAudioBytes,
@@ -110,6 +111,16 @@ describe("supabase-audio", () => {
       bucket: CRITIQUE_AUDIO_BUCKET,
       path: "show-1",
     });
+  });
+
+  it("deletes one critique audio object", async () => {
+    const { client, objects } = createMockStorage({
+      "show-1/crit-1.webm": Buffer.from("a"),
+      "show-1/crit-2.webm": Buffer.from("b"),
+    });
+    await deleteCritiqueAudioObject(client, "show-1/crit-1.webm");
+    expect(objects.has("show-1/crit-1.webm")).toBe(false);
+    expect(objects.has("show-1/crit-2.webm")).toBe(true);
   });
 
   it("deletes all objects under a show prefix", async () => {

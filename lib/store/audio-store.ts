@@ -39,6 +39,17 @@ export async function deleteShowAudio(showId: string, root = DEFAULT_ROOT) {
   await fs.rm(dir, { recursive: true, force: true });
 }
 
+export async function deleteCritiqueAudioFile(
+  relativePath: string,
+  root = DEFAULT_ROOT,
+): Promise<void> {
+  const safe = path.normalize(relativePath);
+  if (safe.startsWith("..") || path.isAbsolute(safe)) {
+    throw new Error("invalid audio path");
+  }
+  await fs.rm(path.join(root, safe), { force: true });
+}
+
 export async function audioExists(
   relativePath: string,
   root = DEFAULT_ROOT,

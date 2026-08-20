@@ -17,7 +17,9 @@ function hasSession(request: NextRequest): boolean {
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isProtected =
-    pathname.startsWith("/admin") || pathname.startsWith("/ringside");
+    pathname === "/" ||
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/ringside");
   if (!isProtected) return NextResponse.next();
 
   if (hasSession(request)) return NextResponse.next();
@@ -28,5 +30,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/ringside", "/ringside/:path*"],
+  matcher: ["/", "/admin/:path*", "/ringside", "/ringside/:path*"],
 };

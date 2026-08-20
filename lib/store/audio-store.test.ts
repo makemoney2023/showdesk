@@ -3,6 +3,7 @@ import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
 import {
+  deleteCritiqueAudioFile,
   deleteShowAudio,
   readCritiqueAudio,
   writeCritiqueAudio,
@@ -26,6 +27,18 @@ describe("audio-store", () => {
     });
     const buf = await readCritiqueAudio(relative, tmp);
     expect(buf.toString()).toBe("fake-webm-bytes");
+  });
+
+  it("deletes a single critique audio file", async () => {
+    tmp = await fs.mkdtemp(path.join(os.tmpdir(), "sss-audio-"));
+    const relative = await writeCritiqueAudio({
+      showId: "show-1",
+      critiqueId: "crit-1",
+      base64: Buffer.from("x").toString("base64"),
+      root: tmp,
+    });
+    await deleteCritiqueAudioFile(relative, tmp);
+    await expect(readCritiqueAudio(relative, tmp)).rejects.toThrow();
   });
 
   it("deletes show audio directory", async () => {

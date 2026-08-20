@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { accountRoleLabel } from "@/lib/domain/show-day";
@@ -56,17 +57,25 @@ export function AccountMenu({ kind }: { kind: RoleShellKind }) {
           className="sss-paper absolute right-0 z-50 mt-1 w-64 space-y-2 p-3"
         >
           <p className="font-[family-name:var(--font-fraunces)] text-sm font-semibold">
-            {user?.name ?? "Signed in"}
+            {user?.name ?? user?.email ?? "Not signed in"}
           </p>
-          <p className="text-xs text-sss-text-secondary">{user?.email}</p>
-          {role ? (
+          {user?.email && user?.name ? (
+            <p className="text-xs text-sss-text-secondary">{user.email}</p>
+          ) : null}
+          {role && user ? (
             <p className="text-xs uppercase tracking-[0.16em] text-sss-text-muted">
               {role}
             </p>
           ) : null}
-          <Button variant="outline" className="w-full" onClick={() => void signOut()}>
-            Sign out
-          </Button>
+          {user ? (
+            <Button variant="outline" className="w-full" onClick={() => void signOut()}>
+              Sign out
+            </Button>
+          ) : (
+            <Button asChild variant="outline" className="w-full">
+              <Link href="/login">Sign in</Link>
+            </Button>
+          )}
         </div>
       ) : null}
     </div>

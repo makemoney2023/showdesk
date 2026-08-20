@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { readStore, updateStore, newId } from "@/lib/store";
 import { filterByShow } from "@/lib/domain/show-scope";
-import { upsertPlacements, type PlacementInput } from "@/lib/domain/placements";
+import {
+  placementEntriesBelongToShow,
+  upsertPlacements,
+  type PlacementInput,
+} from "@/lib/domain/placements";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
+import { readJsonBody } from "@/lib/api/read-json";
 
 export async function GET(request: Request) {
   const auth = await requireApiSession();
@@ -22,15 +27,25 @@ export async function PUT(request: Request) {
   const auth = await requireApiSession();
   if (isApiUnauthorized(auth)) return auth;
 
-  const body = (await request.json()) as {
+  const body = await readJsonBody<{
     show_id: string;
     placements: PlacementInput[];
-  };
-  if (!body.show_id || !Array.isArray(body.placements)) {
+  }>(request);
+  if (!body?.show_id || !Array.isArray(body.placements)) {
     return NextResponse.json(
       { error: "show_id and placements[] required" },
       { status: 400 },
     );
+  }
+
+  const current = await readStore();
+  const ownership = placementEntriesBelongToShow(
+    body.placements,
+    current.entries,
+    body.show_id,
+  );
+  if (!ownership.valid) {
+    return NextResponse.json({ error: ownership.error }, { status: 400 });
   }
 
   const store = await updateStore((s) => ({

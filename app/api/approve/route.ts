@@ -1,18 +1,25 @@
 import { NextResponse } from "next/server";
 import { readStore, updateStore } from "@/lib/store";
 import { canRelease } from "@/lib/domain/critique-status";
-import { buildAdrkRichterberichtPdf } from "@/lib/pdf/adrk-richterbericht";
+import { buildTnrkCritiquePdfForRecords } from "@/lib/pdf/tnrk-critique-from-records";
 import { sendCritiqueEmail } from "@/lib/email/resend";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
+import { readJsonBody } from "@/lib/api/read-json";
 
 export async function POST(request: Request) {
   const auth = await requireApiSession();
   if (isApiUnauthorized(auth)) return auth;
 
-  const body = (await request.json()) as {
+  const body = await readJsonBody<{
     show_id: string;
     critique_id: string;
-  };
+  }>(request);
+  if (!body?.show_id || !body.critique_id) {
+    return NextResponse.json(
+      { error: "show_id and critique_id required" },
+      { status: 400 },
+    );
+  }
 
   const store = await readStore();
   const critique = store.critiques.find(
@@ -29,6 +36,14 @@ export async function POST(request: Request) {
     );
   }
 
+  if (critique.delivery_status === "sent") {
+    return NextResponse.json({
+      ok: true,
+      already_sent: true,
+      email: { sent: true, mock: false },
+    });
+  }
+
   const entry = store.entries.find(
     (e) => e.id === critique.entry_id && e.show_id === body.show_id,
   );
@@ -37,50 +52,61 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing entry or show" }, { status: 404 });
   }
 
-  const placement = store.placements.find(
-    (p) => p.entry_id === entry.id && p.show_id === body.show_id,
+  const se = (store.se_evaluations ?? []).find(
+    (evaluation) =>
+      evaluation.entry_id === entry.id && evaluation.show_id === body.show_id,
   );
-  const pdfBytes = await buildAdrkRichterberichtPdf({
+  const pdfBytes = await buildTnrkCritiquePdfForRecords({
     show,
     entry,
-    draft: {
-      ...critique.draft,
-      placement: placement?.placement ?? critique.draft.placement,
-    },
+    critique,
+    se,
   });
 
-  if (entry.email) {
-    const emailResult = await sendCritiqueEmail({
-      to: entry.email,
-      ownerName: entry.owner,
-      dogName: entry.dog_name,
-      showName: show.name,
-      pdfBytes,
-    });
-
+  if (!entry.email) {
     await updateStore((s) => ({
       ...s,
       critiques: s.critiques.map((c) =>
         c.id === body.critique_id
           ? {
               ...c,
-              delivery_status: emailResult.sent ? "sent" : "failed",
+              delivery_status: "blocked" as const,
               updated_at: new Date().toISOString(),
             }
           : c,
       ),
     }));
-
     return NextResponse.json({
       ok: true,
       pdf_size: pdfBytes.length,
-      email: emailResult,
+      email: { sent: false, mock: false, error: "No owner email on entry" },
     });
   }
+
+  const emailResult = await sendCritiqueEmail({
+    to: entry.email,
+    ownerName: entry.owner,
+    dogName: entry.dog_name,
+    showName: show.name,
+    pdfBytes,
+  });
+
+  await updateStore((s) => ({
+    ...s,
+    critiques: s.critiques.map((c) =>
+      c.id === body.critique_id
+        ? {
+            ...c,
+            delivery_status: emailResult.sent ? "sent" : "failed",
+            updated_at: new Date().toISOString(),
+          }
+        : c,
+    ),
+  }));
 
   return NextResponse.json({
     ok: true,
     pdf_size: pdfBytes.length,
-    email: { sent: false, mock: false, error: "No owner email on entry" },
+    email: emailResult,
   });
 }

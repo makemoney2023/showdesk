@@ -15,6 +15,7 @@ describe("buildReportDocumentsForDog", () => {
       critiqueId: "crit-1",
       seEvaluationId: "eval-1",
       hasAudio: true,
+      hasPlacement: true,
     });
 
     expect(docs.map((d) => d.kind)).toEqual([
@@ -32,10 +33,12 @@ describe("buildReportDocumentsForDog", () => {
     expect(docs.find((d) => d.kind === "adrk")?.href).toContain(
       "/api/pdf?show_id=show-1",
     );
-    expect(docs.find((d) => d.kind === "audio")?.href).toBe("/api/audio/crit-1");
+    expect(docs.find((d) => d.kind === "audio")?.href).toBe(
+      "/api/audio/crit-1?show_id=show-1",
+    );
   });
 
-  it("marks missing documents as unavailable but keeps award for roster dogs", () => {
+  it("lists missing documents as unavailable, including award without a placement", () => {
     const docs = buildReportDocumentsForDog({
       showId: "show-1",
       entryId: "entry-1",
@@ -43,13 +46,14 @@ describe("buildReportDocumentsForDog", () => {
       critiqueId: null,
       seEvaluationId: null,
       hasAudio: false,
+      hasPlacement: false,
     });
 
-    expect(docs.filter((d) => d.available).map((d) => d.kind)).toEqual([
-      "award",
-    ]);
+    expect(docs.filter((d) => d.available)).toHaveLength(0);
+    expect(docs).toHaveLength(5);
     expect(docs.find((d) => d.kind === "tnrk_se")?.available).toBe(false);
     expect(docs.find((d) => d.kind === "tnrk_critique")?.available).toBe(false);
+    expect(docs.find((d) => d.kind === "award")?.available).toBe(false);
   });
 
   it("builds award and ADRK hrefs", () => {

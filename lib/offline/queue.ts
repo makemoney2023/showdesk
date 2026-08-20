@@ -9,6 +9,7 @@ export interface OfflineRecording {
   blob: Blob;
   createdAt: string;
   judge?: string;
+  liveTranscript?: string;
 }
 
 function queueKey(id: string) {

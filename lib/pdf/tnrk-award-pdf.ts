@@ -15,6 +15,15 @@ export interface TnrkAwardFields {
   show_secretary: string;
 }
 
+/** Same MediaBox offset as SE / critique overlays (origin is not always 0). */
+export function awardYFromTop(
+  pageHeight: number,
+  fromTop: number,
+  mediaY: number,
+): number {
+  return pageHeight - fromTop + mediaY;
+}
+
 /** Overlay award fields onto TNRK Award certificate blank (page 03). */
 export async function buildTnrkAwardPdf(
   fields: TnrkAwardFields,
@@ -25,7 +34,8 @@ export async function buildTnrkAwardPdf(
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const { width, height } = page.getSize();
-  const y = (fromTop: number) => height - fromTop;
+  const mediaY = page.getMediaBox().y;
+  const y = (fromTop: number) => awardYFromTop(height, fromTop, mediaY);
 
   if (fields.date.trim()) {
     page.drawText(fields.date.slice(0, 40), {

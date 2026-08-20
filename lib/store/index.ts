@@ -2,6 +2,7 @@ import { isDemoMode } from "@/lib/supabase/config";
 import type { AppStore } from "@/lib/types";
 import {
   audioExists as fileAudioExists,
+  deleteCritiqueAudioFile,
   deleteShowAudio as fileDeleteShowAudio,
   readCritiqueAudio as fileReadCritiqueAudio,
   writeCritiqueAudio as fileWriteCritiqueAudio,
@@ -14,6 +15,7 @@ import {
 } from "./file-store";
 import {
   critiqueAudioExists,
+  deleteCritiqueAudioObject,
   deleteShowAudioObjects,
   readCritiqueAudioBytes,
   writeCritiqueAudioBytes,
@@ -105,6 +107,19 @@ export async function deleteShowAudio(showId: string, root?: string) {
     return fileDeleteShowAudio(showId, root);
   }
   return deleteShowAudioObjects(await requireSupabaseClient(), showId);
+}
+
+export async function deleteCritiqueAudio(
+  relativePath: string,
+  root?: string,
+): Promise<void> {
+  if (getStoreBackend() === "file") {
+    return deleteCritiqueAudioFile(relativePath, root);
+  }
+  return deleteCritiqueAudioObject(
+    await requireSupabaseClient(),
+    relativePath,
+  );
 }
 
 export async function audioExists(
