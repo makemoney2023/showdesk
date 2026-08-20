@@ -51,4 +51,14 @@ describe("photo-store", () => {
     await deleteShowPhotos("show-1", tmp);
     await expect(readDogPhotoFile("show-1/entry-2.jpg", tmp)).rejects.toThrow();
   });
+
+  it("rejects path traversal on read and show delete", async () => {
+    tmp = await fs.mkdtemp(path.join(os.tmpdir(), "sss-photo-"));
+    await expect(readDogPhotoFile("../secret.jpg", tmp)).rejects.toThrow(
+      "invalid photo path",
+    );
+    await expect(readDogPhotoFile("", tmp)).rejects.toThrow("invalid photo path");
+    await expect(deleteShowPhotos("..", tmp)).rejects.toThrow("invalid photo path");
+    await expect(deleteShowPhotos("", tmp)).rejects.toThrow("invalid photo path");
+  });
 });

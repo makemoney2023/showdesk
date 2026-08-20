@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { dogPhotoHref } from "@/lib/domain/dog-photo";
+import { DOG_PHOTO_MAX_BYTES, dogPhotoHref } from "@/lib/domain/dog-photo";
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -22,23 +22,44 @@ export function DogPhotoField({
   entryId,
   photoPath,
   disabled,
+  preferCamera,
   onChanged,
 }: {
   showId: string;
   entryId?: string;
   photoPath?: string;
   disabled?: boolean;
+  preferCamera?: boolean;
   onChanged: (photoPath: string | undefined) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [bust, setBust] = useState(0);
   const canUpload = Boolean(showId && entryId && !disabled);
-  const src = showId && entryId && photoPath ? dogPhotoHref(showId, entryId) : "";
+  const src =
+    showId && entryId && photoPath
+      ? dogPhotoHref(showId, entryId, { cacheBust: bust || photoPath })
+      : "";
 
   async function upload(file: File) {
     if (!showId || !entryId) {
       setError("Save the dog profile first, then add a photo.");
+      return;
+    }
+    if (file.size > DOG_PHOTO_MAX_BYTES) {
+      setError("Photo must be 5 MB or smaller (JPEG, PNG, or WebP).");
+      return;
+    }
+    const claimed = file.type.toLowerCase();
+    if (
+      claimed &&
+      claimed !== "image/jpeg" &&
+      claimed !== "image/jpg" &&
+      claimed !== "image/png" &&
+      claimed !== "image/webp"
+    ) {
+      setError("Use JPEG, PNG, or WebP. iPhone HEIC photos need to be saved as JPEG.");
       return;
     }
     setBusy(true);
@@ -60,6 +81,7 @@ export function DogPhotoField({
         setError(data.error ?? "Could not upload photo");
         return;
       }
+      setBust(Date.now());
       onChanged(data.photo_path);
     } catch {
       setError("Could not upload photo");
@@ -83,6 +105,7 @@ export function DogPhotoField({
         setError(data.error ?? "Could not remove photo");
         return;
       }
+      setBust(0);
       onChanged(undefined);
     } catch {
       setError("Could not remove photo");
@@ -113,7 +136,7 @@ export function DogPhotoField({
             ref={inputRef}
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            capture="environment"
+            {...(preferCamera ? { capture: "environment" as const } : {})}
             className="block text-sm"
             disabled={!canUpload || busy}
             onChange={(e) => {
@@ -121,6 +144,9 @@ export function DogPhotoField({
               if (file) void upload(file);
             }}
           />
+          <p className="text-xs text-sss-text-muted">
+            JPEG, PNG, or WebP · 5 MB max
+          </p>
           {photoPath ? (
             <Button
               type="button"

@@ -138,10 +138,10 @@ UI copy, class labels, and ADRK draft PDF text are **English**. Official Formwer
 ## Reports (`/admin/reports`)
 
 Per dog on the active show roster:
-- **View** / **Download** for each generated document that exists: TNRK critique PDF, SE PDF, ADRK draft PDF, Award PDF (when the dog has a class placement), and ringside recording (when audio was retained).
-- Missing documents stay listed as “Not generated yet.”
-- PDF routes accept `download=1` to force an attachment download; View opens inline in a new tab.
-- Audio streams require `show_id` (`/api/audio/{critiqueId}?show_id=`).
+- **View** / **Download** for each generated document that exists: TNRK critique PDF, SE PDF, ADRK draft PDF, Award PDF (when the dog has a class placement), ringside recording (when audio was retained), and the dog photo (when uploaded on roster or SE).
+- Missing documents stay listed as “Not generated yet” (photos say “No photo yet”).
+- PDF and photo routes accept `download=1` to force an attachment download; View opens inline in a new tab.
+- Audio and photo streams require `show_id` (`/api/audio/{critiqueId}?show_id=`, `/api/photos/{entryId}?show_id=`).
 
 ## Scripts
 

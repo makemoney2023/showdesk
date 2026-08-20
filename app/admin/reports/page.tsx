@@ -112,6 +112,7 @@ export default function AdminReportsPage() {
           seEvaluationId: se?.id ?? null,
           hasAudio: Boolean(critique?.audio_path),
           hasPlacement: Boolean(placement),
+          hasPhoto: Boolean(entry.photo_path),
         });
         return { entry, critique, se, placement, documents };
       });
@@ -228,7 +229,9 @@ function DocumentActions({
               </Button>
             </div>
           ) : (
-            <span className="text-xs text-sss-text-muted">Not generated yet</span>
+            <span className="text-xs text-sss-text-muted">
+              {doc.unavailableLabel ?? "Not generated yet"}
+            </span>
           )}
         </li>
       ))}

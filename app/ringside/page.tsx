@@ -10,6 +10,7 @@ import {
   type CritiqueUiStatus,
 } from "@/lib/domain/status-labels";
 import { DogTile } from "@/components/desk/DogTile";
+import { dogPhotoHref } from "@/lib/domain/dog-photo";
 import { EmptyDesk } from "@/components/desk/EmptyDesk";
 import type { CritiqueRecord, RosterEntryRecord } from "@/lib/types";
 
@@ -133,7 +134,7 @@ export default function RingsidePage() {
               statusTone={critiqueChipTone(status)}
               photoHref={
                 e.photo_path && activeShowId
-                  ? `/api/photos/${e.id}?show_id=${encodeURIComponent(activeShowId)}`
+                  ? dogPhotoHref(activeShowId, e.id, { cacheBust: e.photo_path })
                   : undefined
               }
             />

@@ -1,3 +1,4 @@
+import { dogPhotoRelativePath } from "@/lib/domain/dog-photo";
 import { isDemoMode } from "@/lib/supabase/config";
 import type { AppStore } from "@/lib/types";
 import {
@@ -163,7 +164,7 @@ export async function writeDogPhoto(opts: {
 }): Promise<string> {
   if (getStoreBackend() === "file") return writeDogPhotoFile(opts);
   return writeDogPhotoBytes(await requireSupabaseClient(), {
-    objectPath: `${opts.showId}/${opts.entryId}.${opts.ext}`,
+    objectPath: dogPhotoRelativePath(opts.showId, opts.entryId, opts.ext),
     bytes: opts.bytes,
     contentType: opts.contentType,
   });

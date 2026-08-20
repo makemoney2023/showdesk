@@ -16,6 +16,7 @@ describe("buildReportDocumentsForDog", () => {
       seEvaluationId: "eval-1",
       hasAudio: true,
       hasPlacement: true,
+      hasPhoto: true,
     });
 
     expect(docs.map((d) => d.kind)).toEqual([
@@ -24,8 +25,12 @@ describe("buildReportDocumentsForDog", () => {
       "adrk",
       "award",
       "audio",
+      "photo",
     ]);
     expect(docs.every((d) => d.available)).toBe(true);
+    expect(docs.find((d) => d.kind === "photo")?.href).toBe(
+      "/api/photos/entry-1?show_id=show-1",
+    );
     expect(docs.find((d) => d.kind === "tnrk_critique")?.href).toContain(
       "kind=critique",
     );
@@ -50,10 +55,13 @@ describe("buildReportDocumentsForDog", () => {
     });
 
     expect(docs.filter((d) => d.available)).toHaveLength(0);
-    expect(docs).toHaveLength(5);
+    expect(docs).toHaveLength(6);
     expect(docs.find((d) => d.kind === "tnrk_se")?.available).toBe(false);
     expect(docs.find((d) => d.kind === "tnrk_critique")?.available).toBe(false);
     expect(docs.find((d) => d.kind === "award")?.available).toBe(false);
+    expect(docs.find((d) => d.kind === "photo")?.unavailableLabel).toBe(
+      "No photo yet",
+    );
   });
 
   it("builds award and ADRK hrefs", () => {

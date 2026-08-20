@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { readStore, updateStore, writeDogPhoto, deleteDogPhoto } from "@/lib/store";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
 import { readJsonBody } from "@/lib/api/read-json";
-import { validateDogPhotoUpload } from "@/lib/domain/dog-photo";
+import {
+  DOG_PHOTO_MAX_BASE64_CHARS,
+  validateDogPhotoUpload,
+} from "@/lib/domain/dog-photo";
 
 export async function POST(request: Request) {
   const auth = await requireApiSession();
@@ -19,6 +22,9 @@ export async function POST(request: Request) {
       { error: "show_id, entry_id, and photo_base64 required" },
       { status: 400 },
     );
+  }
+  if (body.photo_base64.length > DOG_PHOTO_MAX_BASE64_CHARS) {
+    return NextResponse.json({ error: "Photo must be 5 MB or smaller" }, { status: 400 });
   }
 
   const store = await readStore();

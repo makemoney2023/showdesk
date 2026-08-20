@@ -19,6 +19,7 @@ import { blankShowDraft, validateShowCreate } from "@/lib/domain/show-draft";
 import type { ShowCreateInput } from "@/lib/domain/show-draft";
 import { CsvImportDialog } from "@/components/roster/CsvImportDialog";
 import { DogPhotoField } from "@/components/roster/DogPhotoField";
+import { dogPhotoHref } from "@/lib/domain/dog-photo";
 import { JudgeListFields } from "@/components/show/JudgeListFields";
 import {
   Dialog,
@@ -494,7 +495,7 @@ export default function AdminEntriesPage() {
                       {e.photo_path && showId ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={`/api/photos/${e.id}?show_id=${encodeURIComponent(showId)}`}
+                          src={dogPhotoHref(showId, e.id, { cacheBust: e.photo_path })}
                           alt=""
                           className="h-8 w-8 rounded object-cover"
                         />

@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  DOG_PHOTO_MAX_BYTES,
   dogPhotoContentType,
+  dogPhotoDownloadFilename,
   dogPhotoHref,
   dogPhotoRelativePath,
+  isOwnedDogPhotoPath,
   sniffDogPhotoMime,
   validateDogPhotoUpload,
 } from "./dog-photo";
@@ -19,6 +22,12 @@ describe("dog-photo", () => {
   it("builds a scoped photo URL", () => {
     expect(dogPhotoHref("show-1", "entry-9")).toBe(
       "/api/photos/entry-9?show_id=show-1",
+    );
+    expect(dogPhotoHref("show-1", "entry-9", { download: true })).toBe(
+      "/api/photos/entry-9?show_id=show-1&download=1",
+    );
+    expect(dogPhotoDownloadFilename("Rex vom Hof", "show-1/entry-9.png")).toBe(
+      "Rex-vom-Hof.png",
     );
     expect(dogPhotoRelativePath("show-1", "entry-9", "jpg")).toBe(
       "show-1/entry-9.jpg",
@@ -39,6 +48,21 @@ describe("dog-photo", () => {
     expect(sniffDogPhotoMime(new Uint8Array([0x00, 0x01]))).toBeNull();
   });
 
+  it("accepts only the owned show/entry object path", () => {
+    expect(isOwnedDogPhotoPath("show-1/entry-9.jpg", "show-1", "entry-9")).toBe(
+      true,
+    );
+    expect(isOwnedDogPhotoPath("show-1/entry-9.png", "show-1", "entry-9")).toBe(
+      true,
+    );
+    expect(
+      isOwnedDogPhotoPath("../show-1/entry-9.jpg", "show-1", "entry-9"),
+    ).toBe(false);
+    expect(isOwnedDogPhotoPath("show-1/other.jpg", "show-1", "entry-9")).toBe(
+      false,
+    );
+  });
+
   it("rejects empty, oversized, and non-image uploads", () => {
     expect(validateDogPhotoUpload({ bytes: new Uint8Array() }).valid).toBe(
       false,
@@ -52,6 +76,11 @@ describe("dog-photo", () => {
       validateDogPhotoUpload({
         bytes: jpegBytes(),
         claimedMime: "image/png",
+      }).valid,
+    ).toBe(false);
+    expect(
+      validateDogPhotoUpload({
+        bytes: new Uint8Array(DOG_PHOTO_MAX_BYTES + 1),
       }).valid,
     ).toBe(false);
   });

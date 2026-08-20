@@ -1,3 +1,4 @@
+import { dogPhotoHref } from "./dog-photo";
 import {
   tnrkCritiquePdfHref,
   tnrkSePdfHref,
@@ -8,7 +9,8 @@ export type ReportDocumentKind =
   | "tnrk_se"
   | "adrk"
   | "award"
-  | "audio";
+  | "audio"
+  | "photo";
 
 export interface ReportDocumentLink {
   kind: ReportDocumentKind;
@@ -16,6 +18,7 @@ export interface ReportDocumentLink {
   href: string;
   filename: string;
   available: boolean;
+  unavailableLabel?: string;
 }
 
 export function adrkCritiquePdfHref(
@@ -53,6 +56,7 @@ export function buildReportDocumentsForDog(input: {
   seEvaluationId: string | null;
   hasAudio: boolean;
   hasPlacement?: boolean;
+  hasPhoto?: boolean;
 }): ReportDocumentLink[] {
   const { showId, entryId, armband, critiqueId, seEvaluationId } = input;
   const docs: ReportDocumentLink[] = [
@@ -92,6 +96,14 @@ export function buildReportDocumentsForDog(input: {
       href: critiqueId ? critiqueAudioHref(showId, critiqueId) : "",
       filename: `critique-${armband}.webm`,
       available: Boolean(critiqueId && input.hasAudio),
+    },
+    {
+      kind: "photo",
+      label: "Dog photo",
+      href: input.hasPhoto ? dogPhotoHref(showId, entryId) : "",
+      filename: `dog-${armband}.jpg`,
+      available: Boolean(input.hasPhoto),
+      unavailableLabel: "No photo yet",
     },
   ];
   return docs;

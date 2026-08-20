@@ -21,6 +21,7 @@ import { canRecordWithJudge, syncShowJudges } from "@/lib/domain/show-judges";
 import { stickyJudgeForShow } from "@/lib/client/sticky-judge";
 import { EmptyDesk } from "@/components/desk/EmptyDesk";
 import { DogPhotoField } from "@/components/roster/DogPhotoField";
+import { dogPhotoHref } from "@/lib/domain/dog-photo";
 import type { RosterEntryRecord, SeEvaluationRecord, Show } from "@/lib/types";
 
 const HEAD_LABELS: Record<(typeof HEAD_SHAPE_OPTIONS)[number], string> = {
@@ -251,7 +252,7 @@ export default function StewardSeFormPage() {
           {showId && entry.photo_path ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={`/api/photos/${entry.id}?show_id=${encodeURIComponent(showId)}`}
+              src={dogPhotoHref(showId, entry.id, { cacheBust: entry.photo_path })}
               alt=""
               className="h-16 w-16 rounded-md border border-sss-border object-cover"
             />
@@ -314,6 +315,7 @@ export default function StewardSeFormPage() {
             showId={showId}
             entryId={entry.id}
             photoPath={entry.photo_path}
+            preferCamera
             onChanged={(photo_path) =>
               setEntry({ ...entry, photo_path })
             }

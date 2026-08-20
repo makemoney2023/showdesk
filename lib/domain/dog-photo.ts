@@ -8,8 +8,31 @@ export const DOG_PHOTO_MIME_TO_EXT = {
 
 export type DogPhotoMime = keyof typeof DOG_PHOTO_MIME_TO_EXT;
 
-export function dogPhotoHref(showId: string, entryId: string): string {
-  return `/api/photos/${encodeURIComponent(entryId)}?show_id=${encodeURIComponent(showId)}`;
+export function dogPhotoHref(
+  showId: string,
+  entryId: string,
+  opts?: { download?: boolean; cacheBust?: string | number },
+): string {
+  const params = new URLSearchParams({ show_id: showId });
+  if (opts?.download) params.set("download", "1");
+  if (opts?.cacheBust != null && String(opts.cacheBust).length > 0) {
+    params.set("v", String(opts.cacheBust));
+  }
+  return `/api/photos/${encodeURIComponent(entryId)}?${params.toString()}`;
+}
+
+export function dogPhotoDownloadFilename(
+  dogName: string,
+  relativePath: string,
+): string {
+  const ext = relativePath.split(".").pop()?.toLowerCase();
+  const safeExt = ext === "png" || ext === "webp" ? ext : "jpg";
+  const stem = dogName
+    .normalize("NFKD")
+    .replace(/[^\w.-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+  return `${stem || "dog"}.${safeExt}`;
 }
 
 export function dogPhotoRelativePath(
@@ -19,6 +42,23 @@ export function dogPhotoRelativePath(
 ): string {
   return `${showId}/${entryId}.${ext}`;
 }
+
+/** True when the stored object belongs to this show + dog (blocks path tricks). */
+export function isOwnedDogPhotoPath(
+  relativePath: string,
+  showId: string,
+  entryId: string,
+): boolean {
+  const normalized = relativePath.replace(/\\/g, "/").replace(/^\/+/, "");
+  if (normalized.includes("..")) return false;
+  return (["jpg", "png", "webp"] as const).some(
+    (ext) => normalized === dogPhotoRelativePath(showId, entryId, ext),
+  );
+}
+
+export const DOG_PHOTO_MAX_BASE64_CHARS = Math.ceil(
+  (DOG_PHOTO_MAX_BYTES * 4) / 3,
+) + 8;
 
 export function dogPhotoContentType(relativePath: string): string {
   const ext = relativePath.split(".").pop()?.toLowerCase();

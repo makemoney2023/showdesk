@@ -8,6 +8,25 @@ export function dogPhotoRootDir(root = DEFAULT_ROOT) {
   return root;
 }
 
+function resolveSafePhotoPath(relativePath: string, root: string): string {
+  if (!relativePath || relativePath.includes("\0")) {
+    throw new Error("invalid photo path");
+  }
+  const safe = path.normalize(relativePath.replace(/\\/g, "/"));
+  if (safe === "." || safe.startsWith("..") || path.isAbsolute(safe)) {
+    throw new Error("invalid photo path");
+  }
+  const full = path.resolve(root, safe);
+  const rootResolved = path.resolve(root);
+  const prefix = rootResolved.endsWith(path.sep)
+    ? rootResolved
+    : `${rootResolved}${path.sep}`;
+  if (full === rootResolved || !full.startsWith(prefix)) {
+    throw new Error("invalid photo path");
+  }
+  return full;
+}
+
 export async function writeDogPhotoFile(opts: {
   showId: string;
   entryId: string;
@@ -15,9 +34,12 @@ export async function writeDogPhotoFile(opts: {
   bytes: Buffer;
   root?: string;
 }): Promise<string> {
+  if (opts.ext !== "jpg" && opts.ext !== "png" && opts.ext !== "webp") {
+    throw new Error("invalid photo path");
+  }
   const root = opts.root ?? DEFAULT_ROOT;
   const relative = dogPhotoRelativePath(opts.showId, opts.entryId, opts.ext);
-  const full = path.join(root, relative);
+  const full = resolveSafePhotoPath(relative, root);
   await fs.mkdir(path.dirname(full), { recursive: true });
   await fs.writeFile(full, opts.bytes);
   return relative;
@@ -27,22 +49,18 @@ export async function readDogPhotoFile(
   relativePath: string,
   root = DEFAULT_ROOT,
 ): Promise<Buffer> {
-  return fs.readFile(path.join(root, relativePath));
+  return fs.readFile(resolveSafePhotoPath(relativePath, root));
 }
 
 export async function deleteDogPhotoFile(
   relativePath: string,
   root = DEFAULT_ROOT,
 ): Promise<void> {
-  const safe = path.normalize(relativePath);
-  if (safe.startsWith("..") || path.isAbsolute(safe)) {
-    throw new Error("invalid photo path");
-  }
-  await fs.rm(path.join(root, safe), { force: true });
+  await fs.rm(resolveSafePhotoPath(relativePath, root), { force: true });
 }
 
 export async function deleteShowPhotos(showId: string, root = DEFAULT_ROOT) {
-  await fs.rm(path.join(root, showId), { recursive: true, force: true });
+  await fs.rm(resolveSafePhotoPath(showId, root), { recursive: true, force: true });
 }
 
 export async function dogPhotoFileExists(
@@ -50,7 +68,7 @@ export async function dogPhotoFileExists(
   root = DEFAULT_ROOT,
 ): Promise<boolean> {
   try {
-    await fs.access(path.join(root, relativePath));
+    await fs.access(resolveSafePhotoPath(relativePath, root));
     return true;
   } catch {
     return false;

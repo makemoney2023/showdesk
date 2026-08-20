@@ -143,7 +143,7 @@ export async function PUT(request: Request) {
 
   const nextEntry: RosterEntryRecord = {
     ...body.entry,
-    photo_path: body.entry.photo_path ?? existing.photo_path,
+    photo_path: existing.photo_path,
   };
 
   await updateStore((s) => ({
