@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { cloneElement, useCallback, useEffect, useState, type ReactElement } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -14,15 +14,19 @@ import {
   GUNFIRE_OPTIONS,
   HEAD_SHAPE_OPTIONS,
   formatSeMissingFields,
+  seCompletionGaps,
   type TnrkSeForm,
 } from "@/lib/domain/tnrk-se-form";
 import { seSectionProgress } from "@/lib/domain/show-day";
 import { canRecordWithJudge, syncShowJudges } from "@/lib/domain/show-judges";
 import { stickyJudgeForShow } from "@/lib/client/sticky-judge";
+import { useRingsideJudge } from "@/components/ringside/RingsideJudgeContext";
+import { SeStepper } from "@/components/ringside/SeStepper";
 import { BackLink } from "@/components/layout/BackLink";
 import { EmptyDesk } from "@/components/desk/EmptyDesk";
 import { DogPhotoField } from "@/components/roster/DogPhotoField";
 import { dogPhotoHref } from "@/lib/domain/dog-photo";
+import { cn } from "@/lib/utils";
 import type { RosterEntryRecord, SeEvaluationRecord, Show } from "@/lib/types";
 
 const HEAD_LABELS: Record<(typeof HEAD_SHAPE_OPTIONS)[number], string> = {
@@ -66,6 +70,7 @@ const GUN_LABELS: Record<(typeof GUNFIRE_OPTIONS)[number], string> = {
 export default function StewardSeFormPage() {
   const params = useParams();
   const entryId = params.id as string;
+  const ringsideJudge = useRingsideJudge();
   const [entry, setEntry] = useState<RosterEntryRecord | null>(null);
   const [showId, setShowId] = useState<string | null>(null);
   const [judgePick, setJudgePick] = useState<string | null>(null);
@@ -151,6 +156,15 @@ export default function StewardSeFormPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!ringsideJudge.available) return;
+    setJudgePick(ringsideJudge.judge || null);
+    setJudges(ringsideJudge.judges);
+    if (ringsideJudge.judge) {
+      setForm((prev) => (prev ? { ...prev, judge: ringsideJudge.judge } : prev));
+    }
+  }, [ringsideJudge.available, ringsideJudge.judge, ringsideJudge.judges]);
 
   function patchForm<K extends keyof TnrkSeForm>(key: K, value: TnrkSeForm[K]) {
     setForm((prev) => (prev ? { ...prev, [key]: value } : prev));
@@ -242,6 +256,9 @@ export default function StewardSeFormPage() {
     );
   }
 
+  const formForComplete =
+    judgePick && !form.judge.trim() ? { ...form, judge: judgePick } : form;
+  const gaps = seCompletionGaps(formForComplete);
   const sections = seSectionProgress(form);
 
   return (
@@ -270,22 +287,20 @@ export default function StewardSeFormPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/ringside">
-            <Button variant="outline" type="button">
-              Ringside
-            </Button>
-          </Link>
-          {showId && evaluation && (
-            <a
-              href={`/api/pdf/tnrk?kind=se&show_id=${showId}&evaluation_id=${evaluation.id}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Button variant="outline" type="button">
+          <Button asChild variant="outline">
+            <Link href="/ringside">Ringside</Link>
+          </Button>
+          {showId && evaluation ? (
+            <Button asChild variant="outline">
+              <a
+                href={`/api/pdf/tnrk?kind=se&show_id=${showId}&evaluation_id=${evaluation.id}`}
+                target="_blank"
+                rel="noreferrer"
+              >
                 Preview PDF
-              </Button>
-            </a>
-          )}
+              </a>
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -293,25 +308,7 @@ export default function StewardSeFormPage() {
         <EmptyDesk variant="select-judge" />
       ) : null}
 
-      <ol className="sticky top-[3.25rem] z-20 -mx-4 flex flex-wrap gap-2 bg-sss-ground/90 px-4 py-2 text-xs backdrop-blur">
-        {sections.map((section) => {
-          const complete = section.filled === section.total && section.total > 0;
-          return (
-          <li key={section.id}>
-            <a
-              href={`#se-${section.id}`}
-              className={`inline-flex min-h-11 items-center rounded-full px-3 ${
-                complete
-                  ? "bg-sss-success-soft text-sss-success"
-                  : "sss-tray text-sss-text-secondary"
-              }`}
-            >
-              {section.label} {section.filled}/{section.total}
-            </a>
-          </li>
-          );
-        })}
-      </ol>
+      <SeSectionObserver sections={sections} />
 
       <section id="se-identification" className="sss-paper space-y-3 p-5">
         <h2 className="font-[family-name:var(--font-fraunces)] text-lg font-semibold">
@@ -331,6 +328,7 @@ export default function StewardSeFormPage() {
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Date">
             <Input
+              type="date"
               value={form.date}
               onChange={(e) => patchForm("date", e.target.value)}
             />
@@ -363,6 +361,7 @@ export default function StewardSeFormPage() {
           </Field>
           <Field label="Date of birth">
             <Input
+              type="date"
               value={form.date_of_birth}
               onChange={(e) => patchForm("date_of_birth", e.target.value)}
             />
@@ -618,6 +617,7 @@ export default function StewardSeFormPage() {
           </Field>
           <Field label="Signature date">
             <Input
+              type="date"
               value={form.signature_date}
               onChange={(e) => patchForm("signature_date", e.target.value)}
             />
@@ -639,12 +639,27 @@ export default function StewardSeFormPage() {
             type="button"
             variant="outline"
             disabled={
-              saving || !canRecordWithJudge(judgePick ?? form.judge, judges)
+              saving ||
+              gaps.length > 0 ||
+              !canRecordWithJudge(judgePick ?? form.judge, judges)
             }
             onClick={() => void save(true)}
           >
-            Mark complete
+            {gaps.length > 0
+              ? `Mark complete (${gaps.length} remaining)`
+              : "Mark complete"}
           </Button>
+          {gaps.length > 0 ? (
+            <ul className="w-full text-xs text-sss-text-secondary">
+              {gaps.map((gap) => (
+                <li key={gap.field}>
+                  <a className="underline" href={`#se-${gap.sectionId}`}>
+                    {gap.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           {actionMsg ? (
             <p
               role="status"
@@ -657,7 +672,7 @@ export default function StewardSeFormPage() {
             </p>
           ) : (
             <p className="text-xs text-sss-text-muted">
-              Mark complete needs Pass/Fail selected below.
+              Mark complete needs dog name, judge, and Pass/Fail.
             </p>
           )}
         </div>
@@ -666,17 +681,51 @@ export default function StewardSeFormPage() {
   );
 }
 
+function SeSectionObserver({
+  sections,
+}: {
+  sections: { id: string; label: string; filled: number; total: number }[];
+}) {
+  const [activeId, setActiveId] = useState(sections[0]?.id ?? "identification");
+  const sectionKey = sections.map((section) => section.id).join("|");
+
+  useEffect(() => {
+    const ids = sectionKey.split("|").filter(Boolean);
+    const els = ids
+      .map((id) => document.getElementById(`se-${id}`))
+      .filter((el): el is HTMLElement => Boolean(el));
+    if (els.length === 0) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        const id = visible?.target.id.replace(/^se-/, "");
+        if (id) setActiveId(id);
+      },
+      { rootMargin: "-25% 0px -55% 0px", threshold: [0.15, 0.4, 0.7] },
+    );
+    els.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [sectionKey]);
+
+  return <SeStepper sections={sections} activeId={activeId} />;
+}
+
 function Field({
   label,
   children,
 }: {
   label: string;
-  children: React.ReactNode;
+  children: ReactElement<{ id?: string }>;
 }) {
+  const id = `se-field-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs text-sss-text-muted">{label}</Label>
-      {children}
+      <Label htmlFor={id} className="text-xs text-sss-text-muted">
+        {label}
+      </Label>
+      {cloneElement(children, { id })}
     </div>
   );
 }
@@ -693,7 +742,14 @@ function Radio({
   label: string;
 }) {
   return (
-    <label className="flex items-center gap-2 text-sm">
+    <label
+      className={cn(
+        "inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-sss-md border px-3 py-2 text-sm transition-colors",
+        checked
+          ? "border-sss-accent bg-sss-lifted text-sss-text-primary"
+          : "border-sss-border bg-sss-paper text-sss-text-secondary hover:border-sss-accent-soft",
+      )}
+    >
       <input
         type="radio"
         name={name}

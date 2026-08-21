@@ -12,6 +12,7 @@ import {
 import { formatElapsed, nextDogAfter } from "@/lib/domain/show-day";
 import { canRecordWithJudge, syncShowJudges } from "@/lib/domain/show-judges";
 import { stickyJudgeForShow } from "@/lib/client/sticky-judge";
+import { useRingsideJudge } from "@/components/ringside/RingsideJudgeContext";
 import { startDeepgramLiveSession } from "@/lib/client/deepgram-live";
 import type { RosterEntryRecord, Show } from "@/lib/types";
 import { Mic, Pause, Play, Square } from "lucide-react";
@@ -23,6 +24,7 @@ export default function RecordPage() {
   const params = useParams();
   const router = useRouter();
   const entryId = params.id as string;
+  const ringsideJudge = useRingsideJudge();
   const [entry, setEntry] = useState<RosterEntryRecord | null>(null);
   const [entries, setEntries] = useState<RosterEntryRecord[]>([]);
   const [showId, setShowId] = useState<string | null>(null);
@@ -97,6 +99,12 @@ export default function RecordPage() {
       void liveSessionRef.current?.stop();
     };
   }, [entryId, refreshQueue]);
+
+  useEffect(() => {
+    if (!ringsideJudge.available) return;
+    setJudge(ringsideJudge.judge || null);
+    setJudges(ringsideJudge.judges);
+  }, [ringsideJudge.available, ringsideJudge.judge, ringsideJudge.judges]);
 
   useEffect(() => {
     if (!recording || paused) return;

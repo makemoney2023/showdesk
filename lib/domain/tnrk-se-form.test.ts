@@ -9,6 +9,7 @@ import {
   validateTnrkSeFormForPass,
   mergeEntryIntoSeForm,
   formatSeMissingFields,
+  seCompletionGaps,
 } from "./tnrk-se-form";
 
 describe("tnrk-se-form", () => {
@@ -92,5 +93,25 @@ describe("tnrk-se-form", () => {
     expect(formatSeMissingFields(["final_result", "judge"])).toBe(
       "Final result (Pass/Fail), Judge",
     );
+  });
+
+  it("lists live SE completion gaps with jump sections", () => {
+    const empty = seCompletionGaps(createEmptyTnrkSeForm());
+    expect(empty.map((gap) => gap.field)).toEqual([
+      "dog_name",
+      "final_result",
+      "judge",
+    ]);
+    expect(empty.find((gap) => gap.field === "final_result")?.sectionId).toBe(
+      "result",
+    );
+    expect(
+      seCompletionGaps({
+        ...createEmptyTnrkSeForm(),
+        dog_name: "Max",
+        final_result: "pass",
+        judge: "Judge One",
+      }),
+    ).toEqual([]);
   });
 });

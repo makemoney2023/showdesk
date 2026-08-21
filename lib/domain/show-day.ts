@@ -21,6 +21,26 @@ export function nextDogAfter(
   return sorted[index + 1]?.id ?? null;
 }
 
+/** Display-only date: "Aug 21, 2026". Keep ISO in form inputs. */
+export function formatDisplayDate(iso: string): string {
+  const trimmed = iso.trim();
+  if (!trimmed) return "";
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})/.exec(trimmed);
+  const date = dateOnly
+    ? new Date(
+        Number(dateOnly[1]),
+        Number(dateOnly[2]) - 1,
+        Number(dateOnly[3]),
+      )
+    : new Date(trimmed);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export function formatElapsed(totalSeconds: number): string {
   const safe = Math.max(0, Math.floor(totalSeconds));
   const minutes = Math.floor(safe / 60);

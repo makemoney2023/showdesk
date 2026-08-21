@@ -1,9 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { DOG_PHOTO_MAX_BYTES, dogPhotoHref } from "@/lib/domain/dog-photo";
+import { cn } from "@/lib/utils";
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -36,6 +38,7 @@ export function DogPhotoField({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [bust, setBust] = useState(0);
+  const [dragOver, setDragOver] = useState(false);
   const canUpload = Boolean(showId && entryId && !disabled);
   const src =
     showId && entryId && photoPath
@@ -117,54 +120,85 @@ export function DogPhotoField({
   return (
     <div className="space-y-2">
       <Label htmlFor="dog-photo">Dog photo</Label>
-      <div className="flex flex-wrap items-start gap-3">
+      <input
+        id="dog-photo"
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        {...(preferCamera ? { capture: "environment" as const } : {})}
+        className="sr-only"
+        disabled={!canUpload || busy}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void upload(file);
+        }}
+      />
+      <button
+        type="button"
+        disabled={!canUpload || busy}
+        onClick={() => inputRef.current?.click()}
+        onDragOver={(e) => {
+          e.preventDefault();
+          if (canUpload) setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          const file = e.dataTransfer.files?.[0];
+          if (file) void upload(file);
+        }}
+        className={cn(
+          "flex w-full items-center gap-3 rounded-sss-md border border-dashed px-3 py-3 text-left transition-colors",
+          dragOver
+            ? "border-sss-accent bg-sss-lifted"
+            : "border-sss-border bg-sss-paper hover:border-sss-accent-soft",
+          (!canUpload || busy) && "cursor-not-allowed opacity-70",
+        )}
+      >
         {src ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={src}
             alt="Dog"
-            className="h-24 w-24 rounded-md border border-sss-border object-cover"
+            className="h-20 w-20 rounded-md border border-sss-border object-cover"
           />
         ) : (
-          <div className="flex h-24 w-24 items-center justify-center rounded-md border border-dashed border-sss-border text-xs text-sss-text-muted">
-            No photo
-          </div>
+          <span className="inline-flex h-20 w-20 items-center justify-center rounded-md bg-sss-lifted text-sss-text-muted">
+            <Camera className="h-7 w-7" aria-hidden />
+          </span>
         )}
-        <div className="space-y-2">
-          <input
-            id="dog-photo"
-            ref={inputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            {...(preferCamera ? { capture: "environment" as const } : {})}
-            className="block text-sm"
-            disabled={!canUpload || busy}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void upload(file);
-            }}
-          />
-          <p className="text-xs text-sss-text-muted">
+        <span className="space-y-1">
+          <span className="block text-sm font-medium">
+            {busy
+              ? "Uploading…"
+              : src
+                ? "Replace photo"
+                : preferCamera
+                  ? "Tap to photograph"
+                  : "Drop a photo or click to upload"}
+          </span>
+          <span className="block text-xs text-sss-text-muted">
             JPEG, PNG, or WebP · 5 MB max
-          </p>
-          {photoPath ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={busy || !canUpload}
-              onClick={() => void removePhoto()}
-            >
-              Remove photo
-            </Button>
-          ) : null}
-          {!entryId ? (
-            <p className="text-xs text-sss-text-muted">
-              Create the profile first, then upload a photo.
-            </p>
-          ) : null}
-        </div>
-      </div>
+          </span>
+        </span>
+      </button>
+      {photoPath ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={busy || !canUpload}
+          onClick={() => void removePhoto()}
+        >
+          Remove photo
+        </Button>
+      ) : null}
+      {!entryId ? (
+        <p className="text-xs text-sss-text-muted">
+          Create the profile first, then upload a photo.
+        </p>
+      ) : null}
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </div>
   );

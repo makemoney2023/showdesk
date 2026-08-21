@@ -28,7 +28,7 @@ export function labelSeStatus(status: "draft" | "complete"): string {
 }
 
 export function labelOffline(online: boolean): string {
-  return online ? "Online" : "Offline";
+  return online ? "Synced" : "Offline — saved locally";
 }
 
 const DELIVERY_LABELS: Record<

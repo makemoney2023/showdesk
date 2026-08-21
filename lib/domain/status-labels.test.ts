@@ -33,8 +33,8 @@ describe("status-labels", () => {
   });
 
   it("maps offline connectivity", () => {
-    expect(labelOffline(true)).toBe("Online");
-    expect(labelOffline(false)).toBe("Offline");
+    expect(labelOffline(true)).toBe("Synced");
+    expect(labelOffline(false)).toBe("Offline — saved locally");
   });
 
   it("maps delivery statuses to human labels", () => {

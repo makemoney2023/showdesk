@@ -9,7 +9,19 @@ import type { RoleShellKind } from "@/lib/domain/role-shell";
 
 type AccountUser = { id: string; email: string; name?: string };
 
-export function AccountMenu({ kind }: { kind: RoleShellKind }) {
+function accountInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const letters = `${parts[0]?.[0] ?? ""}${parts[1]?.[0] ?? ""}`;
+  return letters.toUpperCase() || "A";
+}
+
+export function AccountMenu({
+  kind,
+  compact = false,
+}: {
+  kind: RoleShellKind;
+  compact?: boolean;
+}) {
   const router = useRouter();
   const [user, setUser] = useState<AccountUser | null>(null);
   const [open, setOpen] = useState(false);
@@ -28,8 +40,15 @@ export function AccountMenu({ kind }: { kind: RoleShellKind }) {
     function onDoc(e: MouseEvent) {
       if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
     }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
     document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
   }, []);
 
   async function signOut() {
@@ -47,9 +66,22 @@ export function AccountMenu({ kind }: { kind: RoleShellKind }) {
         className="inline-flex min-h-11 items-center rounded-sss-md px-2 text-sm text-sss-text-secondary hover:bg-sss-lifted hover:text-sss-accent-deep"
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-label="Account"
         onClick={() => setOpen((v) => !v)}
       >
-        {user?.name ?? "Account"}
+        {compact ? (
+          <>
+            <span
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-sss-lifted text-xs font-semibold md:hidden"
+              aria-hidden
+            >
+              {accountInitials(user?.name ?? user?.email ?? "Account")}
+            </span>
+            <span className="hidden md:inline">{user?.name ?? "Account"}</span>
+          </>
+        ) : (
+          user?.name ?? "Account"
+        )}
       </button>
       {open ? (
         <div

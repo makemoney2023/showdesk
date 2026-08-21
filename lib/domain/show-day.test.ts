@@ -3,6 +3,7 @@ import { createEmptyTnrkSeForm } from "./tnrk-se-form";
 import {
   accountRoleLabel,
   classesWithDogs,
+  formatDisplayDate,
   formatElapsed,
   labelQueuedItem,
   nextDogAfter,
@@ -111,6 +112,14 @@ describe("seSectionProgress", () => {
     form.judge = "Müller";
     const id = seSectionProgress(form).find((s) => s.id === "identification");
     expect(id?.filled).toBe(3);
+  });
+});
+
+describe("formatDisplayDate", () => {
+  it("formats ISO calendar dates without leaking the raw value", () => {
+    expect(formatDisplayDate("2026-08-21")).toBe("Aug 21, 2026");
+    expect(formatDisplayDate("")).toBe("");
+    expect(formatDisplayDate("not-a-date")).toBe("not-a-date");
   });
 });
 

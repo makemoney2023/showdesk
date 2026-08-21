@@ -203,6 +203,27 @@ export function formatSeMissingFields(missing: string[]): string {
   return missing.map((key) => SE_FIELD_LABELS[key] ?? key).join(", ");
 }
 
+export type SeCompletionGap = {
+  field: string;
+  label: string;
+  sectionId: "identification" | "result";
+};
+
+const SE_GAP_SECTIONS: Record<string, SeCompletionGap["sectionId"]> = {
+  dog_name: "identification",
+  judge: "identification",
+  final_result: "result",
+};
+
+/** Live required-field gaps for Mark complete (same rules as validateTnrkSeFormForPass). */
+export function seCompletionGaps(form: TnrkSeForm): SeCompletionGap[] {
+  return validateTnrkSeFormForPass(form).errors.map((field) => ({
+    field,
+    label: SE_FIELD_LABELS[field] ?? field,
+    sectionId: SE_GAP_SECTIONS[field] ?? "identification",
+  }));
+}
+
 /** TNRK Critique / Richterbericht header fields (2026 pack page 1). */
 export interface TnrkCritiqueForm {
   dog_name: string;

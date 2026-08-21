@@ -6,6 +6,7 @@ import { CheckCircle2, CircleDashed, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DogAvatar } from "@/components/desk/DogAvatar";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { StatusChip } from "@/components/status/StatusChip";
 import { dogPhotoHref } from "@/lib/domain/dog-photo";
 import {
@@ -13,6 +14,10 @@ import {
   reportDocumentDownloadHref,
   type ReportDocumentLink,
 } from "@/lib/domain/report-documents";
+import {
+  reportRowMatchesFilter,
+  type ReportDeskFilter,
+} from "@/lib/domain/report-filters";
 import {
   critiqueChipTone,
   labelCritiqueStatus,
@@ -36,6 +41,8 @@ export default function AdminReportsPage() {
   const [placements, setPlacements] = useState<PlacementRecord[]>([]);
   const [message, setMessage] = useState("");
   const [hasShow, setHasShow] = useState(true);
+  const [filter, setFilter] = useState<ReportDeskFilter>("all");
+  const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async () => {
     const showRes = await fetch("/api/shows");
@@ -45,6 +52,7 @@ export default function AdminReportsPage() {
           ? "Session expired — sign in again"
           : "Could not load reports",
       );
+      setLoaded(true);
       return;
     }
     const showData = (await showRes.json()) as { active_show_id: string | null };
@@ -55,6 +63,7 @@ export default function AdminReportsPage() {
       setEntries([]);
       setEvaluations([]);
       setPlacements([]);
+      setLoaded(true);
       return;
     }
     setHasShow(true);
@@ -67,6 +76,7 @@ export default function AdminReportsPage() {
     ]);
     if (!critRes.ok || !entryRes.ok) {
       setMessage("Could not load critique delivery status");
+      setLoaded(true);
       return;
     }
     setCritiques(
@@ -92,6 +102,7 @@ export default function AdminReportsPage() {
       setPlacements([]);
     }
     setMessage("");
+    setLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -122,6 +133,20 @@ export default function AdminReportsPage() {
       });
   }, [showId, entries, critiques, evaluations, placements]);
 
+  const visibleRows = rows.filter((row) =>
+    reportRowMatchesFilter(
+      {
+        documents: row.documents,
+        deliveryStatus: row.critique?.delivery_status,
+      },
+      filter,
+    ),
+  );
+
+  if (!loaded) {
+    return <PageSkeleton rows={4} />;
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -147,56 +172,78 @@ export default function AdminReportsPage() {
           </Button>
         </div>
       ) : (
-        <ul className="space-y-4">
-          {rows.map(({ entry, critique, se, placement, documents }) => (
-            <li
-              key={entry.id}
-              className="sss-paper space-y-3 p-5"
+        <div className="space-y-3">
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              ["all", "All"],
+              ["ready", "Ready"],
+              ["missing", "Missing"],
+              ["delivery_failed", "Delivery failed"],
+            ] as const
+          ).map(([value, label]) => (
+            <Button
+              key={value}
+              type="button"
+              size="sm"
+              variant={filter === value ? "default" : "outline"}
+              onClick={() => setFilter(value)}
             >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="flex items-start gap-3">
-                  <DogAvatar
-                    src={
-                      entry.photo_path && showId
-                        ? dogPhotoHref(showId, entry.id, {
-                            cacheBust: entry.photo_path,
-                          })
-                        : null
-                    }
-                  />
-                  <div>
-                    <h2 className="font-[family-name:var(--font-fraunces)] text-lg font-semibold">
-                      #{entry.armband} {entry.dog_name}
-                    </h2>
-                    <p className="text-xs text-sss-text-muted">
-                      {getAdrkClassLabel(entry.class_id as AdrkClassId)}
-                      {placement ? ` · Place ${placement.placement}` : ""}
-                    </p>
+              {label}
+            </Button>
+          ))}
+        </div>
+        <ul className="space-y-3">
+          {visibleRows.map(({ entry, critique, se, placement, documents }) => (
+            <li key={entry.id}>
+              <details className="sss-paper group p-4">
+                <summary className="flex cursor-pointer list-none flex-wrap items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <DogAvatar
+                      src={
+                        entry.photo_path && showId
+                          ? dogPhotoHref(showId, entry.id, {
+                              cacheBust: entry.photo_path,
+                            })
+                          : null
+                      }
+                    />
+                    <div>
+                      <h2 className="font-[family-name:var(--font-fraunces)] text-lg font-semibold">
+                        #{entry.armband} {entry.dog_name}
+                      </h2>
+                      <p className="text-xs text-sss-text-muted">
+                        {getAdrkClassLabel(entry.class_id as AdrkClassId)}
+                        {placement ? ` · Place ${placement.placement}` : ""}
+                      </p>
+                    </div>
                   </div>
+                  <div className="flex flex-wrap gap-2">
+                    {critique ? (
+                      <StatusChip
+                        label={labelCritiqueStatus(critique.status)}
+                        tone={critiqueChipTone(critique.status)}
+                      />
+                    ) : (
+                      <StatusChip label="No critique" tone="muted" />
+                    )}
+                    {se ? (
+                      <StatusChip
+                        label={labelSeStatus(se.status)}
+                        tone={se.status === "complete" ? "success" : "pending"}
+                      />
+                    ) : null}
+                    {critique ? (
+                      <span className="self-center text-xs text-sss-text-secondary">
+                        Delivery: {labelDeliveryStatus(critique.delivery_status)}
+                      </span>
+                    ) : null}
+                  </div>
+                </summary>
+                <div className="mt-3">
+                  <DocumentActions documents={documents} />
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {critique ? (
-                    <StatusChip
-                      label={labelCritiqueStatus(critique.status)}
-                      tone={critiqueChipTone(critique.status)}
-                    />
-                  ) : (
-                    <StatusChip label="No critique" tone="muted" />
-                  )}
-                  {se ? (
-                    <StatusChip
-                      label={labelSeStatus(se.status)}
-                      tone={se.status === "complete" ? "success" : "pending"}
-                    />
-                  ) : null}
-                  {critique ? (
-                    <span className="text-xs text-sss-text-secondary self-center">
-                      Delivery: {labelDeliveryStatus(critique.delivery_status)}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-              <DocumentActions documents={documents} />
+              </details>
             </li>
           ))}
           {rows.length === 0 ? (
@@ -205,7 +252,13 @@ export default function AdminReportsPage() {
               SE / critique.
             </li>
           ) : null}
+          {rows.length > 0 && visibleRows.length === 0 ? (
+            <li className="sss-tray p-5 text-sm text-sss-text-muted">
+              No dogs match this filter.
+            </li>
+          ) : null}
         </ul>
+        </div>
       )}
     </div>
   );

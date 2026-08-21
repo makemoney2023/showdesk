@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ADRK_CLASSES } from "@/lib/domain/adrk-template";
+import { formatDisplayDate } from "@/lib/domain/show-day";
 import type { RulebookTemplate } from "@/lib/domain/adrk-template";
 import { validateRosterEntry } from "@/lib/domain/roster";
 import { blankRosterEntryDraft } from "@/lib/domain/roster-draft";
@@ -51,6 +52,7 @@ export default function AdminEntriesPage() {
   const [showDraft, setShowDraft] = useState<ShowCreateInput>(() => blankShowDraft());
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [switching, setSwitching] = useState(false);
 
   const load = useCallback(async () => {
     const showRes = await fetch("/api/shows");
@@ -142,14 +144,19 @@ export default function AdminEntriesPage() {
   async function selectShow(id: string) {
     setShowId(id);
     setMessage("");
-    await fetch("/api/shows", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ active_show_id: id }),
-    });
-    const res = await fetch(`/api/entries?show_id=${id}`);
-    const data = (await res.json()) as { entries: RosterEntryRecord[] };
-    setEntries(data.entries);
+    setSwitching(true);
+    try {
+      await fetch("/api/shows", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active_show_id: id }),
+      });
+      const res = await fetch(`/api/entries?show_id=${id}`);
+      const data = (await res.json()) as { entries: RosterEntryRecord[] };
+      setEntries(data.entries);
+    } finally {
+      setSwitching(false);
+    }
   }
 
   function openCsvImport() {
@@ -338,7 +345,7 @@ export default function AdminEntriesPage() {
               <SelectContent>
                 {shows.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
-                    {s.name} · {s.date} ({s.rulebook.toUpperCase()})
+                    {s.name} · {formatDisplayDate(s.date)} ({s.rulebook.toUpperCase()})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -348,6 +355,9 @@ export default function AdminEntriesPage() {
               No shows yet — click New show to create one.
             </p>
           )}
+          {switching ? (
+            <p className="text-xs text-sss-text-muted">Switching show…</p>
+          ) : null}
         </div>
         <Button variant="outline" onClick={openNewShowForm}>
           <Plus className="h-4 w-4" />
@@ -441,7 +451,7 @@ export default function AdminEntriesPage() {
       />
 
       <SectionCard
-        title={`Entries (${entries.length})`}
+        title={`Entries (${filtered.length} of ${entries.length})`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Input
@@ -451,6 +461,16 @@ export default function AdminEntriesPage() {
               onChange={(e) => setSearch(e.target.value)}
               aria-label="Search roster"
             />
+            {search ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setSearch("")}
+              >
+                Clear search
+              </Button>
+            ) : null}
             <Button onClick={openCsvImport} disabled={!showId}>
               <Upload className="h-4 w-4" />
               Import CSV
@@ -474,7 +494,59 @@ export default function AdminEntriesPage() {
             <Skeleton className="h-10 w-full" />
           </div>
         ) : (
-        <div className="overflow-x-auto rounded-sss-md border border-sss-border">
+        <>
+        <ul className="space-y-2 md:hidden">
+          {filtered.map((e) => (
+            <li key={e.id} className="sss-tray space-y-2 p-3">
+              <div className="flex items-start gap-3">
+                <DogAvatar
+                  size="sm"
+                  src={
+                    e.photo_path && showId
+                      ? dogPhotoHref(showId, e.id, { cacheBust: e.photo_path })
+                      : null
+                  }
+                />
+                <div className="min-w-0">
+                  <p className="font-medium">{e.dog_name}</p>
+                  <p className="text-xs text-sss-text-muted">
+                    #{e.armband} · {e.owner} ·{" "}
+                    {ADRK_CLASSES.find((c) => c.id === e.class_id)?.label ?? e.class_id}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => openEditProfile(e)}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive"
+                  onClick={() => setDeleteEntryId(e.id)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
+                </Button>
+              </div>
+            </li>
+          ))}
+          {filtered.length === 0 ? (
+            <li className="text-sm text-sss-text-muted">
+              {entries.length === 0
+                ? "No dogs on this roster yet."
+                : "No dogs match this search."}
+            </li>
+          ) : null}
+        </ul>
+        <div className="hidden overflow-x-auto rounded-sss-md border border-sss-border md:block">
           <table className="w-full text-sm">
             <thead className="bg-sss-lifted text-left">
               <tr>
@@ -549,6 +621,7 @@ export default function AdminEntriesPage() {
             </tbody>
           </table>
         </div>
+        </>
         )}
       </SectionCard>
 

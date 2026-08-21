@@ -5,11 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, Mic } from "lucide-react";
 import { pendingReviewCount } from "@/lib/domain/critique-status";
-import { syncShowJudges } from "@/lib/domain/show-judges";
-import {
-  stickyJudgeForShow,
-  writeStickyJudge,
-} from "@/lib/client/sticky-judge";
+import { RingsideJudgeProvider, useRingsideJudge } from "@/components/ringside/RingsideJudgeContext";
 import { ToastHost } from "@/components/feedback/toast";
 import {
   secretaryNavItems,
@@ -34,7 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { RoleNav } from "./RoleNav";
 import { ShowChip } from "./ShowChip";
-import { StewardNav } from "./StewardNav";
+import { RingsideDesktopNav, StewardNav } from "./StewardNav";
 import { SyncChip } from "./SyncChip";
 
 export function RoleShell({ children }: { children: React.ReactNode }) {
@@ -114,30 +110,41 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
 
   if (kind === "steward") {
     return (
+      <RingsideJudgeProvider show={show}>
       <div className="min-h-dvh">
         <ToastHost />
         <header className="sss-paper sticky top-0 z-30 rounded-none border-x-0 border-t-0">
-          <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-2">
-            <Link
-              href="/ringside"
-              className="shrink-0 font-[family-name:var(--font-fraunces)] text-base font-semibold"
-            >
-              Ringside
-            </Link>
-            <div className="hidden min-w-0 truncate sm:block">
-              <ShowChip name={show?.name ?? null} date={show?.date ?? null} compact />
+          <div className="mx-auto max-w-3xl space-y-2 px-4 py-2">
+            <div className="flex items-center gap-2">
+              <Link
+                href="/ringside"
+                className="shrink-0 font-[family-name:var(--font-fraunces)] text-base font-semibold"
+              >
+                Ringside
+              </Link>
+              <div className="min-w-0 truncate">
+                <ShowChip name={show?.name ?? null} date={show?.date ?? null} compact />
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                <SyncChip online={online} queueCount={queueCount} />
+                <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex">
+                  <Link href="/">Back to desk</Link>
+                </Button>
+                <AccountMenu kind={kind} compact />
+              </div>
             </div>
-            <StewardJudgeSelect show={show} />
-            <div className="ml-auto flex items-center gap-2">
-              <SyncChip online={online} queueCount={queueCount} />
-              <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex">
-                <Link href="/">Back to desk</Link>
-              </Button>
-              <AccountMenu kind={kind} />
-            </div>
+            <StewardJudgeSelect />
+            <RingsideDesktopNav
+              activeHref={pathname}
+              queueCount={queueCount}
+              onQueue={() => {
+                void refreshQueue();
+                setQueueOpen(true);
+              }}
+            />
           </div>
         </header>
-        <main className="mx-auto max-w-3xl px-4 py-4 pb-28">{children}</main>
+        <main className="mx-auto max-w-3xl px-4 py-4 pb-28 md:pb-8">{children}</main>
         <StewardNav
           activeHref={pathname}
           queueCount={queueCount}
@@ -201,6 +208,7 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
           </DialogContent>
         </Dialog>
       </div>
+      </RingsideJudgeProvider>
     );
   }
 
@@ -278,30 +286,17 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function StewardJudgeSelect({ show }: { show: Show | null }) {
-  const judges = syncShowJudges(show ?? {}).judges;
-  const [selected, setSelected] = useState("");
+function StewardJudgeSelect() {
+  const { judge, setJudge, judges, showId } = useRingsideJudge();
 
-  const judgeKey = judges.join("\0");
-  useEffect(() => {
-    if (!show) {
-      setSelected("");
-      return;
-    }
-    setSelected(stickyJudgeForShow(show.id, judges) ?? "");
-  }, [show, judgeKey, judges]);
-
-  if (!show || judges.length === 0) return null;
+  if (!showId || judges.length === 0) return null;
 
   return (
     <select
       aria-label="Judge"
-      className="min-h-11 max-w-[12rem] rounded-sss-md border border-sss-border bg-sss-paper px-2 text-sm hover:border-sss-accent-soft"
-      value={selected}
-      onChange={(e) => {
-        setSelected(e.target.value);
-        writeStickyJudge(show.id, e.target.value);
-      }}
+      className="min-h-11 w-full rounded-sss-md border border-sss-border bg-sss-paper px-2 text-sm hover:border-sss-accent-soft md:max-w-xs"
+      value={judge}
+      onChange={(e) => setJudge(e.target.value)}
     >
       <option value="">Select a judge</option>
       {judges.map((name) => (

@@ -12,8 +12,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AlertTriangle } from "lucide-react";
+import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { pushToast } from "@/components/feedback/toast";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { SectionCard } from "@/components/ui/section-card";
 import { JudgeListFields } from "@/components/show/JudgeListFields";
 import { syncShowJudges } from "@/lib/domain/show-judges";
@@ -26,6 +28,8 @@ export default function AdminSettingsPage() {
   const [confirm, setConfirm] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [purgeOpen, setPurgeOpen] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/shows");
@@ -35,6 +39,7 @@ export default function AdminSettingsPage() {
           ? "Session expired — sign in again"
           : "Could not load settings",
       );
+      setLoaded(true);
       return;
     }
     const data = (await res.json()) as { shows: Show[]; active_show_id: string | null };
@@ -45,6 +50,7 @@ export default function AdminSettingsPage() {
     if (!active) {
       setMessage("No active show — create one on Roster.");
     }
+    setLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -92,7 +98,9 @@ export default function AdminSettingsPage() {
         title="Settings"
         description="Show metadata and manual data retention purge."
       />
-
+      {!loaded ? <PageSkeleton rows={3} /> : null}
+      {loaded ? (
+        <>
       {message ? (
         <p className="sss-tray px-3 py-2 text-sm">{message}</p>
       ) : null}
@@ -191,14 +199,29 @@ export default function AdminSettingsPage() {
             placeholder="PURGE"
           />
         </div>
-        <Button
+          <Button
           variant="destructive"
           disabled={busy || confirm !== "PURGE" || !activeShowId}
-          onClick={() => void purgeShow()}
+          onClick={() => setPurgeOpen(true)}
         >
           Purge show data
         </Button>
+        <p className="text-xs text-destructive">This cannot be undone.</p>
       </section>
+      <ConfirmDialog
+        open={purgeOpen}
+        title="Permanently delete this show’s data?"
+        body="This cannot be undone. All entries, critiques, SE forms, placements, and audio for the active show will be deleted."
+        confirmLabel="Purge"
+        destructive
+        onConfirm={() => {
+          setPurgeOpen(false);
+          void purgeShow();
+        }}
+        onCancel={() => setPurgeOpen(false)}
+      />
+        </>
+      ) : null}
     </div>
   );
 }
