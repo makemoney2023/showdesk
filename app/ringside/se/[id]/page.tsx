@@ -626,7 +626,7 @@ export default function StewardSeFormPage() {
       </section>
 
       <div className="h-24" aria-hidden />
-      <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 border-t border-sss-border bg-sss-elevated/95 shadow-sss-overlay backdrop-blur">
+      <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-40 border-t border-sss-border bg-sss-elevated/95 shadow-sss-overlay backdrop-blur">
         <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-3">
           <Button
             type="button"

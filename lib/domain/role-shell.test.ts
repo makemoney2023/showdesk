@@ -3,6 +3,7 @@ import {
   secretaryNavItems,
   secretaryRingsideSwitch,
   shellForPath,
+  stewardNavItemActive,
   stewardNavItems,
 } from "./role-shell";
 
@@ -37,5 +38,17 @@ describe("role-shell", () => {
     expect(items.map((i) => i.label)).toEqual(["Dogs", "Placements", "Desk"]);
     expect(items.find((i) => i.label === "Desk")?.href).toBe("/");
     expect(items.some((i) => i.href.startsWith("/admin"))).toBe(false);
+  });
+
+  it("keeps Dogs active on record and SE, not placements", () => {
+    expect(stewardNavItemActive("/ringside", "/ringside")).toBe(true);
+    expect(stewardNavItemActive("/ringside", "/ringside/record/abc")).toBe(true);
+    expect(stewardNavItemActive("/ringside", "/ringside/se/abc")).toBe(true);
+    expect(stewardNavItemActive("/ringside", "/ringside/placements")).toBe(
+      false,
+    );
+    expect(
+      stewardNavItemActive("/ringside/placements", "/ringside/placements"),
+    ).toBe(true);
   });
 });

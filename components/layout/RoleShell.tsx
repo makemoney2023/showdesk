@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, Mic } from "lucide-react";
+import { Mic } from "lucide-react";
 import { pendingReviewCount } from "@/lib/domain/critique-status";
 import { RingsideJudgeProvider, useRingsideJudge } from "@/components/ringside/RingsideJudgeContext";
 import { ToastHost } from "@/components/feedback/toast";
@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { RoleNav } from "./RoleNav";
 import { ShowChip } from "./ShowChip";
-import { RingsideDesktopNav, StewardNav } from "./StewardNav";
+import { StewardNav } from "./StewardNav";
 import { SyncChip } from "./SyncChip";
 
 export function RoleShell({ children }: { children: React.ReactNode }) {
@@ -44,7 +44,6 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
     Awaited<ReturnType<typeof listQueuedRecordings>>
   >([]);
   const [queueOpen, setQueueOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [queueStatus, setQueueStatus] = useState("");
   const [queueBusy, setQueueBusy] = useState(false);
   const queueCount = queueItems.length;
@@ -134,17 +133,9 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
               </div>
             </div>
             <StewardJudgeSelect />
-            <RingsideDesktopNav
-              activeHref={pathname}
-              queueCount={queueCount}
-              onQueue={() => {
-                void refreshQueue();
-                setQueueOpen(true);
-              }}
-            />
           </div>
         </header>
-        <main className="mx-auto max-w-3xl px-4 py-4 pb-28 md:pb-8">{children}</main>
+        <main className="mx-auto max-w-3xl px-4 py-4 pb-28">{children}</main>
         <StewardNav
           activeHref={pathname}
           queueCount={queueCount}
@@ -233,21 +224,12 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
               ) : null}
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <Button asChild size="sm" className="hidden sm:inline-flex">
+              <Button asChild size="sm">
                 <Link href={ringside.href}>
                   <Mic className="h-4 w-4" />
-                  {ringside.label}
+                  <span className="sm:hidden">Ringside</span>
+                  <span className="hidden sm:inline">{ringside.label}</span>
                 </Link>
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="md:hidden"
-                aria-label="Open menu"
-                onClick={() => setMenuOpen(true)}
-              >
-                <Menu className="h-4 w-4" />
               </Button>
               <AccountMenu kind={kind} />
             </div>
@@ -261,27 +243,13 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
-      <Dialog open={menuOpen} onOpenChange={setMenuOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Navigate</DialogTitle>
-          </DialogHeader>
-          <RoleNav
-            items={secretaryNavItems()}
-            activeHref={pathname}
-            pendingCount={pendingCount}
-            orientation="vertical"
-            onNavigate={() => setMenuOpen(false)}
-          />
-          <Button asChild>
-            <Link href={ringside.href} onClick={() => setMenuOpen(false)}>
-              <Mic className="h-4 w-4" />
-              {ringside.label}
-            </Link>
-          </Button>
-        </DialogContent>
-      </Dialog>
+      <main className="mx-auto max-w-6xl px-4 py-8 pb-28 md:pb-8">{children}</main>
+      <RoleNav
+        items={secretaryNavItems()}
+        activeHref={pathname}
+        pendingCount={pendingCount}
+        orientation="dock"
+      />
     </div>
   );
 }
