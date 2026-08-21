@@ -1,20 +1,30 @@
 "use client";
 
 import Link from "next/link";
+import { Inbox, LayoutDashboard, PawPrint, Trophy } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { stewardNavItems } from "@/lib/domain/role-shell";
 import { cn } from "@/lib/utils";
+
+const ICONS: Record<string, typeof PawPrint> = {
+  "/ringside": PawPrint,
+  "/ringside/placements": Trophy,
+  "/": LayoutDashboard,
+};
 
 export function StewardNav({
   activeHref,
   onQueue,
+  queueCount = 0,
 }: {
   activeHref: string;
   onQueue: () => void;
+  queueCount?: number;
 }) {
   const items = stewardNavItems();
   return (
     <nav
-      className="sss-paper fixed inset-x-0 bottom-0 z-40 flex min-h-[calc(2.75rem+env(safe-area-inset-bottom))] justify-around pt-2 pb-[env(safe-area-inset-bottom)]"
+      className="sss-paper fixed inset-x-0 bottom-0 z-40 flex min-h-[calc(3.75rem+env(safe-area-inset-bottom))] justify-around rounded-none border-x-0 border-b-0 pt-1.5 pb-[env(safe-area-inset-bottom)]"
       aria-label="Ringside"
     >
       {items.map((item) => {
@@ -24,15 +34,24 @@ export function StewardNav({
             : item.href === "/ringside"
               ? activeHref === "/ringside"
               : activeHref.startsWith(item.href);
+        const Icon = ICONS[item.href] ?? PawPrint;
         return (
           <Link
             key={item.href}
             href={item.href}
             className={cn(
-              "inline-flex min-h-11 min-w-11 flex-1 items-center justify-center text-sm",
+              "inline-flex min-h-11 min-w-11 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium",
               active ? "text-sss-accent-deep" : "text-sss-text-secondary",
             )}
           >
+            <span
+              className={cn(
+                "inline-flex h-8 w-10 items-center justify-center rounded-sss-md",
+                active && "bg-sss-lifted",
+              )}
+            >
+              <Icon className="h-4 w-4" aria-hidden />
+            </span>
             {item.label}
           </Link>
         );
@@ -40,8 +59,14 @@ export function StewardNav({
       <button
         type="button"
         onClick={onQueue}
-        className="inline-flex min-h-11 min-w-11 flex-1 items-center justify-center text-sm text-sss-text-secondary"
+        className="inline-flex min-h-11 min-w-11 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-sss-text-secondary"
       >
+        <span className="relative inline-flex h-8 w-10 items-center justify-center rounded-sss-md">
+          <Inbox className="h-4 w-4" aria-hidden />
+          {queueCount > 0 ? (
+            <Badge className="absolute -top-0.5 -right-1">{queueCount}</Badge>
+          ) : null}
+        </span>
         Queue
       </button>
     </nav>

@@ -15,8 +15,11 @@ export function secretaryNavItems(): { href: string; label: string }[] {
     { href: "/admin/review", label: "Review" },
     { href: "/admin/reports", label: "Reports" },
     { href: "/admin/settings", label: "Settings" },
-    { href: "/ringside", label: "Ringside" },
   ];
+}
+
+export function secretaryRingsideSwitch(): { href: string; label: string } {
+  return { href: "/ringside", label: "Open ringside" };
 }
 
 export function stewardNavItems(): { href: string; label: string }[] {

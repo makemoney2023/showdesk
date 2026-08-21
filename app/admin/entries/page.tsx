@@ -28,6 +28,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
+import { pushToast } from "@/components/feedback/toast";
+import { DogAvatar } from "@/components/desk/DogAvatar";
+import { PageHeader } from "@/components/ui/page-header";
+import { SectionCard } from "@/components/ui/section-card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Pencil, Plus, Trash2, Upload } from "lucide-react";
 import type { RosterEntryRecord, Show } from "@/lib/types";
 
 type EntryFormMode = "create" | "edit";
@@ -44,6 +50,7 @@ export default function AdminEntriesPage() {
   const [csvModalOpen, setCsvModalOpen] = useState(false);
   const [showDraft, setShowDraft] = useState<ShowCreateInput>(() => blankShowDraft());
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async () => {
     const showRes = await fetch("/api/shows");
@@ -77,6 +84,7 @@ export default function AdminEntriesPage() {
     } else {
       setEntries([]);
     }
+    setLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -125,7 +133,9 @@ export default function AdminEntriesPage() {
       setMessage(data.error ?? "Could not create show");
       return;
     }
-    setMessage(`Show created: ${data.show.name}`);
+    const createdMsg = `Show created: ${data.show.name}`;
+    setMessage(createdMsg);
+    pushToast(createdMsg);
     setShowFormOpen(false);
     setShowId(data.show.id);
     await load();
@@ -245,6 +255,7 @@ export default function AdminEntriesPage() {
       }
       const created = (await res.json()) as { entry?: RosterEntryRecord };
       setMessage("Entry created — add a photo if you have one");
+      pushToast("Entry created — add a photo if you have one");
       if (created.entry) {
         setEntryDraft(created.entry);
         setEntryFormMode("edit");
@@ -299,53 +310,52 @@ export default function AdminEntriesPage() {
   const selectValue = shows.some((s) => s.id === showId) ? showId! : undefined;
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="font-[family-name:var(--font-fraunces)] text-2xl font-semibold">
-          Roster entries
-        </h1>
-        <p className="text-sm text-sss-text-secondary">
-          {showId
+    <div className="space-y-6">
+      <PageHeader
+        title="Roster entries"
+        description={
+          showId
             ? "Import a CSV or add a scratch entry for this show."
-            : "Create a show, then import or add dog profiles for that show."}
-        </p>
-      </div>
+            : "Create a show, then import or add dog profiles for that show."
+        }
+      />
 
       {message ? (
         <p
           role="status"
-          className="border border-sss-border bg-sss-lifted px-3 py-2 text-sm text-sss-text-primary"
+          className="sss-tray px-3 py-2 text-sm text-sss-text-primary"
         >
           {message}
         </p>
       ) : null}
 
-      <section className="space-y-3 border border-sss-border bg-sss-elevated p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-medium">Active show</h2>
-          <Button variant="outline" onClick={openNewShowForm}>
-            New show
-          </Button>
+      <div className="sss-paper flex flex-wrap items-end gap-3 p-4">
+        <div className="min-w-[16rem] flex-1 space-y-1">
+          <Label>Active show</Label>
+          {shows.length > 0 ? (
+            <Select value={selectValue} onValueChange={(v) => void selectShow(v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select show" />
+              </SelectTrigger>
+              <SelectContent>
+                {shows.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name} · {s.date} ({s.rulebook.toUpperCase()})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <p className="text-sm text-sss-text-muted">
+              No shows yet — click New show to create one.
+            </p>
+          )}
         </div>
-        {shows.length > 0 ? (
-          <Select value={selectValue} onValueChange={(v) => void selectShow(v)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select show" />
-            </SelectTrigger>
-            <SelectContent>
-              {shows.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.name} · {s.date} ({s.rulebook.toUpperCase()})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <p className="text-sm text-sss-text-muted">
-            No shows yet — click New show to create one.
-          </p>
-        )}
-      </section>
+        <Button variant="outline" onClick={openNewShowForm}>
+          <Plus className="h-4 w-4" />
+          New show
+        </Button>
+      </div>
 
       <Dialog open={showFormOpen} onOpenChange={setShowFormOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
@@ -425,21 +435,6 @@ export default function AdminEntriesPage() {
         </DialogContent>
       </Dialog>
 
-      <section className="space-y-3 border border-sss-border bg-sss-elevated p-4">
-        <h2 className="font-medium">CSV import</h2>
-        <p className="text-sm text-sss-text-secondary">
-          Upload a roster file for the active show.
-        </p>
-        <Button onClick={openCsvImport} disabled={!showId}>
-          Import CSV
-        </Button>
-        {!showId ? (
-          <p className="text-xs text-sss-text-muted">
-            Select or create a show to enable import.
-          </p>
-        ) : null}
-      </section>
-
       <CsvImportDialog
         open={csvModalOpen}
         onOpenChange={setCsvModalOpen}
@@ -447,9 +442,9 @@ export default function AdminEntriesPage() {
         disabled={!showId}
       />
 
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-medium">Entries ({entries.length})</h2>
+      <SectionCard
+        title={`Entries (${entries.length})`}
+        actions={
           <div className="flex flex-wrap items-center gap-2">
             <Input
               className="w-56"
@@ -458,20 +453,38 @@ export default function AdminEntriesPage() {
               onChange={(e) => setSearch(e.target.value)}
               aria-label="Search roster"
             />
+            <Button onClick={openCsvImport} disabled={!showId}>
+              <Upload className="h-4 w-4" />
+              Import CSV
+            </Button>
             <Button variant="outline" onClick={openCreateProfile}>
+              <Plus className="h-4 w-4" />
               Add scratch entry
             </Button>
           </div>
-        </div>
-        <div className="overflow-x-auto border border-sss-border">
+        }
+      >
+        {!showId ? (
+          <p className="text-xs text-sss-text-muted">
+            Select or create a show to enable import.
+          </p>
+        ) : null}
+        {!loaded ? (
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ) : (
+        <div className="overflow-x-auto rounded-sss-md border border-sss-border">
           <table className="w-full text-sm">
             <thead className="bg-sss-lifted text-left">
               <tr>
-                <th className="p-2">Armband</th>
-                <th className="p-2">Dog</th>
-                <th className="p-2">Owner</th>
-                <th className="p-2">Class</th>
-                <th className="p-2">Actions</th>
+                <th className="p-3 font-medium">Armband</th>
+                <th className="p-3 font-medium">Dog</th>
+                <th className="p-3 font-medium">Owner</th>
+                <th className="p-3 font-medium">Class</th>
+                <th className="p-3 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -479,7 +492,7 @@ export default function AdminEntriesPage() {
                 <tr>
                   <td
                     colSpan={5}
-                    className="p-4 text-sm text-sss-text-muted"
+                    className="p-6 text-sm text-sss-text-muted"
                   >
                     {entries.length === 0
                       ? "No dogs on this roster yet."
@@ -488,32 +501,38 @@ export default function AdminEntriesPage() {
                 </tr>
               ) : null}
               {filtered.map((e) => (
-                <tr key={e.id} className="border-t border-sss-border">
-                  <td className="p-2">{e.armband}</td>
-                  <td className="p-2">
+                <tr
+                  key={e.id}
+                  className="border-t border-sss-border transition-colors hover:bg-sss-lifted/70"
+                >
+                  <td className="p-3 font-[family-name:var(--font-fraunces)] font-semibold">
+                    #{e.armband}
+                  </td>
+                  <td className="p-3">
                     <span className="inline-flex items-center gap-2">
-                      {e.photo_path && showId ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={dogPhotoHref(showId, e.id, { cacheBust: e.photo_path })}
-                          alt=""
-                          className="h-8 w-8 rounded object-cover"
-                        />
-                      ) : null}
+                      <DogAvatar
+                        size="sm"
+                        src={
+                          e.photo_path && showId
+                            ? dogPhotoHref(showId, e.id, { cacheBust: e.photo_path })
+                            : null
+                        }
+                      />
                       {e.dog_name}
                     </span>
                   </td>
-                  <td className="p-2">{e.owner}</td>
-                  <td className="p-2">
+                  <td className="p-3">{e.owner}</td>
+                  <td className="p-3">
                     {ADRK_CLASSES.find((c) => c.id === e.class_id)?.label ?? e.class_id}
                   </td>
-                  <td className="space-x-2 p-2">
+                  <td className="space-x-2 p-3">
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
                       onClick={() => openEditProfile(e)}
                     >
+                      <Pencil className="h-3.5 w-3.5" />
                       Edit
                     </Button>
                     <Button
@@ -523,6 +542,7 @@ export default function AdminEntriesPage() {
                       className="text-destructive"
                       onClick={() => setDeleteEntryId(e.id)}
                     >
+                      <Trash2 className="h-3.5 w-3.5" />
                       Delete
                     </Button>
                   </td>
@@ -531,7 +551,8 @@ export default function AdminEntriesPage() {
             </tbody>
           </table>
         </div>
-      </section>
+        )}
+      </SectionCard>
 
       <Dialog
         open={Boolean(entryFormMode && entryDraft)}

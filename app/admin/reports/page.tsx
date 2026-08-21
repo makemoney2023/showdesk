@@ -2,8 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { CheckCircle2, CircleDashed, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DogAvatar } from "@/components/desk/DogAvatar";
+import { PageHeader } from "@/components/ui/page-header";
 import { StatusChip } from "@/components/status/StatusChip";
+import { dogPhotoHref } from "@/lib/domain/dog-photo";
 import {
   buildReportDocumentsForDog,
   reportDocumentDownloadHref,
@@ -120,21 +124,21 @@ export default function AdminReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-[family-name:var(--font-fraunces)] text-2xl font-semibold">
-          Reports
-        </h1>
-        <p className="text-sm text-sss-text-secondary">
-          View or download generated documents per dog for the active show.
-        </p>
-      </div>
+      <PageHeader
+        title="Reports"
+        description="View or download generated documents per dog for the active show."
+        actions={
+          <Button variant="outline" onClick={() => void load()}>
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </Button>
+        }
+      />
       {message ? (
-        <p className="border border-sss-border bg-sss-lifted px-3 py-2 text-sm">
-          {message}
-        </p>
+        <p className="sss-tray px-3 py-2 text-sm">{message}</p>
       ) : null}
       {!hasShow ? (
-        <div className="space-y-3 border border-sss-border p-4">
+        <div className="sss-paper space-y-3 p-5">
           <p className="text-sm text-sss-text-muted">
             No active show. Create a show and process critiques first.
           </p>
@@ -147,17 +151,28 @@ export default function AdminReportsPage() {
           {rows.map(({ entry, critique, se, placement, documents }) => (
             <li
               key={entry.id}
-              className="space-y-3 border border-sss-border p-4"
+              className="sss-paper space-y-3 p-5"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="font-medium">
-                    #{entry.armband} {entry.dog_name}
-                  </h2>
-                  <p className="text-xs text-sss-text-muted">
-                    {getAdrkClassLabel(entry.class_id as AdrkClassId)}
-                    {placement ? ` · Place ${placement.placement}` : ""}
-                  </p>
+                <div className="flex items-start gap-3">
+                  <DogAvatar
+                    src={
+                      entry.photo_path && showId
+                        ? dogPhotoHref(showId, entry.id, {
+                            cacheBust: entry.photo_path,
+                          })
+                        : null
+                    }
+                  />
+                  <div>
+                    <h2 className="font-[family-name:var(--font-fraunces)] text-lg font-semibold">
+                      #{entry.armband} {entry.dog_name}
+                    </h2>
+                    <p className="text-xs text-sss-text-muted">
+                      {getAdrkClassLabel(entry.class_id as AdrkClassId)}
+                      {placement ? ` · Place ${placement.placement}` : ""}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {critique ? (
@@ -185,16 +200,13 @@ export default function AdminReportsPage() {
             </li>
           ))}
           {rows.length === 0 ? (
-            <li className="border border-sss-border p-4 text-sm text-sss-text-muted">
+            <li className="sss-tray p-5 text-sm text-sss-text-muted">
               No dogs on the roster yet. Import entries, then record or complete
               SE / critique.
             </li>
           ) : null}
         </ul>
       )}
-      <Button variant="outline" onClick={() => void load()}>
-        Refresh
-      </Button>
     </div>
   );
 }
@@ -209,9 +221,20 @@ function DocumentActions({
       {documents.map((doc) => (
         <li
           key={doc.kind}
-          className="flex flex-wrap items-center justify-between gap-2 border border-sss-border bg-sss-lifted px-3 py-2"
+          className={`flex flex-wrap items-center justify-between gap-2 rounded-sss-md px-3 py-2 ${
+            doc.available
+              ? "bg-sss-success-soft/50"
+              : "bg-sss-lifted text-sss-text-muted"
+          }`}
         >
-          <span className="text-sm font-medium">{doc.label}</span>
+          <span className="inline-flex items-center gap-2 text-sm font-medium">
+            {doc.available ? (
+              <CheckCircle2 className="h-4 w-4 text-sss-success" aria-hidden />
+            ) : (
+              <CircleDashed className="h-4 w-4" aria-hidden />
+            )}
+            {doc.label}
+          </span>
           {doc.available && doc.href ? (
             <div className="flex flex-wrap gap-2">
               <Button asChild size="sm" variant="outline">

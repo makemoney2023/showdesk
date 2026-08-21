@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assignClassPlacement,
   formwertSortRank,
   placementEntriesBelongToShow,
   placementsSuggestedFromFormwert,
@@ -175,5 +176,37 @@ describe("placementsSuggestedFromFormwert", () => {
       { entry_id: "b", class_id: "zwischenklasse", placement: 1 },
       { entry_id: "a", class_id: "zwischenklasse", placement: null },
     ]);
+  });
+});
+
+describe("assignClassPlacement", () => {
+  const classIds = ["e1", "e2", "e3"];
+
+  it("assigns a place and swaps when another dog holds it", () => {
+    const swapped = assignClassPlacement(
+      { e1: 1, e2: 2 },
+      "e3",
+      1,
+      classIds,
+    );
+    expect(swapped.e3).toBe(1);
+    expect(swapped.e1).toBe("");
+    expect(swapped.e2).toBe(2);
+  });
+
+  it("clears a place when the same button is tapped again", () => {
+    const cleared = assignClassPlacement({ e1: 2 }, "e1", 2, classIds);
+    expect(cleared.e1).toBe("");
+  });
+
+  it("swaps two dogs when both already have places", () => {
+    const swapped = assignClassPlacement(
+      { e1: 1, e2: 3 },
+      "e1",
+      3,
+      classIds,
+    );
+    expect(swapped.e1).toBe(3);
+    expect(swapped.e2).toBe(1);
   });
 });

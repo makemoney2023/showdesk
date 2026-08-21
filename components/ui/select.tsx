@@ -16,7 +16,7 @@ function SelectTrigger({
   return (
     <SelectPrimitive.Trigger
       className={cn(
-        "flex h-10 w-full items-center justify-between rounded-md border border-sss-border bg-sss-elevated px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+        "flex h-10 w-full items-center justify-between rounded-sss-md border border-sss-border bg-sss-elevated px-3 py-2 text-sm transition-colors duration-[var(--duration-ui)] hover:border-sss-accent-soft focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...props}
@@ -38,7 +38,7 @@ function SelectContent({
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
         className={cn(
-          "relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-md border border-sss-border bg-sss-elevated shadow-md",
+          "relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-sss-md border border-sss-border bg-sss-elevated shadow-sss-overlay",
           className,
         )}
         {...props}
@@ -57,7 +57,7 @@ function SelectItem({
   return (
     <SelectPrimitive.Item
       className={cn(
-        "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-sss-lifted",
+        "relative flex w-full cursor-default select-none items-center rounded-sss-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-sss-lifted",
         className,
       )}
       {...props}

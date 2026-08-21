@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Menu, Mic } from "lucide-react";
 import { pendingReviewCount } from "@/lib/domain/critique-status";
 import { syncShowJudges } from "@/lib/domain/show-judges";
 import {
@@ -12,6 +13,7 @@ import {
 import { ToastHost } from "@/components/feedback/toast";
 import {
   secretaryNavItems,
+  secretaryRingsideSwitch,
   shellForPath,
 } from "@/lib/domain/role-shell";
 import { labelQueuedItem } from "@/lib/domain/show-day";
@@ -46,9 +48,11 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
     Awaited<ReturnType<typeof listQueuedRecordings>>
   >([]);
   const [queueOpen, setQueueOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [queueStatus, setQueueStatus] = useState("");
   const [queueBusy, setQueueBusy] = useState(false);
   const queueCount = queueItems.length;
+  const ringside = secretaryRingsideSwitch();
 
   const load = useCallback(async () => {
     const showRes = await fetch("/api/shows");
@@ -112,7 +116,7 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-dvh">
         <ToastHost />
-        <header className="sss-paper sticky top-0 z-30">
+        <header className="sss-paper sticky top-0 z-30 rounded-none border-x-0 border-t-0">
           <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-2">
             <Link
               href="/ringside"
@@ -124,6 +128,9 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
             <StewardJudgeSelect show={show} />
             <div className="flex items-center gap-2">
               <SyncChip online={online} queueCount={queueCount} />
+              <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex">
+                <Link href="/">Back to desk</Link>
+              </Button>
               <AccountMenu kind={kind} />
             </div>
           </div>
@@ -131,6 +138,7 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
         <main className="mx-auto max-w-3xl px-4 py-4 pb-28">{children}</main>
         <StewardNav
           activeHref={pathname}
+          queueCount={queueCount}
           onQueue={() => {
             void refreshQueue();
             setQueueOpen(true);
@@ -197,9 +205,9 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh">
       <ToastHost />
-      <header className="sss-paper sticky top-0 z-30">
+      <header className="sss-paper sticky top-0 z-30 rounded-none border-x-0 border-t-0">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-2">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
             <Link
               href="/"
               className="font-[family-name:var(--font-fraunces)] text-lg font-semibold tracking-tight"
@@ -208,20 +216,60 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
             </Link>
             <ShowChip name={show?.name ?? null} date={show?.date ?? null} />
             {isDemoMode() ? (
-              <span className="rounded-md border border-sss-accent px-2 py-0.5 text-xs font-medium text-sss-accent-deep">
+              <span className="rounded-full border border-sss-accent px-2 py-0.5 text-xs font-medium text-sss-accent-deep">
                 DEMO
               </span>
             ) : null}
           </div>
+          <div className="hidden md:block">
+            <RoleNav
+              items={secretaryNavItems()}
+              activeHref={pathname}
+              pendingCount={pendingCount}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Button asChild size="sm" className="hidden sm:inline-flex">
+              <Link href={ringside.href}>
+                <Mic className="h-4 w-4" />
+                {ringside.label}
+              </Link>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="md:hidden"
+              aria-label="Open menu"
+              onClick={() => setMenuOpen(true)}
+            >
+              <Menu className="h-4 w-4" />
+            </Button>
+            <AccountMenu kind={kind} />
+          </div>
+        </div>
+      </header>
+      <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+      <Dialog open={menuOpen} onOpenChange={setMenuOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Navigate</DialogTitle>
+          </DialogHeader>
           <RoleNav
             items={secretaryNavItems()}
             activeHref={pathname}
             pendingCount={pendingCount}
+            orientation="vertical"
+            onNavigate={() => setMenuOpen(false)}
           />
-          <AccountMenu kind={kind} />
-        </div>
-      </header>
-      <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+          <Button asChild>
+            <Link href={ringside.href} onClick={() => setMenuOpen(false)}>
+              <Mic className="h-4 w-4" />
+              {ringside.label}
+            </Link>
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -244,7 +292,7 @@ function StewardJudgeSelect({ show }: { show: Show | null }) {
   return (
     <select
       aria-label="Judge"
-      className="min-h-11 max-w-[12rem] rounded-md border border-sss-border bg-sss-paper px-2 text-sm"
+      className="min-h-11 max-w-[12rem] rounded-sss-md border border-sss-border bg-sss-paper px-2 text-sm hover:border-sss-accent-soft"
       value={selected}
       onChange={(e) => {
         setSelected(e.target.value);

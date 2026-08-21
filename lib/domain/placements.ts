@@ -118,6 +118,31 @@ export function sortDogsForPlacement<
  * Suggest placements 1–4 per class from Formwert order.
  * Only rated dogs receive a placement; unrated clear to null.
  */
+/**
+ * Assign a 1–4 place to a dog. Tapping the same place clears it.
+ * If another dog in the class already holds that place, they swap.
+ */
+export function assignClassPlacement(
+  current: Record<string, number | "">,
+  entryId: string,
+  place: 1 | 2 | 3 | 4,
+  classEntryIds: string[],
+): Record<string, number | ""> {
+  const next: Record<string, number | ""> = { ...current };
+  if (next[entryId] === place) {
+    next[entryId] = "";
+    return next;
+  }
+  const other = classEntryIds.find(
+    (id) => id !== entryId && next[id] === place,
+  );
+  if (other) {
+    next[other] = next[entryId] ?? "";
+  }
+  next[entryId] = place;
+  return next;
+}
+
 export function placementsSuggestedFromFormwert<
   T extends { id: string; armband: string; class_id: AdrkClassId },
 >(

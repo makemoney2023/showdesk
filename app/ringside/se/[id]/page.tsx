@@ -19,6 +19,7 @@ import {
 import { seSectionProgress } from "@/lib/domain/show-day";
 import { canRecordWithJudge, syncShowJudges } from "@/lib/domain/show-judges";
 import { stickyJudgeForShow } from "@/lib/client/sticky-judge";
+import { BackLink } from "@/components/layout/BackLink";
 import { EmptyDesk } from "@/components/desk/EmptyDesk";
 import { DogPhotoField } from "@/components/roster/DogPhotoField";
 import { dogPhotoHref } from "@/lib/domain/dog-photo";
@@ -236,9 +237,7 @@ export default function StewardSeFormPage() {
     return (
       <div className="space-y-4">
         <p className="text-sm text-sss-text-muted">{status}</p>
-        <Link href="/ringside" className="text-sss-accent text-sm">
-          ← Ringside
-        </Link>
+        <BackLink href="/ringside">Back to dogs</BackLink>
       </div>
     );
   }
@@ -247,6 +246,7 @@ export default function StewardSeFormPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-8 pb-40">
+      <BackLink href="/ringside">Back to dogs</BackLink>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-wrap items-start gap-3">
           {showId && entry.photo_path ? (
@@ -293,21 +293,28 @@ export default function StewardSeFormPage() {
         <EmptyDesk variant="select-judge" />
       ) : null}
 
-      <ol className="flex flex-wrap gap-2 text-xs">
-        {sections.map((section) => (
+      <ol className="sticky top-[3.25rem] z-20 -mx-4 flex flex-wrap gap-2 bg-sss-ground/90 px-4 py-2 text-xs backdrop-blur">
+        {sections.map((section) => {
+          const complete = section.filled === section.total && section.total > 0;
+          return (
           <li key={section.id}>
             <a
               href={`#se-${section.id}`}
-              className="sss-tray inline-flex min-h-11 items-center px-2 text-sss-text-secondary"
+              className={`inline-flex min-h-11 items-center rounded-full px-3 ${
+                complete
+                  ? "bg-sss-success-soft text-sss-success"
+                  : "sss-tray text-sss-text-secondary"
+              }`}
             >
               {section.label} {section.filled}/{section.total}
             </a>
           </li>
-        ))}
+          );
+        })}
       </ol>
 
-      <section id="se-identification" className="space-y-3">
-        <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-sss-text-muted">
+      <section id="se-identification" className="sss-paper space-y-3 p-5">
+        <h2 className="font-[family-name:var(--font-fraunces)] text-lg font-semibold">
           Identification
         </h2>
         {showId ? (
@@ -389,8 +396,8 @@ export default function StewardSeFormPage() {
         </div>
       </section>
 
-      <section id="se-pedigree" className="space-y-3">
-        <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-sss-text-muted">
+      <section id="se-pedigree" className="sss-paper space-y-3 p-5">
+        <h2 className="font-[family-name:var(--font-fraunces)] text-lg font-semibold">
           Pedigree & ownership
         </h2>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -463,8 +470,8 @@ export default function StewardSeFormPage() {
         </div>
       </section>
 
-      <section id="se-measurements" className="space-y-3">
-        <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-sss-text-muted">
+      <section id="se-measurements" className="sss-paper space-y-3 p-5">
+        <h2 className="font-[family-name:var(--font-fraunces)] text-lg font-semibold">
           Measurements
         </h2>
         <div className="grid gap-3 sm:grid-cols-3">
@@ -491,8 +498,8 @@ export default function StewardSeFormPage() {
         </div>
       </section>
 
-      <section id="se-bite" className="space-y-3">
-        <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-sss-text-muted">
+      <section id="se-bite" className="sss-paper space-y-3 p-5">
+        <h2 className="font-[family-name:var(--font-fraunces)] text-lg font-semibold">
           Bite & dentition
         </h2>
         <div className="flex flex-wrap gap-4">
@@ -519,8 +526,8 @@ export default function StewardSeFormPage() {
         )}
       </section>
 
-      <section id="se-appearance" className="space-y-3">
-        <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-sss-text-muted">
+      <section id="se-appearance" className="sss-paper space-y-3 p-5">
+        <h2 className="font-[family-name:var(--font-fraunces)] text-lg font-semibold">
           Overall appearance and behavior
         </h2>
         <Textarea
@@ -531,8 +538,8 @@ export default function StewardSeFormPage() {
         />
       </section>
 
-      <section id="se-ratings" className="space-y-4">
-        <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-sss-text-muted">
+      <section id="se-ratings" className="sss-paper space-y-4 p-5">
+        <h2 className="font-[family-name:var(--font-fraunces)] text-lg font-semibold">
           Detailed ratings
         </h2>
         <OptionRow
@@ -565,8 +572,8 @@ export default function StewardSeFormPage() {
         />
       </section>
 
-      <section id="se-result" className="space-y-3">
-        <h2 className="text-xs font-medium uppercase tracking-[0.16em] text-sss-text-muted">
+      <section id="se-result" className="sss-paper space-y-3 p-5">
+        <h2 className="font-[family-name:var(--font-fraunces)] text-lg font-semibold">
           Gunfire & result
         </h2>
         <OptionRow
@@ -619,7 +626,7 @@ export default function StewardSeFormPage() {
       </section>
 
       <div className="h-24" aria-hidden />
-      <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 border-t border-sss-border bg-sss-elevated/95 backdrop-blur">
+      <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 border-t border-sss-border bg-sss-elevated/95 shadow-sss-overlay backdrop-blur">
         <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-3">
           <Button
             type="button"

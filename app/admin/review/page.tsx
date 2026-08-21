@@ -14,6 +14,8 @@ import {
 import {
   ADRK_FORMWERT_CODES,
   formatAdrkFormwert,
+  getAdrkClassLabel,
+  type AdrkClassId,
 } from "@/lib/domain/adrk-template";
 import {
   canRelease,
@@ -32,9 +34,12 @@ import {
   critiqueChipTone,
   labelCritiqueStatus,
 } from "@/lib/domain/status-labels";
+import { DogAvatar } from "@/components/desk/DogAvatar";
 import { EmptyDesk } from "@/components/desk/EmptyDesk";
 import { StickyDeskBar } from "@/components/desk/StickyDeskBar";
 import { StatusChip } from "@/components/status/StatusChip";
+import { PageHeader } from "@/components/ui/page-header";
+import { dogPhotoHref } from "@/lib/domain/dog-photo";
 import type {
   CritiqueRecord,
   RosterEntryRecord,
@@ -239,14 +244,10 @@ export default function AdminReviewPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-[family-name:var(--font-fraunces)] text-2xl font-semibold">
-          Review queue
-        </h1>
-        <p className="text-sm text-sss-text-secondary">
-          Secretary approve gate — nothing releases until approved.
-        </p>
-      </div>
+      <PageHeader
+        title="Review queue"
+        description="Secretary approve gate — nothing releases until approved."
+      />
 
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-2">
@@ -280,7 +281,7 @@ export default function AdminReviewPage() {
               }
               return (
                 <li key={`editor-${row.critiqueId}`}>
-                  <div className="space-y-4 rounded-lg border border-sss-accent bg-sss-lifted p-4">
+                  <div className="sss-paper space-y-4 border-sss-accent p-5">
                     <div>
                       <h2 className="font-medium">{entry?.dog_name}</h2>
                       <details className="text-xs text-sss-text-muted">
@@ -488,26 +489,42 @@ export default function AdminReviewPage() {
                   onClick={() =>
                     setSelectedId((prev) => (prev === c.id ? null : c.id))
                   }
-                  className={`w-full rounded-md border p-3 text-left ${
+                  className={`sss-interactive w-full rounded-sss-lg border p-3 text-left ${
                     selectedId === c.id
-                      ? "border-sss-accent bg-sss-lifted"
-                      : "border-sss-border"
+                      ? "border-sss-accent bg-sss-lifted shadow-sss-card"
+                      : "border-sss-border bg-sss-elevated"
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="font-medium">
-                      {e?.dog_name ?? "Unknown dog"}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <DogAvatar
+                        size="sm"
+                        src={
+                          e?.photo_path && showId
+                            ? dogPhotoHref(showId, e.id, { cacheBust: e.photo_path })
+                            : null
+                        }
+                      />
+                      <div>
+                        <div className="font-medium">
+                          {e?.dog_name ?? "Unknown dog"}
+                        </div>
+                        <div className="text-xs text-sss-text-muted">
+                          {e ? `#${e.armband}` : ""}
+                          {e
+                            ? ` · ${getAdrkClassLabel(e.class_id as AdrkClassId)}`
+                            : ""}
+                          {` · ${fromSe ? "SE form" : "Audio"}`}
+                          {se
+                            ? ` · ${se.status === "complete" ? "SE complete" : "Draft"}`
+                            : ""}
+                        </div>
+                      </div>
                     </div>
                     <StatusChip
                       label={labelCritiqueStatus(c.status)}
                       tone={critiqueChipTone(c.status)}
                     />
-                  </div>
-                  <div className="text-xs text-sss-text-muted">
-                    {fromSe ? "SE form" : "Audio"}
-                    {se
-                      ? ` · ${se.status === "complete" ? "SE complete" : "Draft"}`
-                      : ""}
                   </div>
                 </button>
               </li>

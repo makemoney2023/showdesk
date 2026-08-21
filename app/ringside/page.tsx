@@ -87,14 +87,15 @@ export default function RingsidePage() {
       </div>
 
       {presentClasses.length > 0 ? (
-      <div className="flex flex-wrap gap-2">
+      <div className="sticky top-[3.25rem] z-20 -mx-4 overflow-x-auto bg-sss-ground/90 px-4 py-2 backdrop-blur">
+        <div className="flex w-max gap-2">
         <button
           type="button"
           aria-pressed={classFilter === "all"}
-          className={`min-h-11 px-3 text-sm ${
+          className={`min-h-11 rounded-sss-md px-3 text-sm ${
             classFilter === "all"
-              ? "sss-paper text-sss-text-primary"
-              : "text-sss-text-secondary"
+              ? "bg-sss-ink text-[var(--sss-paper)] shadow-sss-card"
+              : "sss-paper text-sss-text-secondary"
           }`}
           onClick={() => setClassFilter("all")}
         >
@@ -105,16 +106,17 @@ export default function RingsidePage() {
             key={c.id}
             type="button"
             aria-pressed={classFilter === c.id}
-            className={`min-h-11 px-3 text-sm ${
+            className={`min-h-11 rounded-sss-md px-3 text-sm ${
               classFilter === c.id
-                ? "sss-paper text-sss-text-primary"
-                : "text-sss-text-secondary"
+                ? "bg-sss-ink text-[var(--sss-paper)] shadow-sss-card"
+                : "sss-paper text-sss-text-secondary"
             }`}
             onClick={() => setClassFilter(c.id)}
           >
             {c.label}
           </button>
         ))}
+        </div>
       </div>
       ) : null}
 
@@ -142,7 +144,10 @@ export default function RingsidePage() {
         })}
       </ul>
       {loadState.kind === "loading" ? (
-        <p className="text-sm text-sss-text-muted">Loading dogs…</p>
+        <ul className="space-y-3" aria-label="Loading dogs">
+          <li className="sss-skeleton h-32" />
+          <li className="sss-skeleton h-32" />
+        </ul>
       ) : null}
       {loadState.kind === "unauthorized" ? (
         <EmptyDesk variant="unauthorized" />

@@ -17,8 +17,11 @@
   --sss-ink-muted: #7a746a;
   --sss-line: #d4cdbf;
   --sss-success: #166534;
+  --sss-success-soft: #dcefe0;
   --sss-warning: #92400e;
+  --sss-warning-soft: #f3e4c8;
   --sss-error: #b91c1c;
+  --sss-error-soft: #f4d6d6;
   --sss-offline: #9a3412;
 
   --color-ground: var(--sss-paper);
@@ -49,6 +52,17 @@
   --destructive: var(--color-error);
 
   --duration-ui: 200ms;
+  --sss-radius-sm: 0.375rem;
+  --sss-radius-md: 0.5rem;
+  --sss-radius-lg: 0.75rem;
+  --sss-radius-xl: 1rem;
+  --sss-shadow-card:
+    0 1px 2px rgb(20 18 16 / 0.06),
+    0 4px 12px rgb(20 18 16 / 0.04);
+  --sss-shadow-card-hover:
+    0 2px 4px rgb(20 18 16 / 0.08),
+    0 8px 20px rgb(20 18 16 / 0.06);
+  --sss-shadow-overlay: 0 8px 32px rgb(20 18 16 / 0.18);
 }
 
 @theme inline {
@@ -74,11 +88,21 @@
   --color-sss-border: var(--color-border);
   --color-sss-ink: var(--sss-void);
   --color-sss-success: var(--color-success);
+  --color-sss-success-soft: var(--sss-success-soft);
   --color-sss-warning: var(--color-warning);
+  --color-sss-warning-soft: var(--sss-warning-soft);
   --color-sss-error: var(--color-error);
+  --color-sss-error-soft: var(--sss-error-soft);
   --color-sss-offline: var(--color-offline);
   --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+  --radius-sss: var(--sss-radius-lg);
+  --radius-sss-sm: var(--sss-radius-sm);
+  --radius-sss-md: var(--sss-radius-md);
+  --radius-sss-xl: var(--sss-radius-xl);
+  --shadow-sss-card: var(--sss-shadow-card);
+  --shadow-sss-card-hover: var(--sss-shadow-card-hover);
+  --shadow-sss-overlay: var(--sss-shadow-overlay);
 }
 
 body {
@@ -101,12 +125,14 @@ a {
 .sss-paper {
   background: var(--color-elevated);
   border: 1px solid var(--color-border);
-  box-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.55);
+  border-radius: var(--sss-radius-lg);
+  box-shadow: var(--sss-shadow-card);
 }
 
 .sss-tray {
   background: var(--color-lifted);
   border: 1px solid var(--color-border);
+  border-radius: var(--sss-radius-lg);
   box-shadow:
     inset 0 1px 0 0 rgb(255 255 255 / 0.45),
     inset 0 -1px 0 0 rgb(20 18 16 / 0.04);
@@ -114,7 +140,66 @@ a {
 
 .sss-well {
   background: var(--color-lifted);
+  border-radius: var(--sss-radius-md);
   box-shadow: inset 0 2px 4px rgb(20 18 16 / 0.08);
+}
+
+.sss-interactive {
+  transition:
+    box-shadow var(--duration-ui) ease,
+    transform var(--duration-ui) ease,
+    border-color var(--duration-ui) ease;
+}
+
+.sss-interactive:hover {
+  box-shadow: var(--sss-shadow-card-hover);
+}
+
+.sss-interactive:active {
+  transform: translateY(1px);
+}
+
+.sss-eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.sss-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-lifted) 0%,
+    var(--color-elevated) 45%,
+    var(--color-lifted) 90%
+  );
+  background-size: 200% 100%;
+  animation: sss-shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--sss-radius-md);
+}
+
+.sss-record-pulse {
+  animation: sss-pulse 1.4s ease-out infinite;
+}
+
+@keyframes sss-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes sss-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(196 163 90 / 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgb(196 163 90 / 0);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

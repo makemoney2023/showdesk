@@ -44,7 +44,7 @@ export function AccountMenu({ kind }: { kind: RoleShellKind }) {
     <div ref={rootRef} className="relative">
       <button
         type="button"
-        className="inline-flex min-h-11 items-center text-sm text-sss-text-secondary hover:text-sss-accent-deep"
+        className="inline-flex min-h-11 items-center rounded-sss-md px-2 text-sm text-sss-text-secondary hover:bg-sss-lifted hover:text-sss-accent-deep"
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((v) => !v)}

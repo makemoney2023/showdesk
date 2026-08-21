@@ -14,6 +14,8 @@ import { canRecordWithJudge, syncShowJudges } from "@/lib/domain/show-judges";
 import { stickyJudgeForShow } from "@/lib/client/sticky-judge";
 import { startDeepgramLiveSession } from "@/lib/client/deepgram-live";
 import type { RosterEntryRecord, Show } from "@/lib/types";
+import { Mic, Pause, Play, Square } from "lucide-react";
+import { BackLink } from "@/components/layout/BackLink";
 import { EmptyDesk } from "@/components/desk/EmptyDesk";
 import { VuMeter } from "@/components/desk/VuMeter";
 
@@ -313,9 +315,12 @@ export default function RecordPage() {
     setStatus(formatQueueSyncStatus(result));
   }
 
+  const canStart = Boolean(entry && canRecordWithJudge(judge, judges));
+
   return (
     <div className="mx-auto max-w-lg space-y-6">
-      <div>
+      <div className="space-y-2">
+        <BackLink href="/ringside">Back to dogs</BackLink>
         <h1 className="font-[family-name:var(--font-fraunces)] text-2xl font-semibold">
           Record critique
         </h1>
@@ -331,41 +336,64 @@ export default function RecordPage() {
         <EmptyDesk variant="select-judge" />
       ) : null}
 
-      <div className="sss-paper space-y-3 p-4">
+      <div className="sss-paper space-y-5 p-5">
+        <p className="text-center font-mono text-4xl tabular-nums tracking-tight">
+          {formatElapsed(elapsed)}
+        </p>
         <VuMeter
           level={vuLevel}
-          label={
-            recording || elapsed > 0
-              ? `${status} · ${formatElapsed(elapsed)}`
-              : status
-          }
+          label={status}
         />
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col items-center gap-3">
           {!recording ? (
             <Button
-              disabled={!entry || !canRecordWithJudge(judge, judges)}
+              disabled={!canStart}
               onClick={() => void startRecording()}
+              className="h-[4.5rem] w-[4.5rem] rounded-full px-0 text-sss-ink"
+              aria-label="Start recording"
             >
-              Start recording
+              <Mic className="h-7 w-7" />
             </Button>
           ) : (
-            <>
+            <div className="flex items-center gap-3">
               {supportsPause ? (
                 paused ? (
-                  <Button variant="outline" onClick={resumeRecording}>
-                    Resume
+                  <Button
+                    variant="outline"
+                    onClick={resumeRecording}
+                    className="h-14 w-14 rounded-full px-0"
+                    aria-label="Resume"
+                  >
+                    <Play className="h-5 w-5" />
                   </Button>
                 ) : (
-                  <Button variant="outline" onClick={pauseRecording}>
-                    Pause
+                  <Button
+                    variant="outline"
+                    onClick={pauseRecording}
+                    className="h-14 w-14 rounded-full px-0"
+                    aria-label="Pause"
+                  >
+                    <Pause className="h-5 w-5" />
                   </Button>
                 )
               ) : null}
-              <Button variant="destructive" onClick={stopRecording}>
-                Stop &amp; process
+              <Button
+                variant="destructive"
+                onClick={stopRecording}
+                className="sss-record-pulse h-[4.5rem] w-[4.5rem] rounded-full px-0"
+                aria-label="Stop & process"
+              >
+                <Square className="h-6 w-6" />
               </Button>
-            </>
+            </div>
           )}
+          <p className="text-sm font-medium">
+            {!recording
+              ? "Start recording"
+              : paused
+                ? "Resume · Stop & process"
+                : "Stop & process"}
+          </p>
         </div>
       </div>
 

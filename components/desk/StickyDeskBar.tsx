@@ -14,7 +14,7 @@ export function StickyDeskBar({
   secondary?: React.ReactNode;
 }) {
   return (
-    <div className="sss-paper mt-4 flex flex-wrap items-center gap-2 p-3">
+    <div className="sss-paper mt-4 flex flex-wrap items-center gap-2 p-3 shadow-sss-card">
       {secondary}
       {primaryHref ? (
         <Button asChild disabled={primaryDisabled}>

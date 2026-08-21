@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button";
 import { ADRK_CLASSES } from "@/lib/domain/adrk-template";
 import { formatAdrkFormwert } from "@/lib/domain/adrk-template";
 import {
+  assignClassPlacement,
   placementsSuggestedFromFormwert,
   resolveFormwertByEntryId,
   sortDogsForPlacement,
 } from "@/lib/domain/placements";
+import { PageHeader } from "@/components/ui/page-header";
 import { pushToast } from "@/components/feedback/toast";
 import type {
   CritiqueRecord,
@@ -128,30 +130,25 @@ export default function PlacementsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-[family-name:var(--font-fraunces)] text-2xl font-semibold">
-            Class placements
-          </h1>
-          <p className="text-sm text-sss-text-secondary">
-            Dogs list by rating (best first). Use Auto-sort to fill placements
-            1–4 from ratings.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={busy || ratedCount === 0}
-            onClick={applySortByRating}
-          >
-            Auto-sort by rating
-          </Button>
-          <Button disabled={busy} onClick={() => void save()}>
-            Save placements
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Class placements"
+        description="Dogs list by rating (best first). Use Auto-sort to fill placements 1–4 from ratings."
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy || ratedCount === 0}
+              onClick={applySortByRating}
+            >
+              Auto-sort by rating
+            </Button>
+            <Button disabled={busy} onClick={() => void save()}>
+              Save placements
+            </Button>
+          </>
+        }
+      />
       {status ? <p className="text-sm text-sss-accent-deep">{status}</p> : null}
       {ratedCount === 0 ? (
         <p className="text-xs text-sss-text-muted">
@@ -160,36 +157,59 @@ export default function PlacementsPage() {
       ) : null}
       {byClass.map((cls) =>
         cls.dogs.length > 0 ? (
-          <section key={cls.id} className="border border-sss-border p-4">
+          <section key={cls.id} className="sss-paper p-5">
             <h2 className="font-medium">{cls.label}</h2>
-            <ul className="mt-2 space-y-2">
+            <ul className="mt-3 space-y-3">
               {cls.dogs.map((dog) => {
                 const formwert = formwertByEntry[dog.id];
+                const classIds = cls.dogs.map((d) => d.id);
                 return (
-                  <li key={dog.id} className="flex items-center gap-3 text-sm">
-                    <span className="w-16">#{dog.armband}</span>
-                    <span className="flex-1">{dog.dog_name}</span>
+                  <li
+                    key={dog.id}
+                    className="flex flex-wrap items-center gap-3 text-sm"
+                  >
+                    <span className="w-16 font-[family-name:var(--font-fraunces)] font-semibold">
+                      #{dog.armband}
+                    </span>
+                    <span className="min-w-24 flex-1 font-medium">
+                      {dog.dog_name}
+                    </span>
                     <span className="min-w-24 text-xs text-sss-text-muted">
                       {formatAdrkFormwert(formwert ?? null)}
                     </span>
-                    <select
-                      className="rounded border border-sss-border px-2 py-1"
-                      value={placements[dog.id] ?? ""}
-                      onChange={(e) =>
-                        setPlacements((p) => ({
-                          ...p,
-                          [dog.id]:
-                            e.target.value === "" ? "" : Number(e.target.value),
-                        }))
-                      }
+                    <div
+                      className="flex gap-1"
+                      role="group"
+                      aria-label={`Placement for ${dog.dog_name}`}
                     >
-                      <option value="">—</option>
-                      {[1, 2, 3, 4].map((n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ))}
-                    </select>
+                      {[1, 2, 3, 4].map((n) => {
+                        const selected = placements[dog.id] === n;
+                        return (
+                          <button
+                            key={n}
+                            type="button"
+                            aria-pressed={selected}
+                            className={`inline-flex h-11 min-w-11 items-center justify-center rounded-sss-md text-sm font-semibold ${
+                              selected
+                                ? "bg-sss-accent text-sss-ink shadow-sss-card"
+                                : "border border-sss-border bg-sss-elevated text-sss-text-secondary hover:border-sss-accent-soft"
+                            }`}
+                            onClick={() =>
+                              setPlacements((p) =>
+                                assignClassPlacement(
+                                  p,
+                                  dog.id,
+                                  n as 1 | 2 | 3 | 4,
+                                  classIds,
+                                ),
+                              )
+                            }
+                          >
+                            {n}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </li>
                 );
               })}

@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import {
+  ClipboardList,
+  FileSearch,
+  Mic,
+  PawPrint,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyDesk } from "@/components/desk/EmptyDesk";
 import {
@@ -66,41 +72,57 @@ export function DeskHome() {
   return (
     <div className="space-y-8">
       <section className="-mx-4 -mt-8 border-b border-sss-border bg-sss-ink px-4 py-10 text-[var(--sss-paper)] sm:-mx-4">
-        <div className="mx-auto max-w-6xl space-y-3">
+        <div className="mx-auto max-w-6xl space-y-5">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="font-[family-name:var(--font-fraunces)] text-4xl font-semibold tracking-tight sm:text-5xl">
               Show Desk
             </h1>
             {isDemoMode() ? (
-              <span className="rounded-md border border-sss-accent px-2 py-0.5 text-xs font-medium text-sss-accent-soft">
+              <span className="rounded-full border border-sss-accent px-2 py-0.5 text-xs font-medium text-sss-accent-soft">
                 DEMO
               </span>
             ) : null}
           </div>
-          <p className="max-w-xl text-base text-[var(--sss-paper)]/80">
-            Capture critiques ringside, structure ADRK drafts, review and approve
-            before PDF delivery to owners.
-          </p>
+          {show ? (
+            <div className="max-w-xl space-y-2">
+              <p className="sss-eyebrow text-sss-accent-soft">Active show</p>
+              <h2 className="font-[family-name:var(--font-fraunces)] text-2xl font-semibold">
+                {show.name}
+              </h2>
+              <p className="text-sm text-[var(--sss-paper)]/75">
+                {show.date} · {show.venue || "Venue TBD"} ·{" "}
+                {formatShowJudges(syncShowJudges(show).judges)} ·{" "}
+                {show.rulebook.toUpperCase()}
+              </p>
+            </div>
+          ) : (
+            <p className="max-w-xl text-base text-[var(--sss-paper)]/80">
+              Capture critiques ringside, structure ADRK drafts, review and approve
+              before PDF delivery to owners.
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Button asChild>
+              <Link href={next.href}>
+                {next.href === "/ringside" ? <Mic className="h-4 w-4" /> : null}
+                {next.label}
+              </Link>
+            </Button>
+            {secondaries.map((action) => (
+              <Button
+                key={action.label}
+                asChild
+                variant="outline"
+                className="border-[var(--sss-paper)]/25 bg-transparent text-[var(--sss-paper)] hover:bg-[var(--sss-paper)]/10"
+              >
+                <Link href={action.href}>{action.label}</Link>
+              </Button>
+            ))}
+          </div>
         </div>
       </section>
 
-      {!show ? (
-        <EmptyDesk variant="no-show" />
-      ) : (
-        <section className="sss-paper space-y-2 p-5">
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-sss-text-muted">
-            Active show
-          </p>
-          <h2 className="font-[family-name:var(--font-fraunces)] text-2xl font-semibold">
-            {show.name}
-          </h2>
-          <p className="text-sm text-sss-text-secondary">
-            {show.date} · {show.venue || "Venue TBD"} ·{" "}
-            {formatShowJudges(syncShowJudges(show).judges)} ·{" "}
-            {show.rulebook.toUpperCase()}
-          </p>
-        </section>
-      )}
+      {!show ? <EmptyDesk variant="no-show" /> : null}
 
       {show ? (
         <section className="grid gap-4 sm:grid-cols-3">
@@ -109,32 +131,25 @@ export function DeskHome() {
             value={pendingCount}
             href="/admin/review"
             cta="Open review"
+            icon={<FileSearch className="h-4 w-4" />}
+            warning={pendingCount > 0}
           />
           <Metric
             label="Roster gaps"
             value={gapCount}
             href="/admin/entries"
             cta="View roster"
+            icon={<ClipboardList className="h-4 w-4" />}
           />
           <Metric
             label="Entries"
             value={entryCount}
             href="/admin/entries"
             cta="Manage roster"
+            icon={<PawPrint className="h-4 w-4" />}
           />
         </section>
       ) : null}
-
-      <div className="flex flex-wrap gap-2">
-        <Button asChild>
-          <Link href={next.href}>{next.label}</Link>
-        </Button>
-        {secondaries.map((action) => (
-          <Button key={action.label} asChild variant="outline">
-            <Link href={action.href}>{action.label}</Link>
-          </Button>
-        ))}
-      </div>
     </div>
   );
 }
@@ -144,26 +159,33 @@ function Metric({
   value,
   href,
   cta,
+  icon,
+  warning,
 }: {
   label: string;
   value: number;
   href: string;
   cta: string;
+  icon: React.ReactNode;
+  warning?: boolean;
 }) {
   return (
-    <div className="sss-tray space-y-2 p-4">
-      <p className="text-xs uppercase tracking-[0.16em] text-sss-text-muted">
+    <Link
+      href={href}
+      className={`sss-tray sss-interactive block space-y-2 p-4 ${
+        warning ? "border-sss-warning/40 bg-sss-warning-soft/40" : ""
+      }`}
+    >
+      <p className="sss-eyebrow inline-flex items-center gap-1.5">
+        {icon}
         {label}
       </p>
       <p className="font-[family-name:var(--font-fraunces)] text-3xl font-semibold">
         {value}
       </p>
-      <Link
-        href={href}
-        className="text-sm text-sss-accent-deep hover:underline"
-      >
+      <span className="text-sm text-sss-accent-deep">
         {cta} →
-      </Link>
-    </div>
+      </span>
+    </Link>
   );
 }

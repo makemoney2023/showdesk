@@ -1,5 +1,6 @@
 "use client";
 
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export type ToastTone = "ok" | "error";
@@ -46,16 +47,22 @@ export function ToastHost() {
       role="status"
       aria-live="polite"
     >
-      {items.map((item) => (
-        <p
-          key={item.id}
-          className={`sss-paper px-3 py-2 text-sm ${
-            item.tone === "error" ? "border-sss-error text-sss-error" : ""
-          }`}
-        >
-          {item.message}
-        </p>
-      ))}
+      {items.map((item) => {
+        const Icon = item.tone === "error" ? AlertCircle : CheckCircle2;
+        return (
+          <p
+            key={item.id}
+            className={`sss-paper flex items-start gap-2 px-3 py-2.5 text-sm shadow-sss-overlay ${
+              item.tone === "error"
+                ? "border-sss-error text-sss-error"
+                : "text-sss-text-primary"
+            }`}
+          >
+            <Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            <span>{item.message}</span>
+          </p>
+        );
+      })}
     </div>
   );
 }

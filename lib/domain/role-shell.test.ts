@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   secretaryNavItems,
+  secretaryRingsideSwitch,
   shellForPath,
   stewardNavItems,
 } from "./role-shell";
@@ -14,7 +15,7 @@ describe("role-shell", () => {
     expect(shellForPath("/admin/review")).toBe("secretary");
   });
 
-  it("lists secretary tabs including Ringside for role switch", () => {
+  it("lists secretary tabs and a distinct Ringside mode switch", () => {
     const items = secretaryNavItems();
     expect(items.map((i) => i.label)).toEqual([
       "Desk",
@@ -22,10 +23,13 @@ describe("role-shell", () => {
       "Review",
       "Reports",
       "Settings",
-      "Ringside",
     ]);
-    expect(items.find((i) => i.label === "Ringside")?.href).toBe("/ringside");
+    expect(items.some((i) => i.href === "/ringside")).toBe(false);
     expect(items.some((i) => i.href === "/login")).toBe(false);
+    expect(secretaryRingsideSwitch()).toEqual({
+      href: "/ringside",
+      label: "Open ringside",
+    });
   });
 
   it("lists steward destinations including Desk for role switch", () => {

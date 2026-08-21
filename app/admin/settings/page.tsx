@@ -11,7 +11,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AlertTriangle } from "lucide-react";
 import { pushToast } from "@/components/feedback/toast";
+import { PageHeader } from "@/components/ui/page-header";
+import { SectionCard } from "@/components/ui/section-card";
 import { JudgeListFields } from "@/components/show/JudgeListFields";
 import { syncShowJudges } from "@/lib/domain/show-judges";
 import type { Show } from "@/lib/types";
@@ -84,25 +87,18 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="font-[family-name:var(--font-fraunces)] text-2xl font-semibold">
-          Settings
-        </h1>
-        <p className="text-sm text-sss-text-secondary">
-          Show metadata and manual data retention purge.
-        </p>
-      </div>
+    <div className="mx-auto max-w-2xl space-y-8">
+      <PageHeader
+        title="Settings"
+        description="Show metadata and manual data retention purge."
+      />
 
       {message ? (
-        <p className="border border-sss-border bg-sss-lifted px-3 py-2 text-sm">
-          {message}
-        </p>
+        <p className="sss-tray px-3 py-2 text-sm">{message}</p>
       ) : null}
 
       {form ? (
-        <section className="space-y-3 border border-sss-border bg-sss-elevated p-4">
-          <h2 className="font-medium">Active show</h2>
+        <SectionCard title="Active show">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor="name">Name</Label>
@@ -170,15 +166,18 @@ export default function AdminSettingsPage() {
               Editing active show only ({shows.length} shows in store).
             </p>
           ) : null}
-        </section>
+        </SectionCard>
       ) : (
         <p className="text-sm text-sss-text-muted">
           No active show — create one on Roster.
         </p>
       )}
 
-      <section className="sss-tray space-y-3 border-sss-error p-4">
-        <h2 className="font-medium text-destructive">Purge show data</h2>
+      <section className="sss-paper space-y-3 border-sss-error/40 bg-sss-error-soft/30 p-5">
+        <h2 className="inline-flex items-center gap-2 font-medium text-destructive">
+          <AlertTriangle className="h-4 w-4" aria-hidden />
+          Purge show data
+        </h2>
         <p className="text-sm text-sss-text-secondary">
           Deletes all entries, critiques, placements, SE evaluations, and audio for
           the active show. Type <strong>PURGE</strong> to confirm.

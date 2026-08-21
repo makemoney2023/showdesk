@@ -14,13 +14,13 @@ export function VuMeter({
         {label}
       </p>
       <div
-        className="sss-well flex h-20 items-end gap-1 px-2 py-2"
+        className="sss-well flex h-24 items-end gap-1 px-3 py-3"
         aria-label={`Signal level ${level} percent`}
       >
         {Array.from({ length: BAR_COUNT }, (_, i) => (
           <div
             key={i}
-            className={`min-h-2 flex-1 ${
+            className={`min-h-2 flex-1 rounded-sss-sm ${
               i < active ? "bg-sss-accent" : "bg-sss-border"
             }`}
           />
