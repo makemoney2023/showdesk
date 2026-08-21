@@ -55,6 +55,16 @@ test.describe("happy path", () => {
     const entry = entryData.entries.find((e) => e.dog_name === "Rex Happy Path");
     expect(entry).toBeTruthy();
 
+    await page.goto(`/ringside/se/${entry!.id}`);
+    await page.getByLabel("Comments").fill("Recovered ringside note");
+    await page.waitForTimeout(500);
+    await expect(page.getByText("Saved on this device")).toBeVisible();
+    await page.reload();
+    await expect(page.getByLabel("Comments")).toHaveValue(
+      "Recovered ringside note",
+    );
+    await expect(page.getByText(/Recovered unsaved changes/)).toBeVisible();
+
     const critRes = await page.request.post("/api/critiques", {
       data: {
         show_id: showData.active_show_id,
@@ -65,6 +75,9 @@ test.describe("happy path", () => {
     expect(critRes.ok()).toBeTruthy();
 
     await page.goto("/admin/review");
+    await page.getByLabel("Search review queue").fill("does-not-match");
+    await expect(page.getByText(/No review items match/)).toBeVisible();
+    await page.getByRole("button", { name: "Clear search" }).click();
     await page.getByRole("button", { name: /Rex Happy Path/ }).click();
     await expect(page.getByLabel("Narrative (draft)")).toBeVisible();
     await page.getByRole("button", { name: "Approve & release" }).click();
