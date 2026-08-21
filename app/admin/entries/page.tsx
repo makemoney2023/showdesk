@@ -133,9 +133,7 @@ export default function AdminEntriesPage() {
       setMessage(data.error ?? "Could not create show");
       return;
     }
-    const createdMsg = `Show created: ${data.show.name}`;
-    setMessage(createdMsg);
-    pushToast(createdMsg);
+    setMessage(`Show created: ${data.show.name}`);
     setShowFormOpen(false);
     setShowId(data.show.id);
     await load();

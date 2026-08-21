@@ -349,7 +349,7 @@ export default function RecordPage() {
             <Button
               disabled={!canStart}
               onClick={() => void startRecording()}
-              className="h-[4.5rem] w-[4.5rem] rounded-full px-0 text-sss-ink"
+              className="h-[4.5rem] w-[4.5rem] rounded-full px-0 shadow-sss-card disabled:opacity-40"
               aria-label="Start recording"
             >
               <Mic className="h-7 w-7" />

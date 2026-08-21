@@ -117,16 +117,18 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
       <div className="min-h-dvh">
         <ToastHost />
         <header className="sss-paper sticky top-0 z-30 rounded-none border-x-0 border-t-0">
-          <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-2">
+          <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-2">
             <Link
               href="/ringside"
-              className="font-[family-name:var(--font-fraunces)] text-base font-semibold"
+              className="shrink-0 font-[family-name:var(--font-fraunces)] text-base font-semibold"
             >
               Ringside
             </Link>
-            <ShowChip name={show?.name ?? null} date={show?.date ?? null} compact />
+            <div className="hidden min-w-0 truncate sm:block">
+              <ShowChip name={show?.name ?? null} date={show?.date ?? null} compact />
+            </div>
             <StewardJudgeSelect show={show} />
-            <div className="flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-2">
               <SyncChip online={online} queueCount={queueCount} />
               <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex">
                 <Link href="/">Back to desk</Link>
@@ -206,46 +208,48 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-dvh">
       <ToastHost />
       <header className="sss-paper sticky top-0 z-30 rounded-none border-x-0 border-t-0">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-2">
-          <div className="flex min-w-0 flex-wrap items-center gap-3">
-            <Link
-              href="/"
-              className="font-[family-name:var(--font-fraunces)] text-lg font-semibold tracking-tight"
-            >
-              Show Desk
-            </Link>
-            <ShowChip name={show?.name ?? null} date={show?.date ?? null} />
-            {isDemoMode() ? (
-              <span className="rounded-full border border-sss-accent px-2 py-0.5 text-xs font-medium text-sss-accent-deep">
-                DEMO
-              </span>
-            ) : null}
+        <div className="mx-auto max-w-6xl px-4">
+          <div className="flex items-center justify-between gap-3 py-2">
+            <div className="flex min-w-0 items-center gap-3">
+              <Link
+                href="/"
+                className="font-[family-name:var(--font-fraunces)] text-lg font-semibold tracking-tight"
+              >
+                Show Desk
+              </Link>
+              <ShowChip name={show?.name ?? null} date={show?.date ?? null} />
+              {isDemoMode() ? (
+                <span className="hidden rounded-full border border-sss-accent px-2 py-0.5 text-xs font-medium text-sss-accent-deep sm:inline">
+                  DEMO
+                </span>
+              ) : null}
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button asChild size="sm" className="hidden sm:inline-flex">
+                <Link href={ringside.href}>
+                  <Mic className="h-4 w-4" />
+                  {ringside.label}
+                </Link>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="md:hidden"
+                aria-label="Open menu"
+                onClick={() => setMenuOpen(true)}
+              >
+                <Menu className="h-4 w-4" />
+              </Button>
+              <AccountMenu kind={kind} />
+            </div>
           </div>
-          <div className="hidden md:block">
+          <div className="hidden border-t border-sss-border py-1 md:block">
             <RoleNav
               items={secretaryNavItems()}
               activeHref={pathname}
               pendingCount={pendingCount}
             />
-          </div>
-          <div className="flex items-center gap-2">
-            <Button asChild size="sm" className="hidden sm:inline-flex">
-              <Link href={ringside.href}>
-                <Mic className="h-4 w-4" />
-                {ringside.label}
-              </Link>
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="md:hidden"
-              aria-label="Open menu"
-              onClick={() => setMenuOpen(true)}
-            >
-              <Menu className="h-4 w-4" />
-            </Button>
-            <AccountMenu kind={kind} />
           </div>
         </div>
       </header>
