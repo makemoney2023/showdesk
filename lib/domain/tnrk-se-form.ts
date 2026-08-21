@@ -103,6 +103,12 @@ export interface SeEntrySeed {
   sex: "R" | "H";
   zb_number: string;
   wt: string;
+  /** Catalog pedigree / contact extras (optional on older roster rows). */
+  sire?: string;
+  dam?: string;
+  breeder?: string;
+  address?: string;
+  hd_ed_jlpp?: string;
 }
 
 export function createEmptyTnrkSeForm(): TnrkSeForm {
@@ -166,6 +172,11 @@ export function mergeEntryIntoSeForm(
     sex: entry.sex === "R" ? "male" : entry.sex === "H" ? "female" : form.sex,
     owner_co_owner: entry.owner || form.owner_co_owner,
     email: entry.email || form.email,
+    sire: entry.sire?.trim() || form.sire,
+    dam: entry.dam?.trim() || form.dam,
+    breeder: entry.breeder?.trim() || form.breeder,
+    address: entry.address?.trim() || form.address,
+    hd_ed_jlpp_nr: entry.hd_ed_jlpp?.trim() || form.hd_ed_jlpp_nr,
   };
 }
 

@@ -33,6 +33,11 @@ export interface EntryRow {
   sex: "R" | "H";
   class_id: AdrkClassId;
   photo_path: string | null;
+  sire?: string | null;
+  dam?: string | null;
+  breeder?: string | null;
+  address?: string | null;
+  hd_ed_jlpp?: string | null;
 }
 
 /** Postgres `critiques` row. */

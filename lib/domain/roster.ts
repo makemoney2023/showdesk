@@ -13,6 +13,11 @@ export interface RosterEntry {
   class_id: AdrkClassId;
   email: string;
   photo_path?: string;
+  sire?: string;
+  dam?: string;
+  breeder?: string;
+  address?: string;
+  hd_ed_jlpp?: string;
 }
 
 export interface RosterParseResult {
@@ -29,6 +34,14 @@ const REQUIRED_HEADERS = [
   "sex",
   "class_id",
   "email",
+] as const;
+
+const OPTIONAL_HEADERS = [
+  "sire",
+  "dam",
+  "breeder",
+  "address",
+  "hd_ed_jlpp",
 ] as const;
 
 function parseCsvLine(line: string): string[] {
@@ -88,6 +101,16 @@ export function parseRosterCsv(csv: string): RosterParseResult {
       sex: row.sex.toUpperCase() === "H" ? ("H" as const) : ("R" as const),
       class_id: row.class_id as AdrkClassId,
       email: row.email,
+      ...(OPTIONAL_HEADERS.reduce(
+        (acc, key) => {
+          const value = (row[key] ?? "").trim();
+          if (value) acc[key] = value;
+          return acc;
+        },
+        {} as Partial<
+          Pick<RosterEntry, "sire" | "dam" | "breeder" | "address" | "hd_ed_jlpp">
+        >,
+      )),
     };
 
     const validation = validateRosterEntry(entry);
@@ -129,7 +152,7 @@ export function validateRosterEntryUpdate(
 }
 
 export function rosterCsvTemplate(): string {
-  return `${REQUIRED_HEADERS.join(",")}\n101,Rex vom Test,DE-12345,2024-01-01,Max Mustermann,R,zwischenklasse,owner@example.com`;
+  return `${[...REQUIRED_HEADERS, ...OPTIONAL_HEADERS].join(",")}\n101,Rex vom Test,DE-12345,2024-01-01,Max Mustermann,R,zwischenklasse,owner@example.com,Sire Name,Dam Name,Breeder Name,123 Main St,Hips: Excellent`;
 }
 
 /**

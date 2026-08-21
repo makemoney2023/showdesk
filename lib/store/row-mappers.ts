@@ -72,6 +72,11 @@ export function toEntryRow(entry: RosterEntryRecord): EntryRow {
     sex: entry.sex,
     class_id: entry.class_id,
     photo_path: entry.photo_path ?? null,
+    sire: entry.sire ?? null,
+    dam: entry.dam ?? null,
+    breeder: entry.breeder ?? null,
+    address: entry.address ?? null,
+    hd_ed_jlpp: entry.hd_ed_jlpp ?? null,
   };
 }
 
@@ -88,6 +93,11 @@ export function mapEntryRow(row: EntryRow): RosterEntryRecord {
     sex: row.sex,
     class_id: row.class_id,
     photo_path: optionalText(row.photo_path),
+    ...(row.sire ? { sire: row.sire } : {}),
+    ...(row.dam ? { dam: row.dam } : {}),
+    ...(row.breeder ? { breeder: row.breeder } : {}),
+    ...(row.address ? { address: row.address } : {}),
+    ...(row.hd_ed_jlpp ? { hd_ed_jlpp: row.hd_ed_jlpp } : {}),
   };
 }
 

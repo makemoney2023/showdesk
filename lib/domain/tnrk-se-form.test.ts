@@ -48,6 +48,30 @@ describe("tnrk-se-form", () => {
     expect(form.email).toBe("jane@example.com");
   });
 
+  it("merges catalog pedigree and address into SE header fields", () => {
+    const form = mergeEntryIntoSeForm(createEmptyTnrkSeForm(), {
+      dog_name: "Beyonce Aus Dem Blumental",
+      armband: "3",
+      owner: "Marie Josee Gallant",
+      email: "Vonstoisch@Gmail.com",
+      sex: "H",
+      zb_number: "CKC-FD-LU4301060",
+      wt: "2023-10-25",
+      sire: "Henry Von Der Burg Skiva",
+      dam: "Akira Vom Luchweg",
+      breeder: "Sabine Fielder",
+      address: "1260 3E Rang Saint-Luc-De-Vincenne, Quebec G0X 3K0",
+      hd_ed_jlpp: "Cardiac: Normal; JLPP: Normal",
+    });
+    expect(form.sire).toBe("Henry Von Der Burg Skiva");
+    expect(form.dam).toBe("Akira Vom Luchweg");
+    expect(form.breeder).toBe("Sabine Fielder");
+    expect(form.address).toBe(
+      "1260 3E Rang Saint-Luc-De-Vincenne, Quebec G0X 3K0",
+    );
+    expect(form.hd_ed_jlpp_nr).toBe("Cardiac: Normal; JLPP: Normal");
+  });
+
   it("requires dog name + final result before treating SE as complete", () => {
     const empty = createEmptyTnrkSeForm();
     expect(validateTnrkSeFormForPass(empty).ok).toBe(false);

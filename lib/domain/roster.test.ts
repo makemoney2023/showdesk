@@ -17,6 +17,11 @@ describe("roster", () => {
     expect(result.entries[0].armband).toBe("101");
     expect(result.entries[0].dog_name).toBe("Rex vom Test");
     expect(result.entries[0].sex).toBe("R");
+    expect(result.entries[0].sire).toBe("Sire Name");
+    expect(result.entries[0].dam).toBe("Dam Name");
+    expect(result.entries[0].breeder).toBe("Breeder Name");
+    expect(result.entries[0].address).toBe("123 Main St");
+    expect(result.entries[0].hd_ed_jlpp).toBe("Hips: Excellent");
   });
 
   it("rejects missing headers", () => {

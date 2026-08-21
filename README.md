@@ -65,8 +65,11 @@ SQL lives under `supabase/migrations/`. Apply **in order** on project `emiwbvbyt
 3. `supabase/migrations/20260818120200_show_judges_and_critique_judge.sql` — `shows.judges` jsonb + `critiques.judge` text.
 4. `supabase/migrations/20260820010000_critique_status_checks.sql` — CHECK constraints on `critiques.status` and `delivery_status`.
 5. `supabase/migrations/20260820020000_dog_photos.sql` — `entries.photo_path` + private bucket `dog-photos`.
+6. `supabase/migrations/20260821160000_entry_pedigree_fields.sql` — optional roster pedigree fields (`sire`, `dam`, `breeder`, `address`, `hd_ed_jlpp`) used to seed TNRK SE forms.
 
-**Status:** 1–5 applied on project `emiwbvbytmfbonbnemli` (including `dog-photos` Storage).
+**Status:** 1–6 applied on project `emiwbvbytmfbonbnemli` (including `dog-photos` Storage + pedigree columns).
+
+Roster CSV required headers: `armband,dog_name,zb_number,wt,owner,sex,class_id,email`. Optional SE seed columns: `sire,dam,breeder,address,hd_ed_jlpp`.
 
 ## Auth (self-serve signup)
 

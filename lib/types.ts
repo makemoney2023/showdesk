@@ -28,6 +28,12 @@ export interface RosterEntryRecord {
   class_id: AdrkClassId;
   email: string;
   photo_path?: string;
+  /** Catalog pedigree / SE seed fields (optional for older imports). */
+  sire?: string;
+  dam?: string;
+  breeder?: string;
+  address?: string;
+  hd_ed_jlpp?: string;
 }
 
 export interface CritiqueRecord {
