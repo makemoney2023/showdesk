@@ -14,8 +14,22 @@ import { canRecordWithJudge, syncShowJudges } from "@/lib/domain/show-judges";
 import { stickyJudgeForShow } from "@/lib/client/sticky-judge";
 import { useRingsideJudge } from "@/components/ringside/RingsideJudgeContext";
 import { startDeepgramLiveSession } from "@/lib/client/deepgram-live";
+import {
+  releaseScreenWakeLock,
+  requestScreenWakeLock,
+  type ScreenWakeLock,
+} from "@/lib/client/screen-wake-lock";
+import { microphoneErrorLabel } from "@/lib/domain/recording-readiness";
 import type { RosterEntryRecord, Show } from "@/lib/types";
-import { Mic, Pause, Play, Square } from "lucide-react";
+import {
+  CheckCircle2,
+  LoaderCircle,
+  Mic,
+  Pause,
+  Play,
+  Square,
+  TriangleAlert,
+} from "lucide-react";
 import { BackLink } from "@/components/layout/BackLink";
 import { EmptyDesk } from "@/components/desk/EmptyDesk";
 import { VuMeter } from "@/components/desk/VuMeter";
@@ -39,6 +53,13 @@ export default function RecordPage() {
   const [liveTranscript, setLiveTranscript] = useState("");
   const [queueCount, setQueueCount] = useState(0);
   const [entryLoaded, setEntryLoaded] = useState(false);
+  const [micCheck, setMicCheck] = useState<
+    "unknown" | "checking" | "ready" | "error"
+  >("unknown");
+  const [micMessage, setMicMessage] = useState(
+    "Test the microphone before the class starts.",
+  );
+  const [wakeLockActive, setWakeLockActive] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -50,6 +71,7 @@ export default function RecordPage() {
     ReturnType<typeof startDeepgramLiveSession>
   > | null>(null);
   const liveFinalRef = useRef("");
+  const wakeLockRef = useRef<ScreenWakeLock | null>(null);
   const recordingRef = useRef(recording);
   recordingRef.current = recording;
   const startRecordingRef = useRef<() => Promise<void> | void>(() => undefined);
@@ -97,6 +119,7 @@ export default function RecordPage() {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
       streamRef.current?.getTracks().forEach((t) => t.stop());
       void liveSessionRef.current?.stop();
+      void releaseScreenWakeLock(wakeLockRef.current);
     };
   }, [entryId, refreshQueue]);
 
@@ -128,6 +151,41 @@ export default function RecordPage() {
     animationRef.current = requestAnimationFrame(updateVuMeter);
   }
 
+  const acquireWakeLock = useCallback(async () => {
+    if (wakeLockRef.current) return;
+    const lock = await requestScreenWakeLock();
+    wakeLockRef.current = lock;
+    setWakeLockActive(Boolean(lock));
+    lock?.addEventListener?.(
+      "release",
+      () => {
+        wakeLockRef.current = null;
+        setWakeLockActive(false);
+      },
+      { once: true },
+    );
+  }, []);
+
+  async function checkMicrophone() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setMicCheck("error");
+      setMicMessage("This browser cannot access a microphone");
+      return;
+    }
+    setMicCheck("checking");
+    setMicMessage("Checking microphone…");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const track = stream.getAudioTracks()[0];
+      stream.getTracks().forEach((item) => item.stop());
+      setMicCheck("ready");
+      setMicMessage(track?.label ? `Ready · ${track.label}` : "Microphone ready");
+    } catch (error) {
+      setMicCheck("error");
+      setMicMessage(microphoneErrorLabel(error));
+    }
+  }
+
   async function startRecording() {
     if (!entry) {
       setStatus("Dog not on this show");
@@ -147,6 +205,8 @@ export default function RecordPage() {
           autoGainControl: true,
         },
       });
+      setMicCheck("ready");
+      setMicMessage("Microphone ready");
       streamRef.current = stream;
       const audioContext = new AudioContext();
       if (audioContext.state === "suspended") {
@@ -193,11 +253,17 @@ export default function RecordPage() {
       setElapsed(0);
       setRecording(true);
       setPaused(false);
+      await acquireWakeLock();
       if (!liveSessionRef.current) {
         setStatus("Recording… (batch STT on stop)");
       }
-    } catch {
-      setStatus("Microphone access denied");
+    } catch (error) {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      const message = microphoneErrorLabel(error);
+      setMicCheck("error");
+      setMicMessage(message);
+      setStatus(message);
     }
   }
 
@@ -231,6 +297,9 @@ export default function RecordPage() {
     }
     if (animationRef.current) cancelAnimationFrame(animationRef.current);
     streamRef.current?.getTracks().forEach((t) => t.stop());
+    void releaseScreenWakeLock(wakeLockRef.current);
+    wakeLockRef.current = null;
+    setWakeLockActive(false);
     setRecording(false);
     setPaused(false);
     setVuLevel(0);
@@ -243,7 +312,15 @@ export default function RecordPage() {
     function onKey(e: KeyboardEvent) {
       if (e.code !== "Space") return;
       const tag = (e.target as HTMLElement | null)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        tag === "BUTTON" ||
+        tag === "A"
+      ) {
+        return;
+      }
       e.preventDefault();
       if (recordingRef.current) stopRecordingRef.current();
       else void startRecordingRef.current();
@@ -251,6 +328,40 @@ export default function RecordPage() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  useEffect(() => {
+    if (!recording) return;
+    function onBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+    function guardNavigation(event: MouseEvent) {
+      const target = event.target as HTMLElement | null;
+      const link = target?.closest("a[href]");
+      if (!link) return;
+      if (
+        !window.confirm(
+          "Recording is still running. Leave anyway and discard it?",
+        )
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    }
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible" && recordingRef.current) {
+        void acquireWakeLock();
+      }
+    }
+    window.addEventListener("beforeunload", onBeforeUnload);
+    document.addEventListener("click", guardNavigation, true);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      document.removeEventListener("click", guardNavigation, true);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [acquireWakeLock, recording]);
 
   async function handleStop() {
     const blob = new Blob(chunksRef.current, { type: "audio/webm" });
@@ -344,6 +455,33 @@ export default function RecordPage() {
         <EmptyDesk variant="select-judge" />
       ) : null}
 
+      <div className="sss-tray flex flex-wrap items-center justify-between gap-3 p-3">
+        <div className="flex items-center gap-2">
+          {micCheck === "checking" ? (
+            <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden />
+          ) : micCheck === "ready" ? (
+            <CheckCircle2 className="h-4 w-4 text-sss-success" aria-hidden />
+          ) : micCheck === "error" ? (
+            <TriangleAlert className="h-4 w-4 text-destructive" aria-hidden />
+          ) : (
+            <Mic className="h-4 w-4 text-sss-text-muted" aria-hidden />
+          )}
+          <div>
+            <p className="text-sm font-medium">Audio readiness</p>
+            <p className="text-xs text-sss-text-muted">{micMessage}</p>
+          </div>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={micCheck === "checking" || recording}
+          onClick={() => void checkMicrophone()}
+        >
+          {micCheck === "ready" ? "Test again" : "Test microphone"}
+        </Button>
+      </div>
+
       <div className="sss-paper space-y-5 p-5">
         <p className="text-center font-mono text-4xl tabular-nums tracking-tight">
           {formatElapsed(elapsed)}
@@ -402,6 +540,13 @@ export default function RecordPage() {
                 ? "Resume · Stop & process"
                 : "Stop & process"}
           </p>
+          {recording ? (
+            <p className="text-xs text-sss-text-muted">
+              {wakeLockActive
+                ? "Screen will stay awake while recording."
+                : "Keep this screen open while recording."}
+            </p>
+          ) : null}
         </div>
       </div>
 

@@ -1,6 +1,13 @@
 "use client";
 
-import { cloneElement, useCallback, useEffect, useState, type ReactElement } from "react";
+import {
+  cloneElement,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactElement,
+} from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -26,6 +33,13 @@ import { BackLink } from "@/components/layout/BackLink";
 import { EmptyDesk } from "@/components/desk/EmptyDesk";
 import { DogPhotoField } from "@/components/roster/DogPhotoField";
 import { dogPhotoHref } from "@/lib/domain/dog-photo";
+import {
+  clearRecoverableSeDraft,
+  readRecoverableSeDraft,
+  seFormFingerprint,
+  shouldRestoreSeDraft,
+  writeRecoverableSeDraft,
+} from "@/lib/offline/se-draft";
 import { cn } from "@/lib/utils";
 import type { RosterEntryRecord, SeEvaluationRecord, Show } from "@/lib/types";
 
@@ -81,8 +95,15 @@ export default function StewardSeFormPage() {
   const [actionMsg, setActionMsg] = useState("");
   const [actionError, setActionError] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [recoveryReady, setRecoveryReady] = useState(false);
+  const [autosaveStatus, setAutosaveStatus] = useState("");
+  const serverFingerprintRef = useRef("");
+  const serverUpdatedAtRef = useRef("");
+  const latestFormRef = useRef<TnrkSeForm | null>(null);
 
   const load = useCallback(async () => {
+    setRecoveryReady(false);
+    setAutosaveStatus("");
     const showRes = await fetch("/api/shows");
     if (!showRes.ok) {
       setStatus(
@@ -143,14 +164,35 @@ export default function StewardSeFormPage() {
     };
     setEvaluation(createData.evaluation);
     const nextForm = createData.evaluation.form;
-    setForm(
+    const serverForm =
       pick && !nextForm.judge.trim()
         ? { ...nextForm, judge: pick }
-        : nextForm,
+        : nextForm;
+    serverFingerprintRef.current = seFormFingerprint(serverForm);
+    serverUpdatedAtRef.current = createData.evaluation.updated_at;
+
+    const recoverable = await readRecoverableSeDraft(
+      showData.active_show_id,
+      entryId,
     );
-    setStatus(
-      createData.evaluation.status === "complete" ? "Complete" : "Draft",
-    );
+    if (
+      createData.evaluation.status === "draft" &&
+      recoverable &&
+      shouldRestoreSeDraft(recoverable, createData.evaluation)
+    ) {
+      setForm(recoverable.form);
+      setStatus("Recovered unsaved changes");
+      setAutosaveStatus("Recovered from this device");
+    } else {
+      setForm(serverForm);
+      setStatus(
+        createData.evaluation.status === "complete" ? "Complete" : "Draft",
+      );
+      if (recoverable) {
+        await clearRecoverableSeDraft(showData.active_show_id, entryId);
+      }
+    }
+    setRecoveryReady(true);
   }, [entryId]);
 
   useEffect(() => {
@@ -165,6 +207,61 @@ export default function StewardSeFormPage() {
       setForm((prev) => (prev ? { ...prev, judge: ringsideJudge.judge } : prev));
     }
   }, [ringsideJudge.available, ringsideJudge.judge, ringsideJudge.judges]);
+
+  useEffect(() => {
+    latestFormRef.current = form;
+    if (
+      !recoveryReady ||
+      !form ||
+      !showId ||
+      !evaluation ||
+      evaluation.entry_id !== entryId ||
+      evaluation.status === "complete" ||
+      seFormFingerprint(form) === serverFingerprintRef.current
+    ) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void writeRecoverableSeDraft({
+        showId,
+        entryId,
+        evaluationId: evaluation.id,
+        form,
+        savedAt: new Date().toISOString(),
+        serverUpdatedAt: serverUpdatedAtRef.current,
+      })
+        .then(() => setAutosaveStatus("Saved on this device"))
+        .catch(() => setAutosaveStatus("Local recovery unavailable"));
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [entryId, evaluation, form, recoveryReady, showId]);
+
+  useEffect(() => {
+    function persistLatestDraft() {
+      const latest = latestFormRef.current;
+      if (
+        !recoveryReady ||
+        !latest ||
+        !showId ||
+        !evaluation ||
+        evaluation.entry_id !== entryId ||
+        evaluation.status === "complete" ||
+        seFormFingerprint(latest) === serverFingerprintRef.current
+      ) {
+        return;
+      }
+      void writeRecoverableSeDraft({
+        showId,
+        entryId,
+        evaluationId: evaluation.id,
+        form: latest,
+        savedAt: new Date().toISOString(),
+        serverUpdatedAt: serverUpdatedAtRef.current,
+      });
+    }
+    window.addEventListener("pagehide", persistLatestDraft);
+    return () => window.removeEventListener("pagehide", persistLatestDraft);
+  }, [entryId, evaluation, recoveryReady, showId]);
 
   function patchForm<K extends keyof TnrkSeForm>(key: K, value: TnrkSeForm[K]) {
     setForm((prev) => (prev ? { ...prev, [key]: value } : prev));
@@ -231,6 +328,10 @@ export default function StewardSeFormPage() {
       if (data.evaluation) {
         setEvaluation(data.evaluation);
         setForm(data.evaluation.form);
+        serverFingerprintRef.current = seFormFingerprint(data.evaluation.form);
+        serverUpdatedAtRef.current = data.evaluation.updated_at;
+        await clearRecoverableSeDraft(showId, entryId);
+        setAutosaveStatus("Saved to desk");
       }
       const okMsg =
         markComplete || data.evaluation?.status === "complete"
@@ -675,6 +776,11 @@ export default function StewardSeFormPage() {
               Mark complete needs dog name, judge, and Pass/Fail.
             </p>
           )}
+          {autosaveStatus ? (
+            <p className="ml-auto text-xs text-sss-text-muted" role="status">
+              {autosaveStatus}
+            </p>
+          ) : null}
         </div>
       </div>
     </div>

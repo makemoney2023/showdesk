@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
@@ -25,7 +26,11 @@ import {
 } from "@/lib/domain/critique-status";
 import { critiqueNarrativeOverflowsCertificate } from "@/lib/domain/tnrk-critique-wrap";
 import { reviewPrimaryAction } from "@/lib/domain/review-primary-action";
-import { reviewPdfPreviewActions } from "@/lib/domain/review-queue-layout";
+import {
+  nextReviewItemId,
+  reviewPdfPreviewActions,
+  reviewQueueMatchesSearch,
+} from "@/lib/domain/review-queue-layout";
 import { isReviewDraftDirty } from "@/lib/domain/review-dirty";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { pushToast } from "@/components/feedback/toast";
@@ -55,9 +60,14 @@ export default function AdminReviewPage() {
   const [draft, setDraft] = useState<CritiqueRecord["draft"] | null>(null);
   const [statusMsg, setStatusMsg] = useState("");
   const [pendingOnly, setPendingOnly] = useState(true);
+  const [search, setSearch] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const saveDraftRef = useRef<() => Promise<boolean>>(async () => false);
+  const selectCritiqueRef = useRef<(id: string | null) => void>(() => undefined);
+  const queueNavRef = useRef({ ids: [] as string[], index: -1 });
+  const selectedIdRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     const showRes = await fetch("/api/shows");
@@ -200,6 +210,10 @@ export default function AdminReviewPage() {
 
   async function approve() {
     if (!showId || !selectedId || busy) return;
+    const selectAfter = nextReviewItemId(
+      queue.map((item) => item.id),
+      selectedId,
+    );
     if (dirty) {
       const saved = await saveDraft();
       if (!saved) {
@@ -224,10 +238,13 @@ export default function AdminReviewPage() {
       setConfirmOpen(false);
       return;
     }
-    await releaseCritique(true);
+    await releaseCritique(true, selectAfter);
   }
 
-  async function releaseCritique(afterApprove: boolean) {
+  async function releaseCritique(
+    afterApprove: boolean,
+    selectAfter?: string | null,
+  ) {
     if (!showId || !selectedId) return;
     setBusy(true);
     const release = await fetch("/api/approve", {
@@ -262,17 +279,60 @@ export default function AdminReviewPage() {
     setBusy(false);
     setConfirmOpen(false);
     await load();
+    if (afterApprove) setSelectedId(selectAfter ?? null);
   }
 
   const attentionCount = deskAttentionCount(critiques.map((c) => c.status));
   const attention = critiques.filter((c) => needsDeskAttention(c.status));
   const visible = pendingOnly ? attention : critiques;
-  const queue = [...visible].toSorted((a, b) => {
+  const searched = visible.filter((critique) =>
+    reviewQueueMatchesSearch(
+      search,
+      critique,
+      entries.find((entryItem) => entryItem.id === critique.entry_id),
+    ),
+  );
+  const queue = [...searched].toSorted((a, b) => {
     const rank = (s: string) =>
       s === "PENDING_REVIEW" ? 0 : s === "ERROR" ? 1 : s === "PROCESSING" ? 2 : 3;
     return rank(a.status) - rank(b.status) || b.updated_at.localeCompare(a.updated_at);
   });
   const selectedIndex = queue.findIndex((item) => item.id === selectedId);
+  saveDraftRef.current = saveDraft;
+  selectCritiqueRef.current = selectCritique;
+  queueNavRef.current = {
+    ids: queue.map((item) => item.id),
+    index: selectedIndex,
+  };
+  selectedIdRef.current = selectedId;
+
+  useEffect(() => {
+    function onShortcut(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const editing =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.getAttribute("contenteditable") === "true";
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+        if (!selectedIdRef.current) return;
+        event.preventDefault();
+        void saveDraftRef.current();
+        return;
+      }
+      if (!event.altKey || editing) return;
+      const { ids, index } = queueNavRef.current;
+      if (event.key === "ArrowLeft" && index > 0) {
+        event.preventDefault();
+        selectCritiqueRef.current(ids[index - 1] ?? null);
+      }
+      if (event.key === "ArrowRight" && index >= 0 && index < ids.length - 1) {
+        event.preventDefault();
+        selectCritiqueRef.current(ids[index + 1] ?? null);
+      }
+    }
+    window.addEventListener("keydown", onShortcut);
+    return () => window.removeEventListener("keydown", onShortcut);
+  }, []);
 
   if (!loaded) {
     return <PageSkeleton rows={5} />;
@@ -309,6 +369,34 @@ export default function AdminReviewPage() {
           Includes ringside recordings and SE forms synced into review. Select a
           dog to edit, then approve.
         </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-60 flex-1 sm:max-w-sm">
+            <Search
+              className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-sss-text-muted"
+              aria-hidden
+            />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search dog, armband, owner, or judge"
+              aria-label="Search review queue"
+              className="pl-9"
+            />
+          </div>
+          {search ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setSearch("")}
+            >
+              Clear search
+            </Button>
+          ) : null}
+          <span className="text-xs text-sss-text-muted">
+            ⌘/Ctrl+S saves · Alt+←/→ navigates
+          </span>
+        </div>
         <div className="grid gap-4 lg:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)]">
           <ul className="space-y-2 lg:max-h-[70vh] lg:overflow-y-auto">
             {queue.map((c) => {
@@ -605,7 +693,12 @@ export default function AdminReviewPage() {
             ) : null}
           </div>
         </div>
-        {queue.length === 0 ? <EmptyDesk variant="no-queue" /> : null}
+        {queue.length === 0 && !search ? <EmptyDesk variant="no-queue" /> : null}
+        {queue.length === 0 && search ? (
+          <p className="sss-tray p-4 text-sm text-sss-text-muted">
+            No review items match “{search}”.
+          </p>
+        ) : null}
         {queue.length > 0 && !selectedId ? (
           <EmptyDesk variant="no-selection" />
         ) : null}

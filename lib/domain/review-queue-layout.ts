@@ -2,6 +2,32 @@ export type ReviewQueueRow =
   | { kind: "critique"; critiqueId: string }
   | { kind: "editor"; critiqueId: string };
 
+/** Choose the following queue item, falling back to the preceding item. */
+export function nextReviewItemId(
+  critiqueIds: string[],
+  currentId: string,
+): string | null {
+  const index = critiqueIds.indexOf(currentId);
+  if (index < 0) return critiqueIds[0] ?? null;
+  return critiqueIds[index + 1] ?? critiqueIds[index - 1] ?? null;
+}
+
+export function reviewQueueMatchesSearch(
+  query: string,
+  critique: { judge?: string; status: string },
+  entry?: { dog_name: string; armband: string; owner: string },
+): boolean {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return true;
+  return [
+    entry?.dog_name,
+    entry?.armband,
+    entry?.owner,
+    critique.judge,
+    critique.status,
+  ].some((value) => value?.toLowerCase().includes(normalized));
+}
+
 /**
  * Single-column review queue: editor appears directly under the selected dog,
  * not after the full list.

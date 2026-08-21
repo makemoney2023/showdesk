@@ -1,12 +1,45 @@
 import { describe, expect, it } from "vitest";
 import {
   buildReviewQueueRows,
+  nextReviewItemId,
+  reviewQueueMatchesSearch,
   reviewPdfPreviewActions,
   tnrkCritiquePdfHref,
   tnrkCritiquePdfLabel,
   tnrkSePdfHref,
   tnrkSePdfLabel,
 } from "./review-queue-layout";
+
+describe("nextReviewItemId", () => {
+  it("moves forward, then falls back to the previous item", () => {
+    expect(nextReviewItemId(["a", "b", "c"], "b")).toBe("c");
+    expect(nextReviewItemId(["a", "b", "c"], "c")).toBe("b");
+    expect(nextReviewItemId(["a"], "a")).toBeNull();
+  });
+
+  it("selects the first item when the current item is absent", () => {
+    expect(nextReviewItemId(["a", "b"], "missing")).toBe("a");
+    expect(nextReviewItemId([], "missing")).toBeNull();
+  });
+});
+
+describe("reviewQueueMatchesSearch", () => {
+  const critique = { judge: "Judge Müller", status: "PENDING_REVIEW" };
+  const entry = {
+    dog_name: "Rex vom Test",
+    armband: "101",
+    owner: "Jane Doe",
+  };
+
+  it("searches dog, armband, owner, judge, and status", () => {
+    expect(reviewQueueMatchesSearch("rex", critique, entry)).toBe(true);
+    expect(reviewQueueMatchesSearch("101", critique, entry)).toBe(true);
+    expect(reviewQueueMatchesSearch("jane", critique, entry)).toBe(true);
+    expect(reviewQueueMatchesSearch("müller", critique, entry)).toBe(true);
+    expect(reviewQueueMatchesSearch("pending", critique, entry)).toBe(true);
+    expect(reviewQueueMatchesSearch("missing", critique, entry)).toBe(false);
+  });
+});
 
 describe("buildReviewQueueRows", () => {
   it("places the editor row directly after the selected dog", () => {
