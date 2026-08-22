@@ -42,6 +42,35 @@ export function openCritiqueForEntry(
 }
 
 /**
+ * Newest approved certificate. When a dog has this and no open critique,
+ * ringside must not record a fresh take — the desk recalls first.
+ */
+export function approvedCritiqueForEntry(
+  critiques: CritiqueRecord[],
+  entryId: string,
+  showId: string,
+): CritiqueRecord | undefined {
+  return critiquesForEntry(critiques, entryId, showId)
+    .filter((critique) => critique.status === "APPROVED")
+    .sort(newestFirst)[0];
+}
+
+/** Why a new ringside recording is blocked, or null when it can proceed. */
+export function recordingBlockedReason(
+  critiques: CritiqueRecord[],
+  entryId: string,
+  showId: string,
+): string | null {
+  const open = openCritiqueForEntry(critiques, entryId, showId);
+  if (open) return null;
+  const approved = approvedCritiqueForEntry(critiques, entryId, showId);
+  if (!approved) return null;
+  return approved.delivery_status === "sent"
+    ? "Critique already approved and emailed to the owner"
+    : "Critique already approved — ask the desk to recall it before re-recording";
+}
+
+/**
  * Reports / print: prefer an approved certificate, else the newest row.
  */
 export function primaryCritiqueForEntry(
