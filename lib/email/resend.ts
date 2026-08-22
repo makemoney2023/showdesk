@@ -8,6 +8,14 @@ export interface SendCritiqueEmailInput {
   pdfBytes: Uint8Array;
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
 export async function sendCritiqueEmail(
   input: SendCritiqueEmailInput,
 ): Promise<{ sent: boolean; mock: boolean; id?: string; error?: string }> {
@@ -24,7 +32,7 @@ export async function sendCritiqueEmail(
       from,
       to: input.to,
       subject: `Critique: ${input.dogName} — ${input.showName}`,
-      html: `<p>Dear ${input.ownerName},</p><p>Please find attached the judge's critique for <strong>${input.dogName}</strong> from ${input.showName}.</p>`,
+      html: `<p>Dear ${escapeHtml(input.ownerName)},</p><p>Please find attached the judge's critique for <strong>${escapeHtml(input.dogName)}</strong> from ${escapeHtml(input.showName)}.</p>`,
       attachments: [
         {
           filename: `critique-${input.dogName.replace(/\s+/g, "-")}.pdf`,
