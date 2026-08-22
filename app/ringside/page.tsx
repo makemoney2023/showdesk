@@ -8,6 +8,7 @@ import {
   competitionPoolKey,
   competitionPoolsWithDogs,
   defaultCompetitionDay,
+  localCalendarIso,
 } from "@/lib/domain/catalog-competition";
 import { dogRecordMatchesSearch } from "@/lib/domain/dog-search";
 import { CompetitionDayFilter } from "@/components/desk/CompetitionDayFilter";
@@ -96,7 +97,7 @@ export default function RingsidePage() {
   const activeDay =
     selectedDay !== null && days.some((day) => day.day === selectedDay)
       ? selectedDay
-      : defaultCompetitionDay(days, new Date().toISOString().slice(0, 10));
+      : defaultCompetitionDay(days, localCalendarIso());
   const dayEntries = entries.filter(
     (entry) => (entry.competition_day ?? "") === activeDay,
   );
@@ -211,12 +212,20 @@ export default function RingsidePage() {
         <EmptyDesk variant="no-show-steward" />
       ) : null}
       {loadState.kind === "ready" && filtered.length === 0 && !search.trim() ? (
-        <p className="sss-tray p-5 text-sm text-sss-text-muted">
+        <p
+          className="sss-tray p-5 text-sm text-sss-text-muted"
+          role="status"
+          aria-live="polite"
+        >
           No entries for this date and division.
         </p>
       ) : null}
       {loadState.kind === "ready" && filtered.length === 0 && search.trim() ? (
-        <p className="sss-tray p-5 text-sm text-sss-text-muted">
+        <p
+          className="sss-tray p-5 text-sm text-sss-text-muted"
+          role="status"
+          aria-live="polite"
+        >
           No dogs match “{search}”.
         </p>
       ) : null}

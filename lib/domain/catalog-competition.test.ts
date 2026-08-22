@@ -3,6 +3,7 @@ import {
   catalogDivisionLabel,
   competitionDaysWithEntries,
   defaultCompetitionDay,
+  localCalendarIso,
   competitionDayLabel,
   competitionPoolKey,
   competitionPoolsWithDogs,
@@ -102,6 +103,12 @@ describe("catalog competition pools", () => {
     expect(defaultCompetitionDay(days, "2026-09-05")).toBe("2026-09-05");
     expect(defaultCompetitionDay(days, "2026-09-01")).toBe("2026-09-04");
     expect(defaultCompetitionDay(days, "2026-09-10")).toBe("2026-09-06");
+  });
+
+  it("uses the browser-local date near midnight", () => {
+    expect(localCalendarIso(new Date(2026, 8, 5, 23, 59))).toBe(
+      "2026-09-05",
+    );
   });
 
   it("advances only inside the same day, class, and sex pool", () => {
