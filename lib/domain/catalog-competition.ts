@@ -112,6 +112,7 @@ export function competitionPoolLabel(input: {
 }
 
 export function catalogDivisionLabel(entry: CompetitionPoolEntry): string {
+  if (entry.event_kind === "se") return "Standard Evaluation (SE)";
   const catalogClass = resolvedCatalogClass(entry);
   if (!catalogClass) return "Unmapped division";
   return competitionPoolLabel({ catalogClass, sex: entry.sex });

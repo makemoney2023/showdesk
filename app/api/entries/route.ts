@@ -184,6 +184,10 @@ export async function PUT(request: Request) {
   if (!validation.valid) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
   }
+  const metadataError = hostedCatalogMetadataError(body.entry);
+  if (metadataError) {
+    return NextResponse.json({ error: metadataError }, { status: 400 });
+  }
 
   const store = await readStore();
   const existing = store.entries.find(
@@ -196,12 +200,13 @@ export async function PUT(request: Request) {
   const nextEntry: RosterEntryRecord = {
     ...body.entry,
     photo_path: existing.photo_path,
-    event_kind: existing.event_kind,
-    competition_day: existing.competition_day,
-    catalog_class: existing.catalog_class,
   };
   const divisionChanged =
-    existing.class_id !== nextEntry.class_id || existing.sex !== nextEntry.sex;
+    existing.class_id !== nextEntry.class_id ||
+    existing.sex !== nextEntry.sex ||
+    existing.event_kind !== nextEntry.event_kind ||
+    existing.competition_day !== nextEntry.competition_day ||
+    existing.catalog_class !== nextEntry.catalog_class;
 
   await updateStore((s) => ({
     ...s,

@@ -56,6 +56,20 @@ const OPTIONAL_HEADERS = [
   "catalog_class",
 ] as const;
 
+function isIsoCalendarDate(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+  );
+}
+
 function parseCsvLine(line: string): string[] {
   const result: string[] = [];
   let current = "";
@@ -118,8 +132,10 @@ export function parseRosterCsv(csv: string): RosterParseResult {
       continue;
     }
     const competitionDay = (row.competition_day ?? "").trim();
-    if (competitionDay && !/^\d{4}-\d{2}-\d{2}$/.test(competitionDay)) {
-      errors.push(`Row ${i + 1}: competition_day must be YYYY-MM-DD`);
+    if (competitionDay && !isIsoCalendarDate(competitionDay)) {
+      errors.push(
+        `Row ${i + 1}: competition_day must be a valid YYYY-MM-DD date`,
+      );
       continue;
     }
     const catalogClass = (row.catalog_class ?? "").trim();
@@ -203,9 +219,12 @@ export function validateRosterEntry(
   }
   if (
     entry.competition_day &&
-    !/^\d{4}-\d{2}-\d{2}$/.test(entry.competition_day)
+    !isIsoCalendarDate(entry.competition_day)
   ) {
-    return { valid: false, error: "competition_day must be YYYY-MM-DD" };
+    return {
+      valid: false,
+      error: "competition_day must be a valid YYYY-MM-DD date",
+    };
   }
   if (
     entry.catalog_class &&
@@ -266,7 +285,10 @@ export function mergeImportedEntries<T extends RosterEntry>(
       const previous = next[idx];
       if (
         previous.class_id !== row.class_id ||
-        previous.sex !== row.sex
+        previous.sex !== row.sex ||
+        previous.event_kind !== row.event_kind ||
+        previous.competition_day !== row.competition_day ||
+        previous.catalog_class !== row.catalog_class
       ) {
         changedDivisionEntryIds.push(previous.id);
       }

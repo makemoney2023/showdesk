@@ -42,6 +42,14 @@ describe("roster", () => {
     ]);
   });
 
+  it("rejects impossible catalog dates", () => {
+    const csv = `armband,dog_name,zb_number,wt,owner,sex,class_id,email,event_kind,competition_day,catalog_class
+101,Rex,,,Owner,R,zwischenklasse,,conformation,2026-02-31,youth-i`;
+    const result = parseRosterCsv(csv);
+    expect(result.entries).toHaveLength(0);
+    expect(result.errors[0]).toMatch(/valid YYYY-MM-DD date/);
+  });
+
   it("validates individual entries", () => {
     expect(
       validateRosterEntry({
@@ -189,6 +197,38 @@ describe("roster", () => {
     const merged = mergeImportedEntries(
       existing,
       [{ ...existing[0], sex: "H" as const }],
+      () => "unused",
+    );
+    expect(merged.changedDivisionEntryIds).toEqual(["entry-1"]);
+  });
+
+  it("reports imported entries that changed day or catalog class", () => {
+    const existing: RosterEntry[] = [
+      {
+        id: "entry-1",
+        show_id: "show-1",
+        armband: "101",
+        dog_name: "Rex",
+        zb_number: "REG-1",
+        wt: "",
+        owner: "Owner",
+        sex: "R",
+        class_id: "zwischenklasse",
+        email: "",
+        event_kind: "conformation",
+        competition_day: "2026-09-05",
+        catalog_class: "youth-i",
+      },
+    ];
+    const merged = mergeImportedEntries(
+      existing,
+      [
+        {
+          ...existing[0],
+          competition_day: "2026-09-06",
+          catalog_class: "youth-ii",
+        },
+      ],
       () => "unused",
     );
     expect(merged.changedDivisionEntryIds).toEqual(["entry-1"]);

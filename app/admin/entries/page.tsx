@@ -298,12 +298,15 @@ export default function AdminEntriesPage() {
     const divisionChanged = Boolean(
       original &&
         (original.class_id !== entryDraft.class_id ||
-          original.sex !== entryDraft.sex),
+          original.sex !== entryDraft.sex ||
+          original.event_kind !== entryDraft.event_kind ||
+          original.competition_day !== entryDraft.competition_day ||
+          original.catalog_class !== entryDraft.catalog_class),
     );
     if (
       divisionChanged &&
       !window.confirm(
-        "Changing class or sex moves this dog to another division and clears its placement. Continue?",
+        "Changing event, day, class, or sex moves this entry to another placement pool and clears its placement. Continue?",
       )
     ) {
       return;

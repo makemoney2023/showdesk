@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  catalogDivisionLabel,
   competitionDayLabel,
   competitionPoolKey,
   competitionPoolsWithDogs,
@@ -55,15 +56,15 @@ describe("catalog competition pools", () => {
   });
 
   it("excludes SE and supports legacy demo entries", () => {
-    expect(
-      competitionPoolKey({
-        class_id: "offene-klasse",
-        sex: "R",
-        event_kind: "se",
-        competition_day: "2026-09-04",
-        catalog_class: "standard-evaluation",
-      }),
-    ).toBeNull();
+    const se = {
+      class_id: "offene-klasse" as const,
+      sex: "R" as const,
+      event_kind: "se" as const,
+      competition_day: "2026-09-04",
+      catalog_class: "standard-evaluation" as const,
+    };
+    expect(competitionPoolKey(se)).toBeNull();
+    expect(catalogDivisionLabel(se)).toBe("Standard Evaluation (SE)");
     expect(
       resolvedCatalogClass({
         class_id: "zwischenklasse",
