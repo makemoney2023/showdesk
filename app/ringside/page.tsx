@@ -3,15 +3,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { deskLoadState } from "@/lib/domain/desk-load-state";
 import {
-  divisionKey,
-  divisionLabel,
-  divisionsWithDogs,
-} from "@/lib/domain/class-division";
-import {
-  sanitizeRosterDivisionFilter,
-  visibleRosterEntries,
-} from "@/lib/domain/roster-view";
-import { DivisionFilterChips } from "@/components/desk/DivisionFilterChips";
+  catalogDivisionLabel,
+  competitionDaysWithEntries,
+  competitionPoolKey,
+  competitionPoolsWithDogs,
+  defaultCompetitionDay,
+  localCalendarIso,
+} from "@/lib/domain/catalog-competition";
+import { dogRecordMatchesSearch } from "@/lib/domain/dog-search";
+import { CompetitionDayFilter } from "@/components/desk/CompetitionDayFilter";
+import { CompetitionPoolFilterChips } from "@/components/desk/CompetitionPoolFilterChips";
 import {
   critiqueChipTone,
   labelCritiqueStatus,
@@ -36,8 +37,9 @@ function statusForEntry(
 export default function RingsidePage() {
   const [entries, setEntries] = useState<RosterEntryRecord[]>([]);
   const [critiques, setCritiques] = useState<CritiqueRecord[]>([]);
-  const [divisionFilter, setDivisionFilter] = useState<string>("all");
-  const [completedDivision, setCompletedDivision] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [poolFilter, setPoolFilter] = useState("all");
+  const [completedPool, setCompletedPool] = useState(false);
   const [search, setSearch] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [fetchFailed, setFetchFailed] = useState(false);
@@ -78,9 +80,11 @@ export default function RingsidePage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const requestedDivision = params.get("division");
-    if (requestedDivision) setDivisionFilter(requestedDivision);
-    setCompletedDivision(Boolean(params.get("division_complete")));
+    const requestedDay = params.get("date");
+    const requestedPool = params.get("pool");
+    if (requestedDay) setSelectedDay(requestedDay);
+    if (requestedPool) setPoolFilter(requestedPool);
+    setCompletedPool(Boolean(params.get("pool_complete")));
   }, []);
 
   const loadState = deskLoadState({
@@ -89,16 +93,39 @@ export default function RingsidePage() {
     activeShowId,
     loaded,
   });
-  const divisions = divisionsWithDogs(entries);
-  const activeDivisionFilter = sanitizeRosterDivisionFilter(
-    divisionFilter,
-    entries,
+  const days = competitionDaysWithEntries(entries);
+  const activeDay =
+    selectedDay !== null && days.some((day) => day.day === selectedDay)
+      ? selectedDay
+      : defaultCompetitionDay(days, localCalendarIso());
+  const dayEntries = entries.filter(
+    (entry) => (entry.competition_day ?? "") === activeDay,
   );
-  const filtered = visibleRosterEntries(entries, {
-    search,
-    divisionFilter: activeDivisionFilter,
-    sort: "armband",
-  });
+  const pools = competitionPoolsWithDogs(dayEntries);
+  const activePool =
+    poolFilter === "all" || pools.some((pool) => pool.key === poolFilter)
+      ? poolFilter
+      : "all";
+  const poolOrder = new Map(pools.map((pool, index) => [pool.key, index]));
+  const filtered = dayEntries
+    .filter(
+      (entry) =>
+        activePool === "all" || competitionPoolKey(entry) === activePool,
+    )
+    .filter((entry) => dogRecordMatchesSearch(search, entry))
+    .toSorted((a, b) => {
+      const poolDifference =
+        (poolOrder.get(competitionPoolKey(a) ?? "") ?? 99) -
+        (poolOrder.get(competitionPoolKey(b) ?? "") ?? 99);
+      return (
+        poolDifference ||
+        a.armband.localeCompare(b.armband, undefined, { numeric: true })
+      );
+    });
+  const contextParams = new URLSearchParams();
+  if (activeDay) contextParams.set("date", activeDay);
+  if (activePool !== "all") contextParams.set("pool", activePool);
+  const contextQuery = contextParams.toString();
 
   return (
     <div className="space-y-6">
@@ -106,25 +133,39 @@ export default function RingsidePage() {
         <h1 className="font-[family-name:var(--font-fraunces)] text-2xl font-semibold">
           Dogs
         </h1>
-        <p className="text-sm text-sss-text-secondary">Class / armband picker</p>
-        {completedDivision ? (
+        <p className="text-sm text-sss-text-secondary">
+          Date, published class, sex, and armband
+        </p>
+        {completedPool ? (
           <p className="mt-2 text-sm font-medium text-sss-success">
-            Division complete — choose the next division when ready.
+            Day/class/sex pool complete — choose the next pool when ready.
           </p>
         ) : null}
       </div>
 
-      {divisions.length > 0 || entries.length > 0 ? (
+      {days.length > 0 ? (
       <div className="sticky top-[3.25rem] z-20 -mx-4 space-y-2 bg-sss-ground/90 px-4 py-2 backdrop-blur">
+        <CompetitionDayFilter
+          days={days}
+          value={activeDay}
+          onChange={(day) => {
+            setSelectedDay(day);
+            setPoolFilter("all");
+            setCompletedPool(false);
+          }}
+        />
         <DogSearchField
           value={search}
           onChange={setSearch}
           aria-label="Search dogs"
         />
-        <DivisionFilterChips
-          divisions={divisions}
-          value={activeDivisionFilter}
-          onChange={setDivisionFilter}
+        <CompetitionPoolFilterChips
+          pools={pools}
+          value={activePool}
+          onChange={(pool) => {
+            setPoolFilter(pool);
+            setCompletedPool(false);
+          }}
         />
       </div>
       ) : null}
@@ -138,10 +179,17 @@ export default function RingsidePage() {
               entryId={e.id}
               armband={e.armband}
               dogName={e.dog_name}
-              classLabel={divisionLabel(e)}
-              divisionKey={divisionKey(e)}
-              statusLabel={labelCritiqueStatus(status)}
-              statusTone={critiqueChipTone(status)}
+              classLabel={catalogDivisionLabel(e)}
+              eventKind={e.event_kind}
+              contextQuery={contextQuery}
+              statusLabel={
+                e.event_kind === "se"
+                  ? "SE entry"
+                  : labelCritiqueStatus(status)
+              }
+              statusTone={
+                e.event_kind === "se" ? "muted" : critiqueChipTone(status)
+              }
               photoHref={
                 e.photo_path && activeShowId
                   ? dogPhotoHref(activeShowId, e.id, { cacheBust: e.photo_path })
@@ -164,10 +212,20 @@ export default function RingsidePage() {
         <EmptyDesk variant="no-show-steward" />
       ) : null}
       {loadState.kind === "ready" && filtered.length === 0 && !search.trim() ? (
-        <EmptyDesk variant="no-entries-steward" />
+        <p
+          className="sss-tray p-5 text-sm text-sss-text-muted"
+          role="status"
+          aria-live="polite"
+        >
+          No entries for this date and division.
+        </p>
       ) : null}
       {loadState.kind === "ready" && filtered.length === 0 && search.trim() ? (
-        <p className="sss-tray p-5 text-sm text-sss-text-muted">
+        <p
+          className="sss-tray p-5 text-sm text-sss-text-muted"
+          role="status"
+          aria-live="polite"
+        >
           No dogs match “{search}”.
         </p>
       ) : null}

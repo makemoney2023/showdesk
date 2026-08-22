@@ -86,9 +86,8 @@ export default function StewardSeFormPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const entryId = params.id as string;
-  const divisionParam = searchParams.get("division");
-  const ringsideHref = divisionParam
-    ? `/ringside?division=${encodeURIComponent(divisionParam)}`
+  const ringsideHref = searchParams.toString()
+    ? `/ringside?${searchParams.toString()}`
     : "/ringside";
   const ringsideJudge = useRingsideJudge();
   const [entry, setEntry] = useState<RosterEntryRecord | null>(null);

@@ -41,10 +41,13 @@ test.describe("happy path", () => {
     await page.getByLabel("Judge").selectOption("Test Judge");
     await expect(page.getByText("Rex Happy Path")).toBeVisible();
     await expect(
-      page.getByRole("button", { name: /Intermediate Class — Male/ }),
+      page.getByRole("button", { name: /Unscheduled conformation/ }),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: /Intermediate Class — Female/ }),
+      page.getByRole("button", { name: /Youth I — Male/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Youth I — Female/ }),
     ).toBeVisible();
     await page.getByLabel("Search dogs").fill("does-not-match");
     await expect(page.getByText(/No dogs match/)).toBeVisible();

@@ -4,13 +4,15 @@ import { Button } from "@/components/ui/button";
 import { DogAvatar } from "@/components/desk/DogAvatar";
 import { StatusChip } from "@/components/status/StatusChip";
 import type { ChipTone } from "@/lib/domain/status-labels";
+import type { CatalogEventKind } from "@/lib/domain/catalog-competition";
 
 export function DogTile({
   entryId,
   armband,
   dogName,
   classLabel,
-  divisionKey,
+  contextQuery,
+  eventKind,
   statusLabel,
   statusTone,
   photoHref,
@@ -19,17 +21,25 @@ export function DogTile({
   armband: string;
   dogName: string;
   classLabel: string;
-  divisionKey?: string;
+  contextQuery?: string;
+  eventKind?: CatalogEventKind;
   statusLabel: string;
   statusTone: ChipTone;
   photoHref?: string;
 }) {
+  const query = contextQuery ? `?${contextQuery}` : "";
+  const seOnly = eventKind === "se";
+  const primaryHref = seOnly
+    ? `/ringside/se/${entryId}${query}`
+    : `/ringside/record/${entryId}${query}`;
   return (
     <li className="sss-paper sss-interactive overflow-hidden">
       <Link
-        href={`/ringside/record/${entryId}${divisionKey ? `?division=${encodeURIComponent(divisionKey)}` : ""}`}
+        href={primaryHref}
         className="block p-4"
-        aria-label={`Record critique for ${dogName}`}
+        aria-label={
+          seOnly ? `Open SE form for ${dogName}` : `Record critique for ${dogName}`
+        }
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
@@ -45,19 +55,19 @@ export function DogTile({
           <StatusChip label={statusLabel} tone={statusTone} />
         </div>
         <p className="mt-3 text-sm font-medium text-sss-accent-deep">
-          Record critique →
+          {seOnly ? "Open SE form →" : "Record critique →"}
         </p>
       </Link>
-      <div className="border-t border-sss-border px-4 py-2">
+      {!seOnly ? (
+        <div className="border-t border-sss-border px-4 py-2">
         <Button asChild variant="outline" size="sm">
-          <Link
-            href={`/ringside/se/${entryId}${divisionKey ? `?division=${encodeURIComponent(divisionKey)}` : ""}`}
-          >
+          <Link href={`/ringside/se/${entryId}${query}`}>
             <ClipboardList className="h-3.5 w-3.5" />
             SE form
           </Link>
         </Button>
-      </div>
+        </div>
+      ) : null}
     </li>
   );
 }

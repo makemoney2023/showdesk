@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   catalogDivisionLabel,
+  competitionDaysWithEntries,
+  defaultCompetitionDay,
+  localCalendarIso,
   competitionDayLabel,
   competitionPoolKey,
   competitionPoolsWithDogs,
+  nextDogInCompetitionPool,
   resolvedCatalogClass,
 } from "./catalog-competition";
 
@@ -82,5 +86,62 @@ describe("catalog competition pools", () => {
     expect(competitionDayLabel("2026-09-05")).toBe(
       "Saturday, September 5",
     );
+  });
+
+  it("summarizes days and selects today or the nearest upcoming day", () => {
+    const days = competitionDaysWithEntries([
+      { event_kind: "se", competition_day: "2026-09-04" },
+      { event_kind: "conformation", competition_day: "2026-09-05" },
+      { event_kind: "conformation", competition_day: "2026-09-05" },
+      { event_kind: "conformation", competition_day: "2026-09-06" },
+    ]);
+    expect(days.map((day) => [day.day, day.count])).toEqual([
+      ["2026-09-04", 1],
+      ["2026-09-05", 2],
+      ["2026-09-06", 1],
+    ]);
+    expect(defaultCompetitionDay(days, "2026-09-05")).toBe("2026-09-05");
+    expect(defaultCompetitionDay(days, "2026-09-01")).toBe("2026-09-04");
+    expect(defaultCompetitionDay(days, "2026-09-10")).toBe("2026-09-06");
+  });
+
+  it("uses the browser-local date near midnight", () => {
+    expect(localCalendarIso(new Date(2026, 8, 5, 23, 59))).toBe(
+      "2026-09-05",
+    );
+  });
+
+  it("advances only inside the same day, class, and sex pool", () => {
+    const entries = [
+      {
+        id: "sat-1",
+        armband: "1",
+        class_id: "offene-klasse" as const,
+        sex: "R" as const,
+        event_kind: "conformation" as const,
+        competition_day: "2026-09-05",
+        catalog_class: "open" as const,
+      },
+      {
+        id: "sat-2",
+        armband: "2",
+        class_id: "offene-klasse" as const,
+        sex: "R" as const,
+        event_kind: "conformation" as const,
+        competition_day: "2026-09-05",
+        catalog_class: "open" as const,
+      },
+      {
+        id: "sun-3",
+        armband: "3",
+        class_id: "offene-klasse" as const,
+        sex: "R" as const,
+        event_kind: "conformation" as const,
+        competition_day: "2026-09-06",
+        catalog_class: "open" as const,
+      },
+    ];
+    expect(nextDogInCompetitionPool(entries, "sat-1")).toBe("sat-2");
+    expect(nextDogInCompetitionPool(entries, "sat-2")).toBeNull();
   });
 });
