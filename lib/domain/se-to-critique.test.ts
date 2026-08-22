@@ -38,11 +38,13 @@ describe("se-to-critique", () => {
     form.overall_appearance = "Strong male, good type.";
     form.comments = "Moves freely.";
     form.final_result = "pass";
+    form.formwert = "V";
     form.head_shape = "strong_typey";
     const draft = critiqueDraftFromSeForm(form);
     expect(draft.narrative).toContain("Strong male");
     expect(draft.narrative).toContain("Moves freely");
     expect(draft.narrative).toContain("SE result: PASS");
+    expect(draft.formwert).toBe("V");
     expect(draft.draftAssist?.note).toBe(SE_SYNC_NOTE);
   });
 
@@ -64,6 +66,23 @@ describe("se-to-critique", () => {
     expect(merged.narrative).toContain("— SE form —");
     expect(merged.narrative).toContain("SE steward notes");
     expect(merged.formwert).toBe("V");
+  });
+
+  it("lets an SE Formwert override a prior audio rating", () => {
+    const form = createEmptyTnrkSeForm();
+    form.comments = "SE steward notes";
+    form.formwert = "Sg";
+    const merged = mergeSeIntoCritiqueDraft(
+      {
+        narrative: "Judge audio narrative",
+        formwert: "V",
+        placement: null,
+        titles: [],
+        draftAssist: { note: "Draft assist only" },
+      },
+      form,
+    );
+    expect(merged.formwert).toBe("Sg");
   });
 
   it("blocks sync only after approve/release", () => {

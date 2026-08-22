@@ -10,6 +10,7 @@ import {
 } from "@/lib/domain/catalog-competition";
 import {
   assignClassPlacement,
+  initialPlacementSelections,
   placementsSuggestedFromFormwert,
   resolveFormwertByEntryId,
   sortDogsForPlacement,
@@ -61,18 +62,26 @@ export default function PlacementsPage() {
     const entryData = (await entryRes.json()) as { entries: RosterEntryRecord[] };
     const placeData = (await placeRes.json()) as { placements: PlacementRecord[] };
     setEntries(entryData.entries);
-    const map: Record<string, number | ""> = {};
-    for (const p of placeData.placements) {
-      map[p.entry_id] = p.placement;
-    }
-    setPlacements(map);
+    let nextCritiques: CritiqueRecord[] = [];
     if (critRes.ok) {
-      const critData = (await critRes.json()) as { critiques: CritiqueRecord[] };
-      setCritiques(critData.critiques);
-    } else {
-      setCritiques([]);
+      nextCritiques = ((await critRes.json()) as { critiques: CritiqueRecord[] })
+        .critiques;
     }
-    setStatus("");
+    setCritiques(nextCritiques);
+    const suggested = initialPlacementSelections(
+      placeData.placements,
+      entryData.entries,
+      resolveFormwertByEntryId(nextCritiques),
+    );
+    setPlacements(suggested);
+    const filledFromRatings =
+      placeData.placements.length === 0 &&
+      Object.values(suggested).some((place) => place !== "");
+    setStatus(
+      filledFromRatings
+        ? "Places 1–4 filled from SE ratings — review, then Save placements"
+        : "",
+    );
   }, []);
 
   useEffect(() => {
@@ -153,7 +162,7 @@ export default function PlacementsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Division placements"
-        description="Saturday and Sunday are independent competitions. Auto-sort fills places 1–4 within each day, class, and sex division."
+        description="Saturday and Sunday are independent competitions. Dogs are ordered by the SE Formwert; places 1–4 fill automatically when ratings exist and nothing is saved yet."
         actions={
           <>
             <Button
@@ -173,7 +182,8 @@ export default function PlacementsPage() {
       {status ? <p className="text-sm text-sss-accent-deep">{status}</p> : null}
       {ratedCount === 0 ? (
         <p className="text-xs text-sss-text-muted">
-          No ratings yet — set them in Review, then Auto-sort becomes available.
+          No ratings yet — set Formwert on the ringside SE form, then this
+          list sorts and fills places 1–4 automatically.
         </p>
       ) : null}
       {dayGroups.map((day) => (
@@ -209,7 +219,10 @@ export default function PlacementsPage() {
                     <span className="min-w-24 flex-1 font-medium">
                       {dog.dog_name}
                     </span>
-                    <span className="min-w-24 text-xs text-sss-text-muted">
+                    <span
+                      className="min-w-28 rounded-sss-md bg-sss-lifted px-2 py-1 text-sm font-semibold tabular-nums"
+                      aria-label={`Rating for ${dog.dog_name}`}
+                    >
                       {formatAdrkFormwert(formwert ?? null)}
                     </span>
                     <div

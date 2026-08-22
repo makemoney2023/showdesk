@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assignClassPlacement,
   formwertSortRank,
+  initialPlacementSelections,
   placementEntriesBelongToShow,
   placementsSuggestedFromFormwert,
   resolvePlacementInputs,
@@ -254,6 +255,30 @@ describe("placementsSuggestedFromFormwert", () => {
       { entry_id: "b", placement: 1 },
       { entry_id: "a", placement: null },
     ]);
+  });
+
+  it("auto-fills 1–4 from ratings when nothing is saved yet", () => {
+    const dogs = [
+      { id: "a", armband: "2", class_id: "zwischenklasse" as const, sex: "R" as const },
+      { id: "b", armband: "1", class_id: "zwischenklasse" as const, sex: "R" as const },
+    ];
+    expect(
+      initialPlacementSelections([], dogs, { a: "Sg", b: "V" }),
+    ).toEqual({ b: 1, a: 2 });
+  });
+
+  it("keeps saved placements instead of overwriting them from ratings", () => {
+    const dogs = [
+      { id: "a", armband: "2", class_id: "zwischenklasse" as const, sex: "R" as const },
+      { id: "b", armband: "1", class_id: "zwischenklasse" as const, sex: "R" as const },
+    ];
+    expect(
+      initialPlacementSelections(
+        [{ entry_id: "a", placement: 1 }],
+        dogs,
+        { a: "Sg", b: "V" },
+      ),
+    ).toEqual({ a: 1 });
   });
 
   it("assigns male and female place 1 independently", () => {

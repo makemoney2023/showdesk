@@ -244,6 +244,32 @@ export function assignClassPlacement(
   return next;
 }
 
+/** Seed the placements UI: keep saved ranks, else fill 1–4 from ratings. */
+export function initialPlacementSelections<
+  T extends {
+    id: string;
+    armband: string;
+    class_id: AdrkClassId;
+    sex: DogSex;
+  } & CatalogEntryMetadata,
+>(
+  saved: Array<{ entry_id: string; placement: 1 | 2 | 3 | 4 }>,
+  dogs: T[],
+  formwertByEntry: Record<string, AdrkFormwertCode | null | undefined>,
+): Record<string, number | ""> {
+  const next: Record<string, number | ""> = {};
+  if (saved.length > 0) {
+    for (const row of saved) {
+      next[row.entry_id] = row.placement;
+    }
+    return next;
+  }
+  for (const row of placementsSuggestedFromFormwert(dogs, formwertByEntry)) {
+    next[row.entry_id] = row.placement ?? "";
+  }
+  return next;
+}
+
 export function placementsSuggestedFromFormwert<
   T extends {
     id: string;

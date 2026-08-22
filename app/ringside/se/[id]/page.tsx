@@ -15,6 +15,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  ADRK_FORMWERT_CODES,
+  formatAdrkFormwert,
+  type AdrkFormwertCode,
+} from "@/lib/domain/adrk-template";
+import {
   BEHAVIOR_OPTIONS,
   BONE_STRENGTH_OPTIONS,
   CHEEK_BONE_OPTIONS,
@@ -740,6 +752,42 @@ export default function StewardSeFormPage() {
             label="FAIL / Nicht bestanden"
           />
         </div>
+        <div className="space-y-1.5">
+          <Label
+            htmlFor="se-field-rating-formwert"
+            className="text-xs text-sss-text-muted"
+          >
+            Rating (Formwert)
+          </Label>
+          <Select
+            value={form.formwert ?? "none"}
+            onValueChange={(value) =>
+              patchForm(
+                "formwert",
+                value === "none" ? null : (value as AdrkFormwertCode),
+              )
+            }
+          >
+            <SelectTrigger
+              id="se-field-rating-formwert"
+              aria-label="Rating (Formwert)"
+            >
+              <SelectValue placeholder="Select rating" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">—</SelectItem>
+              {ADRK_FORMWERT_CODES.map((code) => (
+                <SelectItem key={code} value={code}>
+                  {formatAdrkFormwert(code)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-sss-text-muted">
+            Copied onto Review and used to sort placements. The desk does not
+            set this again.
+          </p>
+        </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label="Judge's signature">
             <Input
@@ -810,7 +858,7 @@ export default function StewardSeFormPage() {
             </p>
           ) : (
             <p className="text-xs text-sss-text-muted">
-              Mark complete needs dog name, judge, and Pass/Fail.
+              Mark complete needs dog name, judge, Pass/Fail, and rating.
             </p>
           )}
           {autosaveStatus ? (

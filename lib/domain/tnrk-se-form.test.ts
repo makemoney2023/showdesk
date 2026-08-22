@@ -10,6 +10,7 @@ import {
   mergeEntryIntoSeForm,
   formatSeMissingFields,
   seCompletionGaps,
+  seFormFormwert,
 } from "./tnrk-se-form";
 
 describe("tnrk-se-form", () => {
@@ -19,6 +20,10 @@ describe("tnrk-se-form", () => {
     expect(form.sex).toBeNull();
     expect(form.bite).toBeNull();
     expect(form.final_result).toBeNull();
+    expect(form.formwert).toBeNull();
+    expect(seFormFormwert(form)).toBeNull();
+    expect(seFormFormwert({ formwert: "V" })).toBe("V");
+    expect(seFormFormwert({ formwert: "nope" as never })).toBeNull();
     expect(form.head_shape).toBeNull();
     expect(form.measurements.height).toBe("");
   });
@@ -73,7 +78,7 @@ describe("tnrk-se-form", () => {
     expect(form.hd_ed_jlpp_nr).toBe("Cardiac: Normal; JLPP: Normal");
   });
 
-  it("requires dog name + final result before treating SE as complete", () => {
+  it("requires dog name, rating, and final result before treating SE as complete", () => {
     const empty = createEmptyTnrkSeForm();
     expect(validateTnrkSeFormForPass(empty).ok).toBe(false);
 
@@ -84,6 +89,7 @@ describe("tnrk-se-form", () => {
       ...empty,
       dog_name: "Max",
       final_result: "pass" as const,
+      formwert: "V" as const,
       judge: "Judge One",
     };
     expect(validateTnrkSeFormForPass(complete).ok).toBe(true);
@@ -100,6 +106,7 @@ describe("tnrk-se-form", () => {
     expect(empty.map((gap) => gap.field)).toEqual([
       "dog_name",
       "final_result",
+      "formwert",
       "judge",
     ]);
     expect(empty.find((gap) => gap.field === "final_result")?.sectionId).toBe(
@@ -110,6 +117,7 @@ describe("tnrk-se-form", () => {
         ...createEmptyTnrkSeForm(),
         dog_name: "Max",
         final_result: "pass",
+        formwert: "V",
         judge: "Judge One",
       }),
     ).toEqual([]);
