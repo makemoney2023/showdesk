@@ -24,6 +24,7 @@ import {
   isApiUnauthorized,
 } from "@/lib/auth/api-guard";
 import { readJsonBody } from "@/lib/api/read-json";
+import { catalogMetadataError } from "@/lib/domain/catalog-competition";
 import type { RosterEntryRecord } from "@/lib/types";
 
 function hostedCatalogMetadataError(
@@ -33,22 +34,7 @@ function hostedCatalogMetadataError(
   >,
 ): string | null {
   if (getStoreBackend() === "file") return null;
-  if (!entry.event_kind || !entry.competition_day || !entry.catalog_class) {
-    return "event_kind, competition_day, and catalog_class are required";
-  }
-  if (
-    entry.event_kind === "se" &&
-    entry.catalog_class !== "standard-evaluation"
-  ) {
-    return "SE entries must use catalog_class standard-evaluation";
-  }
-  if (
-    entry.event_kind === "conformation" &&
-    entry.catalog_class === "standard-evaluation"
-  ) {
-    return "Conformation entries require a conformation catalog_class";
-  }
-  return null;
+  return catalogMetadataError(entry);
 }
 
 export async function GET(request: Request) {
