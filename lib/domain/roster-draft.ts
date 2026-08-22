@@ -14,7 +14,8 @@ export function blankRosterEntryDraft(
     zb_number: "",
     wt: "",
     owner: "",
-    sex: "R",
+    // Deliberately blank at runtime so a new profile cannot silently default male.
+    sex: "" as RosterEntryRecord["sex"],
     class_id: "zwischenklasse" as AdrkClassId,
     email: "",
   };

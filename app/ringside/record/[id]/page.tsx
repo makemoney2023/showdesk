@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { enqueueRecording, listQueuedRecordings } from "@/lib/offline/queue";
 import {
@@ -9,7 +9,12 @@ import {
   formatQueueSyncStatus,
   syncQueuedRecordings,
 } from "@/lib/offline/sync";
-import { formatElapsed, nextDogAfter } from "@/lib/domain/show-day";
+import { formatElapsed } from "@/lib/domain/show-day";
+import {
+  divisionKey,
+  divisionLabel,
+  nextDogInDivision,
+} from "@/lib/domain/class-division";
 import { canRecordWithJudge, syncShowJudges } from "@/lib/domain/show-judges";
 import { stickyJudgeForShow } from "@/lib/client/sticky-judge";
 import { useRingsideJudge } from "@/components/ringside/RingsideJudgeContext";
@@ -37,6 +42,7 @@ import { VuMeter } from "@/components/desk/VuMeter";
 export default function RecordPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const entryId = params.id as string;
   const ringsideJudge = useRingsideJudge();
   const [entry, setEntry] = useState<RosterEntryRecord | null>(null);
@@ -386,8 +392,7 @@ export default function RecordPage() {
       });
       setStatus("Saved to offline queue");
       await refreshQueue();
-      const nextId = nextDogAfter(entries, entryId);
-      router.push(nextId ? `/ringside/record/${nextId}` : "/ringside");
+      router.push(nextRecordingHref());
       return;
     }
 
@@ -406,8 +411,7 @@ export default function RecordPage() {
     });
     if (res.ok) {
       setStatus("Sent to review queue");
-      const nextId = nextDogAfter(entries, entryId);
-      router.push(nextId ? `/ringside/record/${nextId}` : "/ringside");
+      router.push(nextRecordingHref());
     } else {
       const id = `offline-${Date.now()}`;
       await enqueueRecording({
@@ -422,6 +426,15 @@ export default function RecordPage() {
       setStatus("Upload failed — queued offline");
       await refreshQueue();
     }
+  }
+
+  function nextRecordingHref(): string {
+    if (!entry) return "/ringside";
+    const division = divisionKey(entry);
+    const nextId = nextDogInDivision(entries, entry.id);
+    return nextId
+      ? `/ringside/record/${nextId}?division=${encodeURIComponent(division)}`
+      : `/ringside?division=${encodeURIComponent(division)}&division_complete=${encodeURIComponent(division)}`;
   }
 
   async function syncQueue() {
@@ -439,13 +452,22 @@ export default function RecordPage() {
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <div className="space-y-2">
-        <BackLink href="/ringside">Back to dogs</BackLink>
+        <BackLink
+          href={
+            searchParams.get("division")
+              ? `/ringside?division=${encodeURIComponent(searchParams.get("division")!)}`
+              : "/ringside"
+          }
+        >
+          Back to dogs
+        </BackLink>
         <h1 className="font-[family-name:var(--font-fraunces)] text-2xl font-semibold">
           Record critique
         </h1>
         {entry ? (
           <p className="text-sm text-sss-text-secondary">
-            #{entry.armband} {entry.dog_name} · Space starts or stops
+            #{entry.armband} {entry.dog_name} · {divisionLabel(entry)} · Space
+            starts or stops
           </p>
         ) : null}
       </div>

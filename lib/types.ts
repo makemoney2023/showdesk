@@ -3,6 +3,7 @@ import type { DraftCritiqueSchema } from "@/lib/domain/adrk-template";
 import type { CritiqueStatus } from "@/lib/domain/critique-status";
 import type { RulebookTemplate } from "@/lib/domain/adrk-template";
 import type { DeskRole } from "@/lib/auth/roles";
+import type { DogSex } from "@/lib/domain/class-division";
 import type { TnrkSeForm } from "@/lib/domain/tnrk-se-form";
 
 export interface Show {
@@ -25,7 +26,7 @@ export interface RosterEntryRecord {
   zb_number: string;
   wt: string;
   owner: string;
-  sex: "R" | "H";
+  sex: DogSex;
   class_id: AdrkClassId;
   email: string;
   photo_path?: string;
@@ -57,6 +58,7 @@ export interface PlacementRecord {
   id: string;
   show_id: string;
   class_id: AdrkClassId;
+  sex: DogSex;
   entry_id: string;
   placement: 1 | 2 | 3 | 4;
 }

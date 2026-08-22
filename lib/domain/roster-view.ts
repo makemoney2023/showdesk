@@ -1,15 +1,28 @@
 import { dogRecordMatchesSearch } from "./dog-search";
 import { ADRK_CLASSES, type AdrkClassId } from "./adrk-template";
-import { classesWithDogs } from "./show-day";
+import {
+  classDivisionIndex,
+  divisionsWithDogs,
+  entryMatchesDivision,
+  type DivisionFilter,
+  type DogSex,
+} from "./class-division";
 
-export type RosterClassFilter = "all" | AdrkClassId;
 export type RosterSort = "class" | "armband";
 
+/** @deprecated Prefer entryMatchesDivision for competition views. */
 export function entryMatchesClassFilter(
-  entry: { class_id: string },
+  entry: { class_id: string; sex?: DogSex },
   filter: string,
 ): boolean {
-  return filter === "all" || entry.class_id === filter;
+  if (filter === "all") return true;
+  if (filter.includes(":") && entry.sex) {
+    return entryMatchesDivision(
+      { class_id: entry.class_id as AdrkClassId, sex: entry.sex },
+      filter,
+    );
+  }
+  return entry.class_id === filter;
 }
 
 export function adrkClassIndex(classId: string): number {
@@ -22,20 +35,21 @@ export function compareArmband(a: string, b: string): number {
 }
 
 export function compareRosterEntries(
-  a: { class_id: string; armband: string },
-  b: { class_id: string; armband: string },
+  a: { class_id: AdrkClassId; sex: DogSex; armband: string },
+  b: { class_id: AdrkClassId; sex: DogSex; armband: string },
   sort: RosterSort,
 ): number {
-  const classOrder = adrkClassIndex(a.class_id) - adrkClassIndex(b.class_id);
+  const divisionOrder = classDivisionIndex(a) - classDivisionIndex(b);
   const armbandOrder = compareArmband(a.armband, b.armband);
   return sort === "armband"
-    ? armbandOrder || classOrder
-    : classOrder || armbandOrder;
+    ? armbandOrder || divisionOrder
+    : divisionOrder || armbandOrder;
 }
 
 export function visibleRosterEntries<
   T extends {
-    class_id: string;
+    class_id: AdrkClassId;
+    sex: DogSex;
     armband: string;
     dog_name?: string;
     owner?: string;
@@ -44,12 +58,18 @@ export function visibleRosterEntries<
   entries: T[],
   input: {
     search: string;
-    classFilter: string;
+    divisionFilter?: string;
+    /** Transitional alias for callers from the class-only roster. */
+    classFilter?: string;
     sort?: RosterSort;
   },
 ): T[] {
   return entries
-    .filter((entry) => entryMatchesClassFilter(entry, input.classFilter))
+    .filter((entry) =>
+      input.divisionFilter
+        ? entryMatchesDivision(entry, input.divisionFilter)
+        : entryMatchesClassFilter(entry, input.classFilter ?? "all"),
+    )
     .filter((entry) => dogRecordMatchesSearch(input.search, entry))
     .toSorted((a, b) =>
       compareRosterEntries(a, b, input.sort ?? "class"),
@@ -60,25 +80,45 @@ export function rosterEmptyMessage(input: {
   entryCount: number;
   visibleCount: number;
   search: string;
-  classFilter: string;
+  divisionFilter?: string;
+  classFilter?: string;
 }): string | null {
   if (input.visibleCount > 0) return null;
   if (input.entryCount === 0) return "No dogs on this roster yet.";
   const searching = Boolean(input.search.trim());
-  const filteredClass = input.classFilter !== "all";
+  const filteredDivision = (input.divisionFilter ?? "all") !== "all";
+  const filteredClass = !input.divisionFilter && input.classFilter !== "all";
+  if (searching && filteredDivision) {
+    return "No dogs match this search in this division.";
+  }
   if (searching && filteredClass) {
     return "No dogs match this search in this class.";
   }
   if (searching) return "No dogs match this search.";
-  return "No dogs in this class.";
+  if (filteredClass) return "No dogs in this class.";
+  return "No dogs in this division.";
 }
 
+export function sanitizeRosterDivisionFilter(
+  filter: string,
+  entries: Array<{ class_id: AdrkClassId; sex: DogSex }>,
+): DivisionFilter {
+  if (filter === "all") return "all";
+  return divisionsWithDogs(entries).some((division) => division.key === filter)
+    ? (filter as DivisionFilter)
+    : "all";
+}
+
+/** @deprecated Compatibility wrapper for old class-only callers. */
 export function sanitizeRosterClassFilter(
   filter: string,
-  entries: { class_id: string }[],
-): RosterClassFilter {
-  if (filter === "all") return "all";
-  return classesWithDogs(entries).includes(filter as AdrkClassId)
-    ? (filter as AdrkClassId)
-    : "all";
+  entries: Array<{ class_id: AdrkClassId; sex: DogSex }>,
+): string {
+  if (!filter.includes(":")) {
+    return filter === "all" ||
+      entries.some((entry) => entry.class_id === filter)
+      ? filter
+      : "all";
+  }
+  return sanitizeRosterDivisionFilter(filter, entries);
 }

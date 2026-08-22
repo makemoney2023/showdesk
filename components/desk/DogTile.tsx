@@ -10,6 +10,7 @@ export function DogTile({
   armband,
   dogName,
   classLabel,
+  divisionKey,
   statusLabel,
   statusTone,
   photoHref,
@@ -18,6 +19,7 @@ export function DogTile({
   armband: string;
   dogName: string;
   classLabel: string;
+  divisionKey?: string;
   statusLabel: string;
   statusTone: ChipTone;
   photoHref?: string;
@@ -25,7 +27,7 @@ export function DogTile({
   return (
     <li className="sss-paper sss-interactive overflow-hidden">
       <Link
-        href={`/ringside/record/${entryId}`}
+        href={`/ringside/record/${entryId}${divisionKey ? `?division=${encodeURIComponent(divisionKey)}` : ""}`}
         className="block p-4"
         aria-label={`Record critique for ${dogName}`}
       >
@@ -48,7 +50,9 @@ export function DogTile({
       </Link>
       <div className="border-t border-sss-border px-4 py-2">
         <Button asChild variant="outline" size="sm">
-          <Link href={`/ringside/se/${entryId}`}>
+          <Link
+            href={`/ringside/se/${entryId}${divisionKey ? `?division=${encodeURIComponent(divisionKey)}` : ""}`}
+          >
             <ClipboardList className="h-3.5 w-3.5" />
             SE form
           </Link>

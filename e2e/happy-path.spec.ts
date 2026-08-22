@@ -26,7 +26,7 @@ test.describe("happy path", () => {
     const csvPath = path.join(tmpDir, `roster-${Date.now()}.csv`);
     writeFileSync(
       csvPath,
-      "armband,dog_name,zb_number,wt,owner,sex,class_id,email\n101,Rex Happy Path,DE-1,2024-01-01,Max Mustermann,R,zwischenklasse,owner@example.com\n",
+      "armband,dog_name,zb_number,wt,owner,sex,class_id,email\n101,Rex Happy Path,DE-1,2024-01-01,Max Mustermann,R,zwischenklasse,owner@example.com\n102,Bella Division Test,DE-2,2024-02-01,Jane Example,H,zwischenklasse,bella@example.com\n",
     );
     await page.locator('input[type="file"]').setInputFiles(csvPath);
     await page.getByRole("button", { name: "Import file" }).click();
@@ -40,6 +40,12 @@ test.describe("happy path", () => {
     await page.goto("/ringside");
     await page.getByLabel("Judge").selectOption("Test Judge");
     await expect(page.getByText("Rex Happy Path")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Intermediate Class — Male/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Intermediate Class — Female/ }),
+    ).toBeVisible();
     await page.getByLabel("Search dogs").fill("does-not-match");
     await expect(page.getByText(/No dogs match/)).toBeVisible();
     await page.getByRole("button", { name: "Clear search" }).click();
@@ -69,6 +75,38 @@ test.describe("happy path", () => {
     );
     await expect(page.getByText(/Recovered unsaved changes/)).toBeVisible();
 
+    // Male and female dogs in the same age class have independent places.
+    await page.goto("/ringside/placements");
+    await expect(
+      page.getByRole("heading", { name: "Intermediate Class — Male (Rüde)" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Intermediate Class — Female (Hündin)" }),
+    ).toBeVisible();
+    await page
+      .getByRole("group", { name: "Placement for Rex Happy Path" })
+      .getByRole("button", { name: "1", exact: true })
+      .click();
+    await page
+      .getByRole("group", { name: "Placement for Bella Division Test" })
+      .getByRole("button", { name: "1", exact: true })
+      .click();
+    await page.getByRole("button", { name: "Save placements" }).click();
+    await expect(
+      page.getByRole("main").getByText("Placements saved"),
+    ).toBeVisible();
+    await page.reload();
+    await expect(
+      page
+        .getByRole("group", { name: "Placement for Rex Happy Path" })
+        .getByRole("button", { name: "1", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      page
+        .getByRole("group", { name: "Placement for Bella Division Test" })
+        .getByRole("button", { name: "1", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+
     const critRes = await page.request.post("/api/critiques", {
       data: {
         show_id: showData.active_show_id,
@@ -94,6 +132,12 @@ test.describe("happy path", () => {
     await page.getByRole("button", { name: "Clear search" }).click();
     await expect(
       page.getByRole("heading", { name: /Rex Happy Path/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Intermediate Class — Male (Rüde) · Place 1"),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Intermediate Class — Female (Hündin) · Place 1"),
     ).toBeVisible();
     await page.getByRole("button", { name: "Select all printable" }).click();
     await expect(

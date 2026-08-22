@@ -1,14 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { getAdrkClassLabel } from "@/lib/domain/adrk-template";
 import { deskLoadState } from "@/lib/domain/desk-load-state";
-import { classesWithDogs } from "@/lib/domain/show-day";
 import {
-  sanitizeRosterClassFilter,
+  divisionKey,
+  divisionLabel,
+  divisionsWithDogs,
+} from "@/lib/domain/class-division";
+import {
+  sanitizeRosterDivisionFilter,
   visibleRosterEntries,
 } from "@/lib/domain/roster-view";
-import { ClassFilterChips } from "@/components/desk/ClassFilterChips";
+import { DivisionFilterChips } from "@/components/desk/DivisionFilterChips";
 import {
   critiqueChipTone,
   labelCritiqueStatus,
@@ -33,7 +36,8 @@ function statusForEntry(
 export default function RingsidePage() {
   const [entries, setEntries] = useState<RosterEntryRecord[]>([]);
   const [critiques, setCritiques] = useState<CritiqueRecord[]>([]);
-  const [classFilter, setClassFilter] = useState<string>("all");
+  const [divisionFilter, setDivisionFilter] = useState<string>("all");
+  const [completedDivision, setCompletedDivision] = useState(false);
   const [search, setSearch] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [fetchFailed, setFetchFailed] = useState(false);
@@ -72,17 +76,27 @@ export default function RingsidePage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedDivision = params.get("division");
+    if (requestedDivision) setDivisionFilter(requestedDivision);
+    setCompletedDivision(Boolean(params.get("division_complete")));
+  }, []);
+
   const loadState = deskLoadState({
     fetchFailed,
     status,
     activeShowId,
     loaded,
   });
-  const presentClasses = classesWithDogs(entries);
-  const activeClassFilter = sanitizeRosterClassFilter(classFilter, entries);
+  const divisions = divisionsWithDogs(entries);
+  const activeDivisionFilter = sanitizeRosterDivisionFilter(
+    divisionFilter,
+    entries,
+  );
   const filtered = visibleRosterEntries(entries, {
     search,
-    classFilter: activeClassFilter,
+    divisionFilter: activeDivisionFilter,
     sort: "armband",
   });
 
@@ -93,19 +107,24 @@ export default function RingsidePage() {
           Dogs
         </h1>
         <p className="text-sm text-sss-text-secondary">Class / armband picker</p>
+        {completedDivision ? (
+          <p className="mt-2 text-sm font-medium text-sss-success">
+            Division complete — choose the next division when ready.
+          </p>
+        ) : null}
       </div>
 
-      {presentClasses.length > 0 || entries.length > 0 ? (
+      {divisions.length > 0 || entries.length > 0 ? (
       <div className="sticky top-[3.25rem] z-20 -mx-4 space-y-2 bg-sss-ground/90 px-4 py-2 backdrop-blur">
         <DogSearchField
           value={search}
           onChange={setSearch}
           aria-label="Search dogs"
         />
-        <ClassFilterChips
-          classIds={presentClasses}
-          value={activeClassFilter}
-          onChange={setClassFilter}
+        <DivisionFilterChips
+          divisions={divisions}
+          value={activeDivisionFilter}
+          onChange={setDivisionFilter}
         />
       </div>
       ) : null}
@@ -119,7 +138,8 @@ export default function RingsidePage() {
               entryId={e.id}
               armband={e.armband}
               dogName={e.dog_name}
-              classLabel={getAdrkClassLabel(e.class_id)}
+              classLabel={divisionLabel(e)}
+              divisionKey={divisionKey(e)}
               statusLabel={labelCritiqueStatus(status)}
               statusTone={critiqueChipTone(status)}
               photoHref={

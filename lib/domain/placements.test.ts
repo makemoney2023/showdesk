@@ -4,6 +4,7 @@ import {
   formwertSortRank,
   placementEntriesBelongToShow,
   placementsSuggestedFromFormwert,
+  resolvePlacementInputs,
   resolveFormwertByEntryId,
   sortDogsForPlacement,
   upsertPlacements,
@@ -17,6 +18,7 @@ describe("upsertPlacements", () => {
         id: "p1",
         show_id: "s1",
         class_id: "zwischenklasse",
+        sex: "R",
         entry_id: "e1",
         placement: 1,
       },
@@ -24,6 +26,7 @@ describe("upsertPlacements", () => {
         id: "p2",
         show_id: "s2",
         class_id: "zwischenklasse",
+        sex: "R",
         entry_id: "e9",
         placement: 2,
       },
@@ -31,7 +34,14 @@ describe("upsertPlacements", () => {
     const next = upsertPlacements(
       existing,
       "s1",
-      [{ entry_id: "e1", class_id: "zwischenklasse", placement: 3 }],
+      [
+        {
+          entry_id: "e1",
+          class_id: "zwischenklasse",
+          sex: "R",
+          placement: 3,
+        },
+      ],
       () => "p-new",
     );
     expect(next.find((p) => p.show_id === "s2")?.placement).toBe(2);
@@ -44,6 +54,7 @@ describe("upsertPlacements", () => {
         id: "p1",
         show_id: "s1",
         class_id: "zwischenklasse",
+        sex: "H",
         entry_id: "e1",
         placement: 1,
       },
@@ -51,10 +62,61 @@ describe("upsertPlacements", () => {
     const next = upsertPlacements(
       existing,
       "s1",
-      [{ entry_id: "e1", class_id: "zwischenklasse", placement: null }],
+      [
+        {
+          entry_id: "e1",
+          class_id: "zwischenklasse",
+          sex: "H",
+          placement: null,
+        },
+      ],
       () => "p-new",
     );
     expect(next.filter((p) => p.show_id === "s1")).toHaveLength(0);
+  });
+
+  it("treats rows as a full-show replacement", () => {
+    const existing: PlacementRecord[] = [
+      {
+        id: "p1",
+        show_id: "s1",
+        class_id: "zwischenklasse",
+        sex: "R",
+        entry_id: "e1",
+        placement: 1,
+      },
+      {
+        id: "p2",
+        show_id: "s1",
+        class_id: "zwischenklasse",
+        sex: "R",
+        entry_id: "e2",
+        placement: 2,
+      },
+    ];
+    const next = upsertPlacements(
+      existing,
+      "s1",
+      [
+        {
+          entry_id: "e2",
+          class_id: "zwischenklasse",
+          sex: "R",
+          placement: 1,
+        },
+      ],
+      () => "p-new",
+    );
+    expect(next.filter((placement) => placement.show_id === "s1")).toEqual([
+      {
+        id: "p-new",
+        show_id: "s1",
+        class_id: "zwischenklasse",
+        sex: "R",
+        entry_id: "e2",
+        placement: 1,
+      },
+    ]);
   });
 });
 
@@ -109,13 +171,13 @@ describe("placementsSuggestedFromFormwert", () => {
   it("assigns 1–4 within each class from Formwert order", () => {
     const suggested = placementsSuggestedFromFormwert(
       [
-        { id: "a", armband: "2", class_id: "zwischenklasse" },
-        { id: "b", armband: "1", class_id: "zwischenklasse" },
-        { id: "c", armband: "3", class_id: "zwischenklasse" },
-        { id: "d", armband: "4", class_id: "zwischenklasse" },
-        { id: "e", armband: "5", class_id: "zwischenklasse" },
-        { id: "f", armband: "9", class_id: "offene-klasse" },
-        { id: "g", armband: "8", class_id: "offene-klasse" },
+        { id: "a", armband: "2", class_id: "zwischenklasse", sex: "R" },
+        { id: "b", armband: "1", class_id: "zwischenklasse", sex: "R" },
+        { id: "c", armband: "3", class_id: "zwischenklasse", sex: "R" },
+        { id: "d", armband: "4", class_id: "zwischenklasse", sex: "R" },
+        { id: "e", armband: "5", class_id: "zwischenklasse", sex: "R" },
+        { id: "f", armband: "9", class_id: "offene-klasse", sex: "H" },
+        { id: "g", armband: "8", class_id: "offene-klasse", sex: "H" },
       ],
       {
         a: "Sg",
@@ -128,13 +190,13 @@ describe("placementsSuggestedFromFormwert", () => {
       },
     );
     expect(suggested).toEqual([
-      { entry_id: "c", class_id: "zwischenklasse", placement: 1 },
-      { entry_id: "b", class_id: "zwischenklasse", placement: 2 },
-      { entry_id: "e", class_id: "zwischenklasse", placement: 3 },
-      { entry_id: "a", class_id: "zwischenklasse", placement: 4 },
-      { entry_id: "d", class_id: "zwischenklasse", placement: null },
-      { entry_id: "f", class_id: "offene-klasse", placement: 1 },
-      { entry_id: "g", class_id: "offene-klasse", placement: 2 },
+      { entry_id: "c", placement: 1 },
+      { entry_id: "b", placement: 2 },
+      { entry_id: "e", placement: 3 },
+      { entry_id: "a", placement: 4 },
+      { entry_id: "d", placement: null },
+      { entry_id: "f", placement: 1 },
+      { entry_id: "g", placement: 2 },
     ]);
   });
 
@@ -147,6 +209,7 @@ describe("placementsSuggestedFromFormwert", () => {
             id: "e1",
             show_id: "other",
             class_id: "zwischenklasse",
+            sex: "R",
           },
         ],
         "s1",
@@ -158,7 +221,14 @@ describe("placementsSuggestedFromFormwert", () => {
     expect(
       placementEntriesBelongToShow(
         [{ entry_id: "e1", class_id: "offene-klasse", placement: 1 }],
-        [{ id: "e1", show_id: "s1", class_id: "zwischenklasse" }],
+        [
+          {
+            id: "e1",
+            show_id: "s1",
+            class_id: "zwischenklasse",
+            sex: "R",
+          },
+        ],
         "s1",
       ).valid,
     ).toBe(false);
@@ -167,15 +237,72 @@ describe("placementsSuggestedFromFormwert", () => {
   it("skips unrated dogs when assigning top-4", () => {
     const suggested = placementsSuggestedFromFormwert(
       [
-        { id: "a", armband: "1", class_id: "zwischenklasse" },
-        { id: "b", armband: "2", class_id: "zwischenklasse" },
+        { id: "a", armband: "1", class_id: "zwischenklasse", sex: "H" },
+        { id: "b", armband: "2", class_id: "zwischenklasse", sex: "H" },
       ],
       { a: null, b: "V" },
     );
     expect(suggested).toEqual([
-      { entry_id: "b", class_id: "zwischenklasse", placement: 1 },
-      { entry_id: "a", class_id: "zwischenklasse", placement: null },
+      { entry_id: "b", placement: 1 },
+      { entry_id: "a", placement: null },
     ]);
+  });
+
+  it("assigns male and female place 1 independently", () => {
+    const suggested = placementsSuggestedFromFormwert(
+      [
+        { id: "male", armband: "1", class_id: "offene-klasse", sex: "R" },
+        { id: "female", armband: "2", class_id: "offene-klasse", sex: "H" },
+      ],
+      { male: "V", female: "V" },
+    );
+    expect(suggested).toEqual([
+      { entry_id: "male", placement: 1 },
+      { entry_id: "female", placement: 1 },
+    ]);
+  });
+
+  it("rejects duplicate places inside one division but allows them across sex", () => {
+    const entries = [
+      {
+        id: "m1",
+        show_id: "s1",
+        class_id: "offene-klasse" as const,
+        sex: "R" as const,
+      },
+      {
+        id: "m2",
+        show_id: "s1",
+        class_id: "offene-klasse" as const,
+        sex: "R" as const,
+      },
+      {
+        id: "f1",
+        show_id: "s1",
+        class_id: "offene-klasse" as const,
+        sex: "H" as const,
+      },
+    ];
+    expect(
+      resolvePlacementInputs(
+        [
+          { entry_id: "m1", placement: 1 },
+          { entry_id: "f1", placement: 1 },
+        ],
+        entries,
+        "s1",
+      ).valid,
+    ).toBe(true);
+    expect(
+      resolvePlacementInputs(
+        [
+          { entry_id: "m1", placement: 1 },
+          { entry_id: "m2", placement: 1 },
+        ],
+        entries,
+        "s1",
+      ).valid,
+    ).toBe(false);
   });
 });
 

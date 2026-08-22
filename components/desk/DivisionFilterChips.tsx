@@ -1,43 +1,52 @@
 "use client";
 
-import { ADRK_CLASSES, type AdrkClassId } from "@/lib/domain/adrk-template";
+import {
+  divisionLabel,
+  type ClassDivision,
+  type DivisionKey,
+} from "@/lib/domain/class-division";
 import { cn } from "@/lib/utils";
 
-export function ClassFilterChips({
-  classIds,
+type PopulatedDivision = ClassDivision & {
+  key: DivisionKey;
+  count: number;
+};
+
+export function DivisionFilterChips({
+  divisions,
   value,
   onChange,
 }: {
-  classIds: AdrkClassId[];
+  divisions: PopulatedDivision[];
   value: string;
   onChange: (value: string) => void;
 }) {
-  if (classIds.length === 0) return null;
+  if (divisions.length === 0) return null;
 
   return (
     <div
       className="flex w-max max-w-full gap-2 overflow-x-auto"
       role="group"
-      aria-label="Filter by class"
+      aria-label="Filter by class and sex division"
     >
-      <ClassChip
+      <DivisionChip
         pressed={value === "all"}
         onClick={() => onChange("all")}
-        label="All classes"
+        label="All divisions"
       />
-      {ADRK_CLASSES.filter((item) => classIds.includes(item.id)).map((item) => (
-        <ClassChip
-          key={item.id}
-          pressed={value === item.id}
-          onClick={() => onChange(item.id)}
-          label={item.label}
+      {divisions.map((division) => (
+        <DivisionChip
+          key={division.key}
+          pressed={value === division.key}
+          onClick={() => onChange(division.key)}
+          label={`${divisionLabel(division, "short")} (${division.count})`}
         />
       ))}
     </div>
   );
 }
 
-function ClassChip({
+function DivisionChip({
   pressed,
   onClick,
   label,

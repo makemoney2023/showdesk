@@ -61,6 +61,7 @@ function seededStore() {
         id: "p1",
         show_id: showId,
         class_id: "zwischenklasse" as const,
+        sex: "R" as const,
         entry_id: entryId,
         placement: 1 as const,
       },

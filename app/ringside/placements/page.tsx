@@ -2,8 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ADRK_CLASSES } from "@/lib/domain/adrk-template";
 import { formatAdrkFormwert } from "@/lib/domain/adrk-template";
+import {
+  divisionLabel,
+  divisionsWithDogs,
+} from "@/lib/domain/class-division";
 import {
   assignClassPlacement,
   placementsSuggestedFromFormwert,
@@ -80,10 +83,13 @@ export default function PlacementsPage() {
     [critiques],
   );
 
-  const byClass = ADRK_CLASSES.map((cls) => ({
-    ...cls,
+  const byDivision = divisionsWithDogs(entries).map((division) => ({
+    ...division,
     dogs: sortDogsForPlacement(
-      entries.filter((e) => e.class_id === cls.id),
+      entries.filter(
+        (entry) =>
+          entry.class_id === division.class_id && entry.sex === division.sex,
+      ),
       formwertByEntry,
     ),
   }));
@@ -96,7 +102,7 @@ export default function PlacementsPage() {
     }
     setPlacements(next);
     setStatus("Sorted by rating — review, then Save placements");
-    pushToast("Placements filled from rating order (top 4 per class)");
+    pushToast("Placements filled from rating order within each division");
   }
 
   async function save() {
@@ -108,7 +114,6 @@ export default function PlacementsPage() {
     setBusy(true);
     const payload = entries.map((e) => ({
       entry_id: e.id,
-      class_id: e.class_id,
       placement:
         placements[e.id] === "" || placements[e.id] == null
           ? null
@@ -131,8 +136,8 @@ export default function PlacementsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Class placements"
-        description="Dogs list by rating (best first). Use Auto-sort to fill placements 1–4 from ratings."
+        title="Division placements"
+        description="Male and female divisions are separate. Auto-sort fills places 1–4 from ratings within each division."
         actions={
           <>
             <Button
@@ -155,14 +160,18 @@ export default function PlacementsPage() {
           No ratings yet — set them in Review, then Auto-sort becomes available.
         </p>
       ) : null}
-      {byClass.map((cls) =>
-        cls.dogs.length > 0 ? (
-          <section key={cls.id} className="sss-paper p-5">
-            <h2 className="font-medium">{cls.label}</h2>
+      {byDivision.map((division) =>
+        division.dogs.length > 0 ? (
+          <section key={division.key} className="sss-paper p-5">
+            <h2 className="font-medium">{divisionLabel(division)}</h2>
+            <p className="text-xs text-sss-text-muted">
+              {division.count} dog{division.count === 1 ? "" : "s"} · separate
+              placement pool
+            </p>
             <ul className="mt-3 space-y-3">
-              {cls.dogs.map((dog) => {
+              {division.dogs.map((dog) => {
                 const formwert = formwertByEntry[dog.id];
-                const classIds = cls.dogs.map((d) => d.id);
+                const divisionIds = division.dogs.map((item) => item.id);
                 return (
                   <li
                     key={dog.id}
@@ -200,7 +209,7 @@ export default function PlacementsPage() {
                                   p,
                                   dog.id,
                                   n as 1 | 2 | 3 | 4,
-                                  classIds,
+                                  divisionIds,
                                 ),
                               )
                             }

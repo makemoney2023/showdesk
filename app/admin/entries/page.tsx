@@ -11,15 +11,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ADRK_CLASSES, getAdrkClassLabel } from "@/lib/domain/adrk-template";
-import { classesWithDogs, formatDisplayDate } from "@/lib/domain/show-day";
+import { ADRK_CLASSES } from "@/lib/domain/adrk-template";
+import { formatDisplayDate } from "@/lib/domain/show-day";
+import {
+  divisionLabel,
+  divisionsWithDogs,
+} from "@/lib/domain/class-division";
 import {
   rosterEmptyMessage,
-  sanitizeRosterClassFilter,
+  sanitizeRosterDivisionFilter,
   visibleRosterEntries,
   type RosterSort,
 } from "@/lib/domain/roster-view";
-import { ClassFilterChips } from "@/components/desk/ClassFilterChips";
+import { DivisionFilterChips } from "@/components/desk/DivisionFilterChips";
 import type { RulebookTemplate } from "@/lib/domain/adrk-template";
 import { validateRosterEntry } from "@/lib/domain/roster";
 import { blankRosterEntryDraft } from "@/lib/domain/roster-draft";
@@ -53,7 +57,7 @@ export default function AdminEntriesPage() {
   const [entries, setEntries] = useState<RosterEntryRecord[]>([]);
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
-  const [classFilter, setClassFilter] = useState("all");
+  const [divisionFilter, setDivisionFilter] = useState("all");
   const [sort, setSort] = useState<RosterSort>("class");
   const [entryFormMode, setEntryFormMode] = useState<EntryFormMode | null>(null);
   const [entryDraft, setEntryDraft] = useState<RosterEntryRecord | null>(null);
@@ -191,6 +195,7 @@ export default function AdminEntriesPage() {
       imported?: number;
       added?: number;
       updated?: number;
+      placements_cleared?: number;
       errors?: string[];
       error?: string;
     };
@@ -200,7 +205,7 @@ export default function AdminEntriesPage() {
     const added = data.added ?? data.imported ?? 0;
     const updated = data.updated ?? 0;
     setMessage(
-      `Imported ${added} new${updated ? `, updated ${updated}` : ""}${data.errors?.length ? ` (${data.errors.length} row warnings)` : ""}`,
+      `Imported ${added} new${updated ? `, updated ${updated}` : ""}${data.placements_cleared ? `; cleared ${data.placements_cleared} placement${data.placements_cleared === 1 ? "" : "s"} after division changes` : ""}${data.errors?.length ? ` (${data.errors.length} row warnings)` : ""}`,
     );
     await load();
   }
@@ -281,6 +286,21 @@ export default function AdminEntriesPage() {
       return;
     }
 
+    const original = entries.find((entry) => entry.id === entryDraft.id);
+    const divisionChanged = Boolean(
+      original &&
+        (original.class_id !== entryDraft.class_id ||
+          original.sex !== entryDraft.sex),
+    );
+    if (
+      divisionChanged &&
+      !window.confirm(
+        "Changing class or sex moves this dog to another division and clears its placement. Continue?",
+      )
+    ) {
+      return;
+    }
+
     const res = await fetch("/api/entries", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -312,18 +332,21 @@ export default function AdminEntriesPage() {
     await load();
   }
 
-  const presentClasses = classesWithDogs(entries);
-  const activeClassFilter = sanitizeRosterClassFilter(classFilter, entries);
+  const divisions = divisionsWithDogs(entries);
+  const activeDivisionFilter = sanitizeRosterDivisionFilter(
+    divisionFilter,
+    entries,
+  );
   const filtered = visibleRosterEntries(entries, {
     search,
-    classFilter: activeClassFilter,
+    divisionFilter: activeDivisionFilter,
     sort,
   });
   const emptyMessage = rosterEmptyMessage({
     entryCount: entries.length,
     visibleCount: filtered.length,
     search,
-    classFilter: activeClassFilter,
+    divisionFilter: activeDivisionFilter,
   });
 
   const selectValue = shows.some((s) => s.id === showId) ? showId! : undefined;
@@ -485,7 +508,7 @@ export default function AdminEntriesPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="class">Sort by class</SelectItem>
+                  <SelectItem value="class">Sort by division</SelectItem>
                   <SelectItem value="armband">Sort by armband</SelectItem>
                 </SelectContent>
               </Select>
@@ -506,12 +529,12 @@ export default function AdminEntriesPage() {
             Select or create a show to enable import.
           </p>
         ) : null}
-        {presentClasses.length > 0 ? (
+        {divisions.length > 0 ? (
           <div className="mb-3">
-            <ClassFilterChips
-              classIds={presentClasses}
-              value={activeClassFilter}
-              onChange={setClassFilter}
+            <DivisionFilterChips
+              divisions={divisions}
+              value={activeDivisionFilter}
+              onChange={setDivisionFilter}
             />
           </div>
         ) : null}
@@ -539,7 +562,7 @@ export default function AdminEntriesPage() {
                   <p className="font-medium">{e.dog_name}</p>
                   <p className="text-xs text-sss-text-muted">
                     #{e.armband} · {e.owner} ·{" "}
-                    {getAdrkClassLabel(e.class_id)}
+                    {divisionLabel(e)}
                   </p>
                 </div>
               </div>
@@ -593,7 +616,7 @@ export default function AdminEntriesPage() {
                     aria-pressed={sort === "class"}
                     onClick={() => setSort("class")}
                   >
-                    Class{sort === "class" ? " · sorted" : ""}
+                    Division{sort === "class" ? " · sorted" : ""}
                   </button>
                 </th>
                 <th className="p-3 font-medium">Actions</th>
@@ -633,7 +656,7 @@ export default function AdminEntriesPage() {
                   </td>
                   <td className="p-3">{e.owner}</td>
                   <td className="p-3">
-                    {getAdrkClassLabel(e.class_id)}
+                    {divisionLabel(e)}
                   </td>
                   <td className="space-x-2 p-3">
                     <Button
@@ -749,7 +772,7 @@ export default function AdminEntriesPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label>Sex</Label>
+              <Label>Sex / division</Label>
               <Select
                 value={entryDraft.sex}
                 onValueChange={(v) =>
@@ -757,11 +780,11 @@ export default function AdminEntriesPage() {
                 }
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select male or female" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="R">R (male)</SelectItem>
-                  <SelectItem value="H">H (female)</SelectItem>
+                  <SelectItem value="R">Male (Rüde / R)</SelectItem>
+                  <SelectItem value="H">Female (Hündin / H)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

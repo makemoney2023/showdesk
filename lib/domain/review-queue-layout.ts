@@ -1,3 +1,10 @@
+import {
+  divisionLabel,
+  dogSexLabel,
+  type DogSex,
+} from "./class-division";
+import type { AdrkClassId } from "./adrk-template";
+
 export type ReviewQueueRow =
   | { kind: "critique"; critiqueId: string }
   | { kind: "editor"; critiqueId: string };
@@ -15,7 +22,13 @@ export function nextReviewItemId(
 export function reviewQueueMatchesSearch(
   query: string,
   critique: { judge?: string; status: string },
-  entry?: { dog_name: string; armband: string; owner: string },
+  entry?: {
+    dog_name: string;
+    armband: string;
+    owner: string;
+    class_id?: AdrkClassId;
+    sex?: DogSex;
+  },
 ): boolean {
   const normalized = query.trim().toLowerCase();
   if (!normalized) return true;
@@ -23,6 +36,14 @@ export function reviewQueueMatchesSearch(
     entry?.dog_name,
     entry?.armband,
     entry?.owner,
+    entry?.class_id && entry.sex
+      ? divisionLabel(
+          { class_id: entry.class_id, sex: entry.sex },
+          "short",
+        )
+      : undefined,
+    entry?.sex ? dogSexLabel(entry.sex) : undefined,
+    entry?.sex,
     critique.judge,
     critique.status,
   ].some((value) => value?.toLowerCase().includes(normalized));

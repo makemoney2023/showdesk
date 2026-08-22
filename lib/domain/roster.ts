@@ -1,5 +1,6 @@
 import type { AdrkClassId } from "./adrk-template";
 import { isValidAdrkClassId } from "./adrk-template";
+import { normalizeDogSex, type DogSex } from "./class-division";
 
 export interface RosterEntry {
   id: string;
@@ -9,7 +10,7 @@ export interface RosterEntry {
   zb_number: string;
   wt: string;
   owner: string;
-  sex: "R" | "H";
+  sex: DogSex;
   class_id: AdrkClassId;
   email: string;
   photo_path?: string;
@@ -92,13 +93,21 @@ export function parseRosterCsv(csv: string): RosterParseResult {
       row[h] = values[idx] ?? "";
     });
 
+    const sex = normalizeDogSex(row.sex);
+    if (!sex) {
+      errors.push(
+        `Row ${i + 1}: sex must be R/H, male/female, or Rüde/Hündin (received "${row.sex}")`,
+      );
+      continue;
+    }
+
     const entry = {
       armband: row.armband,
       dog_name: row.dog_name,
       zb_number: row.zb_number,
       wt: row.wt,
       owner: row.owner,
-      sex: row.sex.toUpperCase() === "H" ? ("H" as const) : ("R" as const),
+      sex,
       class_id: row.class_id as AdrkClassId,
       email: row.email,
       ...(OPTIONAL_HEADERS.reduce(
@@ -162,10 +171,16 @@ export function mergeImportedEntries<T extends RosterEntry>(
   existing: T[],
   incoming: Omit<T, "id">[],
   newId: () => string,
-): { entries: T[]; added: number; updated: number } {
+): {
+  entries: T[];
+  added: number;
+  updated: number;
+  changedDivisionEntryIds: string[];
+} {
   const next = [...existing];
   let added = 0;
   let updated = 0;
+  const changedDivisionEntryIds: string[] = [];
   for (const row of incoming) {
     const idx = next.findIndex(
       (entry) =>
@@ -176,14 +191,21 @@ export function mergeImportedEntries<T extends RosterEntry>(
       next.push({ ...row, id: newId() } as T);
       added += 1;
     } else {
+      const previous = next[idx];
+      if (
+        previous.class_id !== row.class_id ||
+        previous.sex !== row.sex
+      ) {
+        changedDivisionEntryIds.push(previous.id);
+      }
       next[idx] = {
-        ...next[idx],
+        ...previous,
         ...row,
-        id: next[idx].id,
-        photo_path: next[idx].photo_path,
+        id: previous.id,
+        photo_path: previous.photo_path,
       };
       updated += 1;
     }
   }
-  return { entries: next, added, updated };
+  return { entries: next, added, updated, changedDivisionEntryIds };
 }
