@@ -63,6 +63,28 @@ export function isConformationEntry(
   return entry.event_kind !== "se";
 }
 
+/** Hosted roster writes require catalog event, day, and published class. */
+export function catalogMetadataError(
+  entry: CatalogEntryMetadata,
+): string | null {
+  if (!entry.event_kind) return "Catalog event is required";
+  if (!entry.competition_day?.trim()) return "Competition day is required";
+  if (!entry.catalog_class) return "Published catalog class is required";
+  if (
+    entry.event_kind === "se" &&
+    entry.catalog_class !== "standard-evaluation"
+  ) {
+    return "SE entries must use catalog class Standard Evaluation";
+  }
+  if (
+    entry.event_kind === "conformation" &&
+    entry.catalog_class === "standard-evaluation"
+  ) {
+    return "Conformation entries require a published catalog class";
+  }
+  return null;
+}
+
 export function resolvedCatalogClass(
   entry: Pick<CompetitionPoolEntry, "catalog_class" | "class_id">,
 ): CatalogClassId | null {

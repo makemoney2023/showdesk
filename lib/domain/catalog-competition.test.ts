@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   catalogDivisionLabel,
+  catalogMetadataError,
   competitionDaysWithEntries,
   defaultCompetitionDay,
   localCalendarIso,
@@ -143,5 +144,27 @@ describe("catalog competition pools", () => {
     ];
     expect(nextDogInCompetitionPool(entries, "sat-1")).toBe("sat-2");
     expect(nextDogInCompetitionPool(entries, "sat-2")).toBeNull();
+  });
+});
+
+describe("catalogMetadataError", () => {
+  it("requires event, day, and published class for scratch saves", () => {
+    expect(catalogMetadataError({})).toBe("Catalog event is required");
+    expect(
+      catalogMetadataError({ event_kind: "conformation" }),
+    ).toBe("Competition day is required");
+    expect(
+      catalogMetadataError({
+        event_kind: "conformation",
+        competition_day: "2026-09-05",
+      }),
+    ).toBe("Published catalog class is required");
+    expect(
+      catalogMetadataError({
+        event_kind: "conformation",
+        competition_day: "2026-09-05",
+        catalog_class: "youth-i",
+      }),
+    ).toBeNull();
   });
 });

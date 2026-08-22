@@ -19,6 +19,7 @@ import {
 } from "@/lib/domain/class-division";
 import {
   CATALOG_CLASSES,
+  catalogMetadataError,
   type CatalogClassId,
   type CatalogEventKind,
 } from "@/lib/domain/catalog-competition";
@@ -224,7 +225,14 @@ export default function AdminEntriesPage() {
     }
     setShowFormOpen(false);
     setEntryFormMode("create");
-    setEntryDraft(blankRosterEntryDraft(showId, String(100 + entries.length + 1)));
+    const showDate = shows.find((show) => show.id === showId)?.date ?? "";
+    setEntryDraft(
+      blankRosterEntryDraft(
+        showId,
+        String(100 + entries.length + 1),
+        showDate,
+      ),
+    );
   }
 
   function openEditProfile(entry: RosterEntryRecord) {
@@ -251,6 +259,13 @@ export default function AdminEntriesPage() {
     const validation = validateRosterEntry(entryDraft);
     if (!validation.valid) {
       setMessage(validation.error);
+      pushToast(validation.error, "error");
+      return;
+    }
+    const catalogError = catalogMetadataError(entryDraft);
+    if (catalogError) {
+      setMessage(catalogError);
+      pushToast(catalogError, "error");
       return;
     }
 
@@ -278,7 +293,9 @@ export default function AdminEntriesPage() {
       });
       if (!res.ok) {
         const data = (await res.json()) as { error?: string };
-        setMessage(data.error ?? "Create failed");
+        const error = data.error ?? "Create failed";
+        setMessage(error);
+        pushToast(error, "error");
         return;
       }
       const created = (await res.json()) as { entry?: RosterEntryRecord };
@@ -319,10 +336,13 @@ export default function AdminEntriesPage() {
     });
     if (!res.ok) {
       const data = (await res.json()) as { error?: string };
-      setMessage(data.error ?? "Save failed");
+      const error = data.error ?? "Save failed";
+      setMessage(error);
+      pushToast(error, "error");
       return;
     }
     setMessage("Entry saved");
+    pushToast("Entry saved");
     closeEntryForm();
     await load();
   }
@@ -711,6 +731,14 @@ export default function AdminEntriesPage() {
               {entryFormMode === "create" ? "Create entry profile" : "Edit entry"}
             </DialogTitle>
           </DialogHeader>
+          {message ? (
+            <p
+              role="status"
+              className="rounded-sss-md border border-sss-border bg-sss-lifted px-3 py-2 text-sm"
+            >
+              {message}
+            </p>
+          ) : null}
           {entryDraft ? (
         <section id="entry-profile-form" className="space-y-3">
           {showId ? (
@@ -785,7 +813,11 @@ export default function AdminEntriesPage() {
             <div className="space-y-1">
               <Label>Sex / division</Label>
               <Select
-                value={entryDraft.sex}
+                value={
+                  entryDraft.sex === "R" || entryDraft.sex === "H"
+                    ? entryDraft.sex
+                    : undefined
+                }
                 onValueChange={(v) =>
                   setEntryDraft({ ...entryDraft, sex: v as "R" | "H" })
                 }
@@ -825,7 +857,7 @@ export default function AdminEntriesPage() {
             <div className="space-y-1">
               <Label>Catalog event</Label>
               <Select
-                value={entryDraft.event_kind ?? ""}
+                value={entryDraft.event_kind || undefined}
                 onValueChange={(value) => {
                   const eventKind = value as CatalogEventKind;
                   setEntryDraft({
@@ -850,7 +882,7 @@ export default function AdminEntriesPage() {
               </Select>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="competition_day">Competition day</Label>
+              <Label htmlFor="competition_day">Competition day (required)</Label>
               <Input
                 id="competition_day"
                 type="date"
@@ -868,9 +900,10 @@ export default function AdminEntriesPage() {
                 <Label>Published catalog class</Label>
                 <Select
                   value={
-                    entryDraft.catalog_class === "standard-evaluation"
-                      ? ""
-                      : (entryDraft.catalog_class ?? "")
+                    entryDraft.catalog_class &&
+                    entryDraft.catalog_class !== "standard-evaluation"
+                      ? entryDraft.catalog_class
+                      : undefined
                   }
                   onValueChange={(value) =>
                     setEntryDraft({

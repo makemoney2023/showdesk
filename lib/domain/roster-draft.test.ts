@@ -10,6 +10,10 @@ describe("blankRosterEntryDraft", () => {
     expect(draft.armband).toBe("105");
     expect(draft.dog_name).toBe("");
     expect(draft.owner).toBe("");
+    expect(draft.competition_day).toBe("");
+    expect(blankRosterEntryDraft("show-1", "105", "2026-08-22").competition_day).toBe(
+      "2026-08-22",
+    );
     // Incomplete until user fills required fields
     expect(validateRosterEntry(draft).valid).toBe(false);
   });

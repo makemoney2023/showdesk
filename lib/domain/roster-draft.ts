@@ -5,6 +5,7 @@ import type { RosterEntryRecord } from "@/lib/types";
 export function blankRosterEntryDraft(
   showId: string,
   nextArmband: string,
+  competitionDay = "",
 ): RosterEntryRecord {
   return {
     id: "",
@@ -18,7 +19,7 @@ export function blankRosterEntryDraft(
     sex: "" as RosterEntryRecord["sex"],
     class_id: "zwischenklasse" as AdrkClassId,
     event_kind: "conformation",
-    competition_day: "",
+    competition_day: competitionDay,
     catalog_class: "youth-i",
     email: "",
   };

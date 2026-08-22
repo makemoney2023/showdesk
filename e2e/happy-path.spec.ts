@@ -180,5 +180,26 @@ test.describe("happy path", () => {
     await expect(
       page.getByRole("link", { name: "Print SE PDF" }),
     ).toHaveCount(0);
+
+    await page.goto("/admin/entries");
+    await expect(
+      page.getByRole("cell", { name: "Rex Happy Path", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Add scratch entry" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Create entry profile" }),
+    ).toBeVisible();
+    await page.getByLabel("Dog name").fill("Scratch Rex");
+    await page.getByLabel("Owner").fill("Scratch Owner");
+    await page.getByRole("combobox").filter({ hasText: "Select male or female" }).click();
+    await page.getByRole("option", { name: /Male/ }).click();
+    await page.getByRole("button", { name: "Create entry" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Edit entry" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(
+      page.getByRole("cell", { name: "Scratch Rex", exact: true }),
+    ).toBeVisible();
   });
 });
