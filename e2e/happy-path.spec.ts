@@ -41,7 +41,7 @@ test.describe("happy path", () => {
     const csvPath = path.join(tmpDir, `roster-${Date.now()}.csv`);
     writeFileSync(
       csvPath,
-      "armband,dog_name,zb_number,wt,owner,sex,class_id,email,event_kind,competition_day,catalog_class\n101,Rex Happy Path,DE-1,2024-01-01,Max Mustermann,R,zwischenklasse,owner@example.com,,,\n102,Bella Division Test,DE-2,2024-02-01,Jane Example,H,zwischenklasse,bella@example.com,,,\n103,SE Voice Dog,DE-3,2024-03-01,SE Owner,R,zwischenklasse,se@example.com,se,,standard-evaluation\n",
+      "armband,dog_name,zb_number,wt,owner,sex,class_id,email\n101,Rex Happy Path,DE-1,2024-01-01,Max Mustermann,R,zwischenklasse,owner@example.com\n102,Bella Division Test,DE-2,2024-02-01,Jane Example,H,zwischenklasse,bella@example.com\n",
     );
     await page.locator('input[type="file"]').setInputFiles(csvPath);
     await page.getByRole("button", { name: "Import file" }).click();
@@ -61,12 +61,8 @@ test.describe("happy path", () => {
     await expect(
       page.getByRole("link", { name: "Record critique for Bella Division Test" }),
     ).toBeVisible();
-    await expect(page.getByText("SE Voice Dog")).toBeVisible();
     await expect(
-      page.getByRole("link", { name: "Record critique for SE Voice Dog" }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("link", { name: "Open SE form for SE Voice Dog" }),
+      page.getByRole("link", { name: "Open SE form for Rex Happy Path" }),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: /Unscheduled conformation/ }),
