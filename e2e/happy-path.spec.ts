@@ -20,6 +20,21 @@ test.describe("happy path", () => {
     await page.getByRole("button", { name: "Create show" }).click();
     await expect(page.getByText(/Show created/i)).toBeVisible();
 
+    // Settings must keep a newly added blank judge row until it is filled.
+    await page.goto("/admin/settings");
+    await expect(page.locator("#settings_judge-0")).toHaveValue("Test Judge");
+    await expect(page.locator("#settings_judge-1")).toHaveValue("Second Judge");
+    await page.getByRole("button", { name: "Add judge" }).click();
+    await expect(page.locator("#settings_judge-2")).toBeVisible();
+    await page.locator("#settings_judge-2").fill("Third Judge");
+    await page.getByRole("button", { name: "Save show settings" }).click();
+    await expect(
+      page.getByRole("main").getByText("Show settings saved"),
+    ).toBeVisible();
+    await page.reload();
+    await expect(page.locator("#settings_judge-2")).toHaveValue("Third Judge");
+
+    await page.goto("/admin/entries");
     await page.getByRole("button", { name: "Import CSV" }).click();
     await expect(page.getByRole("heading", { name: "Import roster CSV" })).toBeVisible();
     const tmpDir = mkdtempSync(path.join(os.tmpdir(), "sss-e2e-"));

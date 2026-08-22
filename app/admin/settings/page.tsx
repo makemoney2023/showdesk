@@ -136,12 +136,15 @@ export default function AdminSettingsPage() {
             <JudgeListFields
               idPrefix="settings_judge"
               judges={form.judges ?? (form.judge ? [form.judge] : [""])}
-              onChange={(judges) =>
+              onChange={(judges) => {
+                const primaryJudge =
+                  judges.find((judge) => judge.trim())?.trim() ?? "";
                 setForm({
                   ...form,
-                  ...syncShowJudges({ judges }),
-                })
-              }
+                  judges,
+                  judge: primaryJudge,
+                });
+              }}
             />
             <div className="space-y-1">
               <Label>Rulebook</Label>
