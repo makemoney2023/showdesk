@@ -1,7 +1,11 @@
 import type { DraftCritiqueSchema } from "@/lib/domain/adrk-template";
 import { createEmptyDraft, isValidFormwert } from "@/lib/domain/adrk-template";
 import type { AdrkFormwertCode } from "@/lib/domain/adrk-template";
-import { hasDeepgramKey, transcribeWithDeepgram } from "@/lib/deepgram/client";
+import {
+  hasDeepgramKey,
+  sniffAudioContentType,
+  transcribeWithDeepgram,
+} from "@/lib/deepgram/client";
 import {
   mergeLiveAndBatchTranscript,
   type TranscriptSource,
@@ -95,7 +99,10 @@ export async function transcribeAudio(
   if (hasDeepgramKey()) {
     try {
       const bytes = new Uint8Array(Buffer.from(audioBase64, "base64"));
-      const text = await transcribeWithDeepgram(bytes, "audio/webm");
+      const text = await transcribeWithDeepgram(
+        bytes,
+        sniffAudioContentType(bytes),
+      );
       if (text) return { transcript: text, mock: false };
     } catch {
       // fall through to AssemblyAI / mock
