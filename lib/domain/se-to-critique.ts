@@ -60,13 +60,28 @@ export function critiqueDraftFromSeForm(form: TnrkSeForm): DraftCritiqueSchema {
  * - Empty / prior SE-only drafts are replaced
  * - Audio/secretary narratives keep their text and get an updated SE section appended
  */
+function applySeFormwert(
+  draft: DraftCritiqueSchema,
+  form: TnrkSeForm,
+): DraftCritiqueSchema {
+  const formwert = seFormFormwert(form) ?? draft.formwert;
+  return {
+    ...draft,
+    formwert,
+    draftAssist: {
+      ...draft.draftAssist,
+      se_formwert: seFormFormwert(form) ?? "",
+    },
+  };
+}
+
 export function mergeSeIntoCritiqueDraft(
   existing: DraftCritiqueSchema | undefined,
   form: TnrkSeForm,
 ): DraftCritiqueSchema {
   const fromSe = critiqueDraftFromSeForm(form);
   if (!fromSe.narrative.trim()) {
-    return existing ?? fromSe;
+    return applySeFormwert(existing ?? fromSe, form);
   }
   if (!existing?.narrative.trim()) return fromSe;
 
@@ -124,8 +139,9 @@ export function syncSeIntoCritiques(
   }
 
   const seText = narrativeFromSeForm(form);
-  // Skip creating empty stubs until steward has typed something or completed.
-  if (!seText.trim() && !options.force) return critiques;
+  const seRating = seFormFormwert(form);
+  // Skip empty stubs until steward typed something, set a rating, or completed.
+  if (!seText.trim() && !seRating && !options.force) return critiques;
 
   const draft = existing
     ? mergeSeIntoCritiqueDraft(existing.draft, form)
