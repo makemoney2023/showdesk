@@ -45,12 +45,6 @@ export function resolvePlacementInputs(
   const entryIds = new Set<string>();
   const occupiedSlots = new Map<string, string>();
   const resolved: ResolvedPlacementInput[] = [];
-  const catalogMode = [...byId.values()].some(
-    (entry) =>
-      entry.event_kind != null ||
-      entry.competition_day != null ||
-      entry.catalog_class != null,
-  );
   for (const row of rows) {
     const entry = byId.get(row.entry_id);
     if (!entry) {
@@ -78,11 +72,13 @@ export function resolvePlacementInputs(
       }
       const catalogClass = resolvedCatalogClass(entry);
       const pool = competitionPoolKey(entry);
-      if (
-        !catalogClass ||
-        !pool ||
-        (catalogMode && !entry.competition_day)
-      ) {
+      // Catalog-managed entries need a day so Saturday/Sunday pools never
+      // collide. Legacy rows without catalog metadata keep their own "" day
+      // pool; requiring a day roster-wide blocked every placement save as
+      // soon as one catalog entry (e.g. a scratch add) joined a legacy roster.
+      const requiresDay =
+        entry.event_kind != null || entry.catalog_class != null;
+      if (!catalogClass || !pool || (requiresDay && !entry.competition_day)) {
         return {
           valid: false,
           error: `Entry is missing catalog day/class: ${row.entry_id}`,
