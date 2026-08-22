@@ -1,6 +1,11 @@
 import type { AdrkClassId } from "./adrk-template";
 import { isValidAdrkClassId } from "./adrk-template";
 import { normalizeDogSex, type DogSex } from "./class-division";
+import {
+  isCatalogClassId,
+  type CatalogClassId,
+  type CatalogEventKind,
+} from "./catalog-competition";
 
 export interface RosterEntry {
   id: string;
@@ -12,6 +17,9 @@ export interface RosterEntry {
   owner: string;
   sex: DogSex;
   class_id: AdrkClassId;
+  event_kind?: CatalogEventKind;
+  competition_day?: string;
+  catalog_class?: CatalogClassId | "standard-evaluation";
   email: string;
   photo_path?: string;
   sire?: string;
@@ -43,7 +51,24 @@ const OPTIONAL_HEADERS = [
   "breeder",
   "address",
   "hd_ed_jlpp",
+  "event_kind",
+  "competition_day",
+  "catalog_class",
 ] as const;
+
+function isIsoCalendarDate(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+  );
+}
 
 function parseCsvLine(line: string): string[] {
   const result: string[] = [];
@@ -101,6 +126,28 @@ export function parseRosterCsv(csv: string): RosterParseResult {
       continue;
     }
 
+    const eventKind = (row.event_kind ?? "").trim();
+    if (eventKind && eventKind !== "se" && eventKind !== "conformation") {
+      errors.push(`Row ${i + 1}: event_kind must be se or conformation`);
+      continue;
+    }
+    const competitionDay = (row.competition_day ?? "").trim();
+    if (competitionDay && !isIsoCalendarDate(competitionDay)) {
+      errors.push(
+        `Row ${i + 1}: competition_day must be a valid YYYY-MM-DD date`,
+      );
+      continue;
+    }
+    const catalogClass = (row.catalog_class ?? "").trim();
+    if (
+      catalogClass &&
+      catalogClass !== "standard-evaluation" &&
+      !isCatalogClassId(catalogClass)
+    ) {
+      errors.push(`Row ${i + 1}: invalid catalog_class: ${catalogClass}`);
+      continue;
+    }
+
     const entry = {
       armband: row.armband,
       dog_name: row.dog_name,
@@ -110,8 +157,26 @@ export function parseRosterCsv(csv: string): RosterParseResult {
       sex,
       class_id: row.class_id as AdrkClassId,
       email: row.email,
+      ...(eventKind
+        ? { event_kind: eventKind as CatalogEventKind }
+        : {}),
+      ...(competitionDay ? { competition_day: competitionDay } : {}),
+      ...(catalogClass
+        ? {
+            catalog_class: catalogClass as
+              | CatalogClassId
+              | "standard-evaluation",
+          }
+        : {}),
       ...(OPTIONAL_HEADERS.reduce(
         (acc, key) => {
+          if (
+            key === "event_kind" ||
+            key === "competition_day" ||
+            key === "catalog_class"
+          ) {
+            return acc;
+          }
           const value = (row[key] ?? "").trim();
           if (value) acc[key] = value;
           return acc;
@@ -145,6 +210,32 @@ export function validateRosterEntry(
   if (!isValidAdrkClassId(entry.class_id)) {
     return { valid: false, error: `invalid class_id: ${entry.class_id}` };
   }
+  if (
+    entry.event_kind &&
+    entry.event_kind !== "se" &&
+    entry.event_kind !== "conformation"
+  ) {
+    return { valid: false, error: "event_kind must be se or conformation" };
+  }
+  if (
+    entry.competition_day &&
+    !isIsoCalendarDate(entry.competition_day)
+  ) {
+    return {
+      valid: false,
+      error: "competition_day must be a valid YYYY-MM-DD date",
+    };
+  }
+  if (
+    entry.catalog_class &&
+    entry.catalog_class !== "standard-evaluation" &&
+    !isCatalogClassId(entry.catalog_class)
+  ) {
+    return {
+      valid: false,
+      error: `invalid catalog_class: ${entry.catalog_class}`,
+    };
+  }
   if (entry.email && !entry.email.includes("@")) {
     return { valid: false, error: "invalid email" };
   }
@@ -161,7 +252,7 @@ export function validateRosterEntryUpdate(
 }
 
 export function rosterCsvTemplate(): string {
-  return `${[...REQUIRED_HEADERS, ...OPTIONAL_HEADERS].join(",")}\n101,Rex vom Test,DE-12345,2024-01-01,Max Mustermann,R,zwischenklasse,owner@example.com,Sire Name,Dam Name,Breeder Name,123 Main St,Hips: Excellent`;
+  return `${[...REQUIRED_HEADERS, ...OPTIONAL_HEADERS].join(",")}\n101,Rex vom Test,DE-12345,2024-01-01,Max Mustermann,R,zwischenklasse,owner@example.com,Sire Name,Dam Name,Breeder Name,123 Main St,Hips: Excellent,conformation,2026-09-05,youth-i`;
 }
 
 /**
@@ -194,7 +285,10 @@ export function mergeImportedEntries<T extends RosterEntry>(
       const previous = next[idx];
       if (
         previous.class_id !== row.class_id ||
-        previous.sex !== row.sex
+        previous.sex !== row.sex ||
+        previous.event_kind !== row.event_kind ||
+        previous.competition_day !== row.competition_day ||
+        previous.catalog_class !== row.catalog_class
       ) {
         changedDivisionEntryIds.push(previous.id);
       }

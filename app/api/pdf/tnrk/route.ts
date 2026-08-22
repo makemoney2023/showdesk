@@ -14,7 +14,10 @@ import {
   parsePrintBundleRequest,
 } from "@/lib/domain/print-documents";
 import { primaryCritiqueForEntry } from "@/lib/domain/entry-cascade";
-import { divisionLabel } from "@/lib/domain/class-division";
+import {
+  catalogDivisionLabel,
+  competitionDayLabel,
+} from "@/lib/domain/catalog-competition";
 
 export async function GET(request: Request) {
   const auth = await requireApiSession();
@@ -198,10 +201,13 @@ export async function GET(request: Request) {
       showId,
     );
     const pdfBytes = await buildTnrkAwardPdf({
-      date: show.date,
+      date: entry.competition_day ?? show.date,
       lines: [
         awardTitle,
-        divisionLabel(entry),
+        catalogDivisionLabel(entry),
+        ...(entry.competition_day
+          ? [competitionDayLabel(entry.competition_day)]
+          : []),
         entry.dog_name,
         `Owner: ${entry.owner}`,
       ],

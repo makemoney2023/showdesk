@@ -93,7 +93,8 @@ export function CsvImportDialog({
             Drag and drop a .csv file, or browse. Headers required: armband,
             dog_name, zb_number, wt, owner, sex, class_id, email.
             Sex accepts R/H, male/female, or Rüde/Hündin; unknown values are
-            rejected rather than assumed male.
+            rejected rather than assumed male. Hosted imports also require
+            event_kind, competition_day, and catalog_class.
           </DialogDescription>
         </DialogHeader>
 

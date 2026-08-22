@@ -5,6 +5,7 @@ import {
   newId,
   deleteCritiqueAudio,
   deleteDogPhoto,
+  getStoreBackend,
 } from "@/lib/store";
 import { filterByShow } from "@/lib/domain/show-scope";
 import {
@@ -24,6 +25,31 @@ import {
 } from "@/lib/auth/api-guard";
 import { readJsonBody } from "@/lib/api/read-json";
 import type { RosterEntryRecord } from "@/lib/types";
+
+function hostedCatalogMetadataError(
+  entry: Pick<
+    RosterEntryRecord,
+    "event_kind" | "competition_day" | "catalog_class"
+  >,
+): string | null {
+  if (getStoreBackend() === "file") return null;
+  if (!entry.event_kind || !entry.competition_day || !entry.catalog_class) {
+    return "event_kind, competition_day, and catalog_class are required";
+  }
+  if (
+    entry.event_kind === "se" &&
+    entry.catalog_class !== "standard-evaluation"
+  ) {
+    return "SE entries must use catalog_class standard-evaluation";
+  }
+  if (
+    entry.event_kind === "conformation" &&
+    entry.catalog_class === "standard-evaluation"
+  ) {
+    return "Conformation entries require a conformation catalog_class";
+  }
+  return null;
+}
 
 export async function GET(request: Request) {
   const auth = await requireApiSession();
@@ -73,6 +99,12 @@ export async function POST(request: Request) {
     if (parsed.entries.length === 0 && parsed.errors.length > 0) {
       return NextResponse.json({ errors: parsed.errors }, { status: 400 });
     }
+    const metadataError = parsed.entries
+      .map(hostedCatalogMetadataError)
+      .find((error): error is string => Boolean(error));
+    if (metadataError) {
+      return NextResponse.json({ error: metadataError }, { status: 400 });
+    }
     const incoming = parsed.entries.map((entry) => ({
       ...entry,
       show_id: body.show_id,
@@ -118,6 +150,10 @@ export async function POST(request: Request) {
   if (!validation.valid) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
   }
+  const metadataError = hostedCatalogMetadataError(body.entry);
+  if (metadataError) {
+    return NextResponse.json({ error: metadataError }, { status: 400 });
+  }
 
   const entry: RosterEntryRecord = {
     ...body.entry,
@@ -148,6 +184,10 @@ export async function PUT(request: Request) {
   if (!validation.valid) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
   }
+  const metadataError = hostedCatalogMetadataError(body.entry);
+  if (metadataError) {
+    return NextResponse.json({ error: metadataError }, { status: 400 });
+  }
 
   const store = await readStore();
   const existing = store.entries.find(
@@ -162,7 +202,11 @@ export async function PUT(request: Request) {
     photo_path: existing.photo_path,
   };
   const divisionChanged =
-    existing.class_id !== nextEntry.class_id || existing.sex !== nextEntry.sex;
+    existing.class_id !== nextEntry.class_id ||
+    existing.sex !== nextEntry.sex ||
+    existing.event_kind !== nextEntry.event_kind ||
+    existing.competition_day !== nextEntry.competition_day ||
+    existing.catalog_class !== nextEntry.catalog_class;
 
   await updateStore((s) => ({
     ...s,

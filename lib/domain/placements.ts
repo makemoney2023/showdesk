@@ -3,7 +3,14 @@ import {
   type AdrkClassId,
   type AdrkFormwertCode,
 } from "./adrk-template";
-import { divisionKey, type DogSex } from "./class-division";
+import { type DogSex } from "./class-division";
+import {
+  competitionPoolKey,
+  isConformationEntry,
+  resolvedCatalogClass,
+  type CatalogClassId,
+  type CatalogEntryMetadata,
+} from "./catalog-competition";
 import type { PlacementRecord } from "@/lib/types";
 
 export interface PlacementInput {
@@ -14,6 +21,8 @@ export interface PlacementInput {
 export interface ResolvedPlacementInput extends PlacementInput {
   class_id: AdrkClassId;
   sex: DogSex;
+  competition_day: string;
+  catalog_class: CatalogClassId;
 }
 
 export function resolvePlacementInputs(
@@ -23,7 +32,7 @@ export function resolvePlacementInputs(
     show_id: string;
     class_id: AdrkClassId;
     sex: DogSex;
-  }>,
+  } & CatalogEntryMetadata>,
   showId: string,
 ):
   | { valid: true; rows: ResolvedPlacementInput[] }
@@ -36,6 +45,12 @@ export function resolvePlacementInputs(
   const entryIds = new Set<string>();
   const occupiedSlots = new Map<string, string>();
   const resolved: ResolvedPlacementInput[] = [];
+  const catalogMode = [...byId.values()].some(
+    (entry) =>
+      entry.event_kind != null ||
+      entry.competition_day != null ||
+      entry.catalog_class != null,
+  );
   for (const row of rows) {
     const entry = byId.get(row.entry_id);
     if (!entry) {
@@ -55,20 +70,45 @@ export function resolvePlacementInputs(
       return { valid: false, error: "placement must be 1–4 or null" };
     }
     if (row.placement !== null) {
-      const slot = `${divisionKey(entry)}:${row.placement}`;
+      if (!isConformationEntry(entry)) {
+        return {
+          valid: false,
+          error: `Standard Evaluation entry cannot receive a placement: ${row.entry_id}`,
+        };
+      }
+      const catalogClass = resolvedCatalogClass(entry);
+      const pool = competitionPoolKey(entry);
+      if (
+        !catalogClass ||
+        !pool ||
+        (catalogMode && !entry.competition_day)
+      ) {
+        return {
+          valid: false,
+          error: `Entry is missing catalog day/class: ${row.entry_id}`,
+        };
+      }
+      const slot = `${pool}:${row.placement}`;
       const occupiedBy = occupiedSlots.get(slot);
       if (occupiedBy) {
         return {
           valid: false,
-          error: `Place ${row.placement} is already assigned in ${divisionKey(entry)}`,
+          error: `Place ${row.placement} is already assigned in ${pool}`,
         };
       }
       occupiedSlots.set(slot, row.entry_id);
     }
+    const catalogClass =
+      resolvedCatalogClass(entry) ??
+      // Null-placement SE rows are accepted in a full-show replacement and
+      // skipped by upsertPlacements.
+      "open";
     resolved.push({
       ...row,
       class_id: entry.class_id,
       sex: entry.sex,
+      competition_day: entry.competition_day ?? "",
+      catalog_class: catalogClass,
     });
   }
   return { valid: true, rows: resolved };
@@ -82,7 +122,7 @@ export function placementEntriesBelongToShow(
     show_id: string;
     class_id: AdrkClassId;
     sex: DogSex;
-  }>,
+  } & CatalogEntryMetadata>,
   showId: string,
 ): { valid: true } | { valid: false; error: string } {
   for (const row of rows) {
@@ -116,6 +156,8 @@ export function upsertPlacements(
       show_id: showId,
       class_id: row.class_id,
       sex: row.sex,
+      competition_day: row.competition_day,
+      catalog_class: row.catalog_class,
       entry_id: row.entry_id,
       placement: row.placement,
     });
@@ -212,14 +254,15 @@ export function placementsSuggestedFromFormwert<
     armband: string;
     class_id: AdrkClassId;
     sex: DogSex;
-  },
+  } & CatalogEntryMetadata,
 >(
   dogs: T[],
   formwertByEntry: Record<string, AdrkFormwertCode | null | undefined>,
 ): PlacementInput[] {
   const byDivision = new Map<string, T[]>();
   for (const dog of dogs) {
-    const key = divisionKey(dog);
+    const key = competitionPoolKey(dog);
+    if (!key) continue;
     const list = byDivision.get(key) ?? [];
     list.push(dog);
     byDivision.set(key, list);

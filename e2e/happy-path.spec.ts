@@ -78,10 +78,13 @@ test.describe("happy path", () => {
     // Male and female dogs in the same age class have independent places.
     await page.goto("/ringside/placements");
     await expect(
-      page.getByRole("heading", { name: "Intermediate Class — Male (Rüde)" }),
+      page.getByRole("heading", { name: "Unscheduled conformation" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Intermediate Class — Female (Hündin)" }),
+      page.getByRole("heading", { name: "Youth I — Male (Rüde)" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Youth I — Female (Hündin)" }),
     ).toBeVisible();
     await page
       .getByRole("group", { name: "Placement for Rex Happy Path" })
@@ -134,10 +137,10 @@ test.describe("happy path", () => {
       page.getByRole("heading", { name: /Rex Happy Path/ }),
     ).toBeVisible();
     await expect(
-      page.getByText("Intermediate Class — Male (Rüde) · Place 1"),
+      page.getByText("Youth I — Male (Rüde) · Place 1"),
     ).toBeVisible();
     await expect(
-      page.getByText("Intermediate Class — Female (Hündin) · Place 1"),
+      page.getByText("Youth I — Female (Hündin) · Place 1"),
     ).toBeVisible();
     await page.getByRole("button", { name: "Select all printable" }).click();
     await expect(

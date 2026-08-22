@@ -18,6 +18,11 @@ import {
   divisionsWithDogs,
 } from "@/lib/domain/class-division";
 import {
+  CATALOG_CLASSES,
+  type CatalogClassId,
+  type CatalogEventKind,
+} from "@/lib/domain/catalog-competition";
+import {
   rosterEmptyMessage,
   sanitizeRosterDivisionFilter,
   visibleRosterEntries,
@@ -264,6 +269,9 @@ export default function AdminEntriesPage() {
             owner: entryDraft.owner,
             sex: entryDraft.sex,
             class_id: entryDraft.class_id,
+            event_kind: entryDraft.event_kind,
+            competition_day: entryDraft.competition_day,
+            catalog_class: entryDraft.catalog_class,
             email: entryDraft.email,
           },
         }),
@@ -290,12 +298,15 @@ export default function AdminEntriesPage() {
     const divisionChanged = Boolean(
       original &&
         (original.class_id !== entryDraft.class_id ||
-          original.sex !== entryDraft.sex),
+          original.sex !== entryDraft.sex ||
+          original.event_kind !== entryDraft.event_kind ||
+          original.competition_day !== entryDraft.competition_day ||
+          original.catalog_class !== entryDraft.catalog_class),
     );
     if (
       divisionChanged &&
       !window.confirm(
-        "Changing class or sex moves this dog to another division and clears its placement. Continue?",
+        "Changing event, day, class, or sex moves this entry to another placement pool and clears its placement. Continue?",
       )
     ) {
       return;
@@ -811,6 +822,79 @@ export default function AdminEntriesPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1">
+              <Label>Catalog event</Label>
+              <Select
+                value={entryDraft.event_kind ?? ""}
+                onValueChange={(value) => {
+                  const eventKind = value as CatalogEventKind;
+                  setEntryDraft({
+                    ...entryDraft,
+                    event_kind: eventKind,
+                    catalog_class:
+                      eventKind === "se"
+                        ? "standard-evaluation"
+                        : entryDraft.catalog_class === "standard-evaluation"
+                          ? "youth-i"
+                          : entryDraft.catalog_class,
+                  });
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select event" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="se">Standard Evaluation (SE)</SelectItem>
+                  <SelectItem value="conformation">Conformation</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="competition_day">Competition day</Label>
+              <Input
+                id="competition_day"
+                type="date"
+                value={entryDraft.competition_day ?? ""}
+                onChange={(event) =>
+                  setEntryDraft({
+                    ...entryDraft,
+                    competition_day: event.target.value,
+                  })
+                }
+              />
+            </div>
+            {entryDraft.event_kind !== "se" ? (
+              <div className="space-y-1 sm:col-span-2">
+                <Label>Published catalog class</Label>
+                <Select
+                  value={
+                    entryDraft.catalog_class === "standard-evaluation"
+                      ? ""
+                      : (entryDraft.catalog_class ?? "")
+                  }
+                  onValueChange={(value) =>
+                    setEntryDraft({
+                      ...entryDraft,
+                      catalog_class: value as CatalogClassId,
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select published class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATALOG_CLASSES.map((catalogClass) => (
+                      <SelectItem
+                        key={catalogClass.id}
+                        value={catalogClass.id}
+                      >
+                        {catalogClass.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
           </div>
           <div className="flex gap-2">
             <Button onClick={() => void saveEntryForm()}>

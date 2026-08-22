@@ -39,6 +39,8 @@ describe("upsertPlacements", () => {
           entry_id: "e1",
           class_id: "zwischenklasse",
           sex: "R",
+          competition_day: "",
+          catalog_class: "youth-i",
           placement: 3,
         },
       ],
@@ -67,6 +69,8 @@ describe("upsertPlacements", () => {
           entry_id: "e1",
           class_id: "zwischenklasse",
           sex: "H",
+          competition_day: "",
+          catalog_class: "youth-i",
           placement: null,
         },
       ],
@@ -102,6 +106,8 @@ describe("upsertPlacements", () => {
           entry_id: "e2",
           class_id: "zwischenklasse",
           sex: "R",
+          competition_day: "",
+          catalog_class: "youth-i",
           placement: 1,
         },
       ],
@@ -113,6 +119,8 @@ describe("upsertPlacements", () => {
         show_id: "s1",
         class_id: "zwischenklasse",
         sex: "R",
+        competition_day: "",
+        catalog_class: "youth-i",
         entry_id: "e2",
         placement: 1,
       },
@@ -303,6 +311,44 @@ describe("placementsSuggestedFromFormwert", () => {
         "s1",
       ).valid,
     ).toBe(false);
+  });
+
+  it("allows the same place on Saturday and Sunday", () => {
+    const entries = [
+      {
+        id: "sat",
+        show_id: "s1",
+        class_id: "offene-klasse" as const,
+        sex: "H" as const,
+        event_kind: "conformation" as const,
+        competition_day: "2026-09-05",
+        catalog_class: "open" as const,
+      },
+      {
+        id: "sun",
+        show_id: "s1",
+        class_id: "offene-klasse" as const,
+        sex: "H" as const,
+        event_kind: "conformation" as const,
+        competition_day: "2026-09-06",
+        catalog_class: "open" as const,
+      },
+    ];
+    const result = resolvePlacementInputs(
+      [
+        { entry_id: "sat", placement: 1 },
+        { entry_id: "sun", placement: 1 },
+      ],
+      entries,
+      "s1",
+    );
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      expect(result.rows.map((row) => row.competition_day)).toEqual([
+        "2026-09-05",
+        "2026-09-06",
+      ]);
+    }
   });
 });
 
