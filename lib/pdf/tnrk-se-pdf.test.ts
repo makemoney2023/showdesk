@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { createEmptyTnrkSeForm } from "@/lib/domain/tnrk-se-form";
 import {
+  TNRK_SE_DEFAULT_INSET,
   TNRK_SE_HEADER_VALUE,
+  TNRK_SE_ROW2_INSET,
   TNRK_SE_SEX_MARK,
   buildTnrkSePdf,
   fitOverlayText,
@@ -17,6 +19,12 @@ describe("TNRK SE identity row layout", () => {
     );
     expect(TNRK_SE_HEADER_VALUE.right.x).toBeGreaterThan(440);
     expect(TNRK_SE_HEADER_VALUE.right.maxX).toBeLessThan(574);
+  });
+
+  it("drops dog name and registration to the vertical center of the row", () => {
+    expect(TNRK_SE_ROW2_INSET).toBeLessThan(TNRK_SE_DEFAULT_INSET);
+    expect(TNRK_SE_DEFAULT_INSET - TNRK_SE_ROW2_INSET).toBeGreaterThanOrEqual(3);
+    expect(TNRK_SE_DEFAULT_INSET - TNRK_SE_ROW2_INSET).toBeLessThanOrEqual(5);
   });
 
   it("places sex marks on the printed MALE / FEMALE boxes", () => {

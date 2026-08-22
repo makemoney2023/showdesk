@@ -41,6 +41,13 @@ export const TNRK_SE_PEDIGREE_VALUE = {
   address: { x: 145, maxX: 569 },
 } as const;
 
+/**
+ * Default cell inset is 11pt. The DOG / SEX / REG row is taller (two-line
+ * labels), so values sat high. A smaller inset drops the baseline ~4pt.
+ */
+export const TNRK_SE_DEFAULT_INSET = 11;
+export const TNRK_SE_ROW2_INSET = 7;
+
 /** Shrink, then ellipsize, so overlay text stays inside a template cell. */
 export function fitOverlayText(
   text: string,
@@ -80,7 +87,7 @@ export async function buildTnrkSePdf(form: TnrkSeForm): Promise<Uint8Array> {
   const { height } = page.getSize();
   const mediaY = page.getMediaBox().y;
   const yFromTop = (fromTop: number) => height - fromTop + mediaY;
-  const baseline = (bottomFromTop: number, inset = 11) =>
+  const baseline = (bottomFromTop: number, inset = TNRK_SE_DEFAULT_INSET) =>
     yFromTop(bottomFromTop - inset);
 
   const draw = (
@@ -137,7 +144,7 @@ export async function buildTnrkSePdf(form: TnrkSeForm): Promise<Uint8Array> {
   draw(form.judge, right.x, y0, 8, right.maxX);
 
   // Row 1 — DOG | SEX | REG  (dog name must not run into SEX / GESCHLECHT)
-  const y1 = baseline(168.5);
+  const y1 = baseline(168.5, TNRK_SE_ROW2_INSET);
   draw(form.dog_name, left.x, y1, 9, left.maxX);
   mark(
     form.sex === "male",
