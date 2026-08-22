@@ -61,7 +61,9 @@ test.describe("happy path", () => {
     await page.getByRole("combobox").filter({ hasText: "Select male or female" }).click();
     await page.getByRole("option", { name: /Male/ }).click();
     await page.getByRole("button", { name: "Create entry" }).click();
-    await expect(page.getByText(/Entry created/)).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Edit entry" }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "Cancel" }).click();
     await expect(
       page.getByRole("cell", { name: "Scratch Rex", exact: true }),
