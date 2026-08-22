@@ -126,7 +126,7 @@ test.describe("happy path", () => {
       page.getByRole("heading", { name: "Unscheduled conformation" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Youth I — Male (Rüde)" }),
+      page.getByRole("heading", { name: "Youth I — Male (Rüde)" }).first(),
     ).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "Youth I — Female (Hündin)" }),
