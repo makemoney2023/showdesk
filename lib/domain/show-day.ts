@@ -161,6 +161,7 @@ export function seSectionProgress(form: TnrkSeForm): {
         form.gunfire,
         form.comments,
         form.final_result,
+        form.formwert,
         form.judge_signature,
         form.event_secretary,
         form.signature_date,

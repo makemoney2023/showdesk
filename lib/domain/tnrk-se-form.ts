@@ -1,3 +1,8 @@
+import {
+  isValidFormwert,
+  type AdrkFormwertCode,
+} from "./adrk-template";
+
 /** TNRK Standard Evaluation (SE) — Official Evaluation Form fields (2026 pack page 2). */
 
 export const HEAD_SHAPE_OPTIONS = [
@@ -90,6 +95,8 @@ export interface TnrkSeForm {
   gunfire: GunfireOption | null;
   comments: string;
   final_result: FinalResultOption | null;
+  /** Official ADRK Formwert the judge announces — copied onto the review draft. */
+  formwert: AdrkFormwertCode | null;
   judge_signature: string;
   event_secretary: string;
   signature_date: string;
@@ -154,6 +161,7 @@ export function createEmptyTnrkSeForm(): TnrkSeForm {
     gunfire: null,
     comments: "",
     final_result: null,
+    formwert: null,
     judge_signature: "",
     event_secretary: "",
     signature_date: "",
@@ -187,6 +195,7 @@ export function validateTnrkSeFormForPass(form: TnrkSeForm): {
   const errors: string[] = [];
   if (!form.dog_name.trim()) errors.push("dog_name");
   if (!form.final_result) errors.push("final_result");
+  if (!form.formwert) errors.push("formwert");
   if (!form.judge.trim()) errors.push("judge");
   return { ok: errors.length === 0, errors };
 }
@@ -194,6 +203,7 @@ export function validateTnrkSeFormForPass(form: TnrkSeForm): {
 const SE_FIELD_LABELS: Record<string, string> = {
   dog_name: "Dog name",
   final_result: "Final result (Pass/Fail)",
+  formwert: "Rating (Formwert)",
   judge: "Judge",
 };
 
@@ -213,7 +223,16 @@ const SE_GAP_SECTIONS: Record<string, SeCompletionGap["sectionId"]> = {
   dog_name: "identification",
   judge: "identification",
   final_result: "result",
+  formwert: "result",
 };
+
+/** Formwert stored on the SE form, ignoring missing/invalid legacy values. */
+export function seFormFormwert(
+  form: Pick<TnrkSeForm, "formwert"> | null | undefined,
+): AdrkFormwertCode | null {
+  const code = form?.formwert;
+  return code && isValidFormwert(code) ? code : null;
+}
 
 /** Live required-field gaps for Mark complete (same rules as validateTnrkSeFormForPass). */
 export function seCompletionGaps(form: TnrkSeForm): SeCompletionGap[] {

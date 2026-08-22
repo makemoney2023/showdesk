@@ -3,7 +3,7 @@ import {
   critiquesForEntry,
   openCritiqueForEntry,
 } from "@/lib/domain/entry-cascade";
-import type { TnrkSeForm } from "@/lib/domain/tnrk-se-form";
+import { seFormFormwert, type TnrkSeForm } from "@/lib/domain/tnrk-se-form";
 import type { CritiqueRecord } from "@/lib/types";
 
 export const SE_SYNC_NOTE = "Synced from ringside SE form";
@@ -45,10 +45,12 @@ export function narrativeFromSeForm(form: TnrkSeForm): string {
 export function critiqueDraftFromSeForm(form: TnrkSeForm): DraftCritiqueSchema {
   const draft = createEmptyDraft();
   draft.narrative = narrativeFromSeForm(form);
+  draft.formwert = seFormFormwert(form);
   draft.draftAssist = {
     note: SE_SYNC_NOTE,
     se_result: form.final_result ?? "",
     se_judge: form.judge,
+    se_formwert: seFormFormwert(form) ?? "",
   };
   return draft;
 }
@@ -75,11 +77,13 @@ export function mergeSeIntoCritiqueDraft(
   return {
     ...existing,
     narrative: `${withoutOldSe}\n\n${SE_SECTION}\n${fromSe.narrative}`.trim(),
+    formwert: fromSe.formwert ?? existing.formwert,
     draftAssist: {
       ...existing.draftAssist,
       se_sync: SE_SYNC_NOTE,
       se_result: form.final_result ?? "",
       se_judge: form.judge,
+      se_formwert: fromSe.formwert ?? "",
     },
   };
 }

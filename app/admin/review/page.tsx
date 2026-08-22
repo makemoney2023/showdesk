@@ -6,17 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  ADRK_FORMWERT_CODES,
-  formatAdrkFormwert,
-} from "@/lib/domain/adrk-template";
+import { formatAdrkFormwert } from "@/lib/domain/adrk-template";
 import {
   divisionLabel,
   divisionsWithDogs,
@@ -38,6 +28,7 @@ import {
   reviewQueueMatchesSearch,
 } from "@/lib/domain/review-queue-layout";
 import { isReviewDraftDirty } from "@/lib/domain/review-dirty";
+import { seFormFormwert } from "@/lib/domain/tnrk-se-form";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { pushToast } from "@/components/feedback/toast";
 import {
@@ -133,10 +124,17 @@ export default function AdminReviewPage() {
   const seForSelected = selected
     ? evaluations.find((e) => e.entry_id === selected.entry_id)
     : undefined;
+  const seRating = seFormFormwert(seForSelected?.form);
   const dirty = Boolean(
     selected &&
       draft &&
-      isReviewDraftDirty(selected.draft, draft),
+      isReviewDraftDirty(
+        {
+          ...selected.draft,
+          formwert: selected.draft.formwert ?? seRating,
+        },
+        draft,
+      ),
   );
 
   useEffect(() => {
@@ -144,15 +142,18 @@ export default function AdminReviewPage() {
       setDraft(null);
       return;
     }
-    const seeded =
-      selected.draft.narrative.trim()
+    const se = evaluations.find((e) => e.entry_id === selected.entry_id);
+    const seeded = {
+      ...(selected.draft.narrative.trim()
         ? selected.draft
         : {
             ...selected.draft,
             narrative: selected.transcript.trim(),
-          };
+          }),
+      formwert: selected.draft.formwert ?? seFormFormwert(se?.form),
+    };
     setDraft(seeded);
-  }, [selected]);
+  }, [evaluations, selected]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -555,6 +556,9 @@ export default function AdminReviewPage() {
                       {seForSelected.form.final_result
                         ? ` · ${seForSelected.form.final_result.toUpperCase()}`
                         : ""}
+                      {seForSelected.form.formwert
+                        ? ` · ${formatAdrkFormwert(seForSelected.form.formwert)}`
+                        : ""}
                       {seForSelected.form.comments?.trim()
                         ? ` · “${seForSelected.form.comments.trim().slice(0, 80)}${seForSelected.form.comments.trim().length > 80 ? "…" : ""}”`
                         : ""}
@@ -610,28 +614,14 @@ export default function AdminReviewPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Rating</Label>
-                  <Select
-                    value={draft.formwert ?? "none"}
-                    onValueChange={(v) =>
-                      setDraft({
-                        ...draft,
-                        formwert:
-                          v === "none" ? null : (v as typeof draft.formwert),
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">—</SelectItem>
-                      {ADRK_FORMWERT_CODES.map((code) => (
-                        <SelectItem key={code} value={code}>
-                          {formatAdrkFormwert(code)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <p className="text-sm font-medium">
+                    {formatAdrkFormwert(draft.formwert ?? null)}
+                  </p>
+                  <p className="text-xs text-sss-text-muted">
+                    {draft.formwert
+                      ? "From the ringside SE form. Recalled critiques can be updated by re-saving the SE form."
+                      : "No rating on the SE form yet — set Formwert at ringside, then save the SE form."}
+                  </p>
                 </div>
                 {showId && selectedId ? (
                   <div className="flex flex-wrap gap-2">
