@@ -23,6 +23,16 @@ function optionalText(value: string | null | undefined): string | undefined {
   return value ?? undefined;
 }
 
+/** Postgres `entries` pedigree columns are NOT NULL DEFAULT ''. */
+function requiredText(value: string | null | undefined): string {
+  return value ?? "";
+}
+
+function optionalDate(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
 function optionalStringArray(
   value: string[] | string | null | undefined,
 ): string[] | undefined {
@@ -72,14 +82,14 @@ export function toEntryRow(entry: RosterEntryRecord): EntryRow {
     sex: entry.sex,
     class_id: entry.class_id,
     event_kind: entry.event_kind ?? null,
-    competition_day: entry.competition_day ?? null,
+    competition_day: optionalDate(entry.competition_day),
     catalog_class: entry.catalog_class ?? null,
     photo_path: entry.photo_path ?? null,
-    sire: entry.sire ?? null,
-    dam: entry.dam ?? null,
-    breeder: entry.breeder ?? null,
-    address: entry.address ?? null,
-    hd_ed_jlpp: entry.hd_ed_jlpp ?? null,
+    sire: requiredText(entry.sire),
+    dam: requiredText(entry.dam),
+    breeder: requiredText(entry.breeder),
+    address: requiredText(entry.address),
+    hd_ed_jlpp: requiredText(entry.hd_ed_jlpp),
   };
 }
 

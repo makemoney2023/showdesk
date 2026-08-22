@@ -22,5 +22,10 @@ export function blankRosterEntryDraft(
     competition_day: competitionDay,
     catalog_class: "youth-i",
     email: "",
+    sire: "",
+    dam: "",
+    breeder: "",
+    address: "",
+    hd_ed_jlpp: "",
   };
 }

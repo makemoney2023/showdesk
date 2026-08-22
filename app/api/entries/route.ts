@@ -37,6 +37,10 @@ function hostedCatalogMetadataError(
   return catalogMetadataError(entry);
 }
 
+function storeWriteFailed(fallback: string) {
+  return NextResponse.json({ error: fallback }, { status: 500 });
+}
+
 export async function GET(request: Request) {
   const auth = await requireApiSession();
   if (isApiUnauthorized(auth)) return auth;
@@ -98,24 +102,28 @@ export async function POST(request: Request) {
     let added = 0;
     let updated = 0;
     let placementsCleared = 0;
-    await updateStore((s) => {
-      const merged = mergeImportedEntries(s.entries, incoming, () =>
-        newId("entry"),
-      );
-      added = merged.added;
-      updated = merged.updated;
-      const changed = new Set(merged.changedDivisionEntryIds);
-      placementsCleared = s.placements.filter((placement) =>
-        changed.has(placement.entry_id),
-      ).length;
-      return {
-        ...s,
-        entries: merged.entries,
-        placements: s.placements.filter(
-          (placement) => !changed.has(placement.entry_id),
-        ),
-      };
-    });
+    try {
+      await updateStore((s) => {
+        const merged = mergeImportedEntries(s.entries, incoming, () =>
+          newId("entry"),
+        );
+        added = merged.added;
+        updated = merged.updated;
+        const changed = new Set(merged.changedDivisionEntryIds);
+        placementsCleared = s.placements.filter((placement) =>
+          changed.has(placement.entry_id),
+        ).length;
+        return {
+          ...s,
+          entries: merged.entries,
+          placements: s.placements.filter(
+            (placement) => !changed.has(placement.entry_id),
+          ),
+        };
+      });
+    } catch {
+      return storeWriteFailed("Could not import entries");
+    }
     return NextResponse.json({
       imported: added + updated,
       added,
@@ -146,8 +154,17 @@ export async function POST(request: Request) {
     id: newId("entry"),
     show_id: body.show_id,
     photo_path: undefined,
+    sire: body.entry.sire ?? "",
+    dam: body.entry.dam ?? "",
+    breeder: body.entry.breeder ?? "",
+    address: body.entry.address ?? "",
+    hd_ed_jlpp: body.entry.hd_ed_jlpp ?? "",
   };
-  await updateStore((s) => ({ ...s, entries: [...s.entries, entry] }));
+  try {
+    await updateStore((s) => ({ ...s, entries: [...s.entries, entry] }));
+  } catch {
+    return storeWriteFailed("Could not create entry");
+  }
   return NextResponse.json({ entry });
 }
 
@@ -186,6 +203,11 @@ export async function PUT(request: Request) {
   const nextEntry: RosterEntryRecord = {
     ...body.entry,
     photo_path: existing.photo_path,
+    sire: body.entry.sire ?? existing.sire ?? "",
+    dam: body.entry.dam ?? existing.dam ?? "",
+    breeder: body.entry.breeder ?? existing.breeder ?? "",
+    address: body.entry.address ?? existing.address ?? "",
+    hd_ed_jlpp: body.entry.hd_ed_jlpp ?? existing.hd_ed_jlpp ?? "",
   };
   const divisionChanged =
     existing.class_id !== nextEntry.class_id ||
@@ -194,15 +216,19 @@ export async function PUT(request: Request) {
     existing.competition_day !== nextEntry.competition_day ||
     existing.catalog_class !== nextEntry.catalog_class;
 
-  await updateStore((s) => ({
-    ...s,
-    entries: s.entries.map((e) =>
-      e.id === body.entry.id && e.show_id === body.show_id ? nextEntry : e,
-    ),
-    placements: divisionChanged
-      ? s.placements.filter((placement) => placement.entry_id !== body.entry.id)
-      : s.placements,
-  }));
+  try {
+    await updateStore((s) => ({
+      ...s,
+      entries: s.entries.map((e) =>
+        e.id === body.entry.id && e.show_id === body.show_id ? nextEntry : e,
+      ),
+      placements: divisionChanged
+        ? s.placements.filter((placement) => placement.entry_id !== body.entry.id)
+        : s.placements,
+    }));
+  } catch {
+    return storeWriteFailed("Could not save entry");
+  }
   return NextResponse.json({
     ok: true,
     entry: nextEntry,
