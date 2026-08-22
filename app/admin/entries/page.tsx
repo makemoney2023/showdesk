@@ -247,6 +247,16 @@ export default function AdminEntriesPage() {
     setEntryDraft(null);
   }
 
+  async function readApiError(res: Response, fallback: string) {
+    const data = (await res.json().catch(() => null)) as { error?: string } | null;
+    return data?.error ?? fallback;
+  }
+
+  function showEntryError(error: string) {
+    setMessage(error);
+    pushToast(error, "error");
+  }
+
   async function saveEntryForm() {
     if (!entryDraft || !entryFormMode) return;
     const activeShow = entryDraft.show_id || showId;
@@ -258,56 +268,60 @@ export default function AdminEntriesPage() {
 
     const validation = validateRosterEntry(entryDraft);
     if (!validation.valid) {
-      setMessage(validation.error);
-      pushToast(validation.error, "error");
+      showEntryError(validation.error);
       return;
     }
     const catalogError = catalogMetadataError(entryDraft);
     if (catalogError) {
-      setMessage(catalogError);
-      pushToast(catalogError, "error");
+      showEntryError(catalogError);
       return;
     }
 
     if (entryFormMode === "create") {
-      const res = await fetch("/api/entries", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "create",
-          show_id: activeShow,
-          entry: {
-            armband: entryDraft.armband,
-            dog_name: entryDraft.dog_name,
-            zb_number: entryDraft.zb_number,
-            wt: entryDraft.wt,
-            owner: entryDraft.owner,
-            sex: entryDraft.sex,
-            class_id: entryDraft.class_id,
-            event_kind: entryDraft.event_kind,
-            competition_day: entryDraft.competition_day,
-            catalog_class: entryDraft.catalog_class,
-            email: entryDraft.email,
-          },
-        }),
-      });
-      if (!res.ok) {
-        const data = (await res.json()) as { error?: string };
-        const error = data.error ?? "Create failed";
-        setMessage(error);
-        pushToast(error, "error");
-        return;
+      try {
+        const res = await fetch("/api/entries", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "create",
+            show_id: activeShow,
+            entry: {
+              armband: entryDraft.armband,
+              dog_name: entryDraft.dog_name,
+              zb_number: entryDraft.zb_number,
+              wt: entryDraft.wt,
+              owner: entryDraft.owner,
+              sex: entryDraft.sex,
+              class_id: entryDraft.class_id,
+              event_kind: entryDraft.event_kind,
+              competition_day: entryDraft.competition_day,
+              catalog_class: entryDraft.catalog_class,
+              email: entryDraft.email,
+              sire: entryDraft.sire ?? "",
+              dam: entryDraft.dam ?? "",
+              breeder: entryDraft.breeder ?? "",
+              address: entryDraft.address ?? "",
+              hd_ed_jlpp: entryDraft.hd_ed_jlpp ?? "",
+            },
+          }),
+        });
+        if (!res.ok) {
+          showEntryError(await readApiError(res, "Create failed"));
+          return;
+        }
+        const created = (await res.json()) as { entry?: RosterEntryRecord };
+        setMessage("Entry created — add a photo if you have one");
+        pushToast("Entry created — add a photo if you have one");
+        if (created.entry) {
+          setEntryDraft(created.entry);
+          setEntryFormMode("edit");
+        } else {
+          closeEntryForm();
+        }
+        await load();
+      } catch {
+        showEntryError("Create failed");
       }
-      const created = (await res.json()) as { entry?: RosterEntryRecord };
-      setMessage("Entry created — add a photo if you have one");
-      pushToast("Entry created — add a photo if you have one");
-      if (created.entry) {
-        setEntryDraft(created.entry);
-        setEntryFormMode("edit");
-      } else {
-        closeEntryForm();
-      }
-      await load();
       return;
     }
 
@@ -329,22 +343,23 @@ export default function AdminEntriesPage() {
       return;
     }
 
-    const res = await fetch("/api/entries", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ show_id: activeShow, entry: entryDraft }),
-    });
-    if (!res.ok) {
-      const data = (await res.json()) as { error?: string };
-      const error = data.error ?? "Save failed";
-      setMessage(error);
-      pushToast(error, "error");
-      return;
+    try {
+      const res = await fetch("/api/entries", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ show_id: activeShow, entry: entryDraft }),
+      });
+      if (!res.ok) {
+        showEntryError(await readApiError(res, "Save failed"));
+        return;
+      }
+      setMessage("Entry saved");
+      pushToast("Entry saved");
+      closeEntryForm();
+      await load();
+    } catch {
+      showEntryError("Save failed");
     }
-    setMessage("Entry saved");
-    pushToast("Entry saved");
-    closeEntryForm();
-    await load();
   }
 
   async function deleteEntry(entryId: string) {

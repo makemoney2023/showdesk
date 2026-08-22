@@ -131,6 +131,20 @@ describe("entry row mappers", () => {
     expect(mapEntryRow(toEntryRow(withPhoto))).toEqual(withPhoto);
     expect(toEntryRow(entry).photo_path).toBeNull();
   });
+
+  it("writes empty pedigree strings so hosted NOT NULL columns accept scratch creates", () => {
+    const row = toEntryRow(entry);
+    expect(row.sire).toBe("");
+    expect(row.dam).toBe("");
+    expect(row.breeder).toBe("");
+    expect(row.address).toBe("");
+    expect(row.hd_ed_jlpp).toBe("");
+  });
+
+  it("nulls a blank competition day instead of sending an empty date string", () => {
+    expect(toEntryRow({ ...entry, competition_day: "" }).competition_day).toBeNull();
+    expect(toEntryRow({ ...entry, competition_day: "   " }).competition_day).toBeNull();
+  });
 });
 
 describe("critique row mappers", () => {
