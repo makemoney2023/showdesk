@@ -56,6 +56,12 @@ test.describe("happy path", () => {
     await page.getByLabel("Judge").selectOption("Test Judge");
     await expect(page.getByText("Rex Happy Path")).toBeVisible();
     await expect(
+      page.getByRole("link", { name: "Record critique for Rex Happy Path" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Record critique for Bella Division Test" }),
+    ).toBeVisible();
+    await expect(
       page.getByRole("button", { name: /Unscheduled conformation/ }),
     ).toBeVisible();
     await expect(
