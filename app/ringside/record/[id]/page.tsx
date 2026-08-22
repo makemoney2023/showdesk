@@ -71,6 +71,8 @@ export default function RecordPage() {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const startingRef = useRef(false);
   const tickStartedAtRef = useRef<number | null>(null);
   const elapsedBaseRef = useRef(0);
   const liveSessionRef = useRef<Awaited<
@@ -123,8 +125,19 @@ export default function RecordPage() {
     void loadEntry();
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      // Leaving mid-recording means the steward chose to discard it. Detach
+      // onstop BEFORE ending the tracks, otherwise the recorder's stop event
+      // still fires handleStop and uploads the partial take.
+      const recorder = mediaRecorderRef.current;
+      if (recorder) {
+        recorder.onstop = null;
+        recorder.ondataavailable = null;
+        if (recorder.state !== "inactive") recorder.stop();
+      }
       streamRef.current?.getTracks().forEach((t) => t.stop());
       void liveSessionRef.current?.stop();
+      void audioContextRef.current?.close().catch(() => undefined);
+      audioContextRef.current = null;
       void releaseScreenWakeLock(wakeLockRef.current);
     };
   }, [entryId, refreshQueue]);
@@ -201,6 +214,10 @@ export default function RecordPage() {
       setStatus("Select a judge");
       return;
     }
+    // Mic permission + live STT connect can take seconds; a second tap in
+    // that window would orphan the first stream with the mic still hot.
+    if (startingRef.current || recordingRef.current) return;
+    startingRef.current = true;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -215,6 +232,7 @@ export default function RecordPage() {
       setMicMessage("Microphone ready");
       streamRef.current = stream;
       const audioContext = new AudioContext();
+      audioContextRef.current = audioContext;
       if (audioContext.state === "suspended") {
         await audioContext.resume();
       }
@@ -266,10 +284,14 @@ export default function RecordPage() {
     } catch (error) {
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
+      void audioContextRef.current?.close().catch(() => undefined);
+      audioContextRef.current = null;
       const message = microphoneErrorLabel(error);
       setMicCheck("error");
       setMicMessage(message);
       setStatus(message);
+    } finally {
+      startingRef.current = false;
     }
   }
 
@@ -378,53 +400,52 @@ export default function RecordPage() {
       : "";
     liveSessionRef.current = null;
     liveFinalRef.current = live || liveTranscript.trim();
+    void audioContextRef.current?.close().catch(() => undefined);
+    audioContextRef.current = null;
 
-    if (!navigator.onLine) {
-      const id = `offline-${Date.now()}`;
+    async function queueRecording(message: string) {
       await enqueueRecording({
-        id,
+        id: `offline-${Date.now()}`,
         entryId,
-        showId,
+        showId: showId as string,
         blob,
         createdAt: new Date().toISOString(),
         judge: judge ?? undefined,
         liveTranscript: liveFinalRef.current || undefined,
       });
-      setStatus("Saved to offline queue");
+      setStatus(message);
       await refreshQueue();
+    }
+
+    if (!navigator.onLine) {
+      await queueRecording("Saved to offline queue");
       router.push(nextRecordingHref());
       return;
     }
 
     setStatus("Uploading & processing…");
-    const audioBase64 = await blobToBase64(blob);
-    const res = await fetch("/api/critiques", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        show_id: showId,
-        entry_id: entryId,
-        audio_base64: audioBase64,
-        live_transcript: liveFinalRef.current || undefined,
-        judge: judge ?? undefined,
-      }),
-    });
-    if (res.ok) {
-      setStatus("Sent to review queue");
-      router.push(nextRecordingHref());
-    } else {
-      const id = `offline-${Date.now()}`;
-      await enqueueRecording({
-        id,
-        entryId,
-        showId,
-        blob,
-        createdAt: new Date().toISOString(),
-        judge: judge ?? undefined,
-        liveTranscript: liveFinalRef.current || undefined,
+    try {
+      const audioBase64 = await blobToBase64(blob);
+      const res = await fetch("/api/critiques", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          show_id: showId,
+          entry_id: entryId,
+          audio_base64: audioBase64,
+          live_transcript: liveFinalRef.current || undefined,
+          judge: judge ?? undefined,
+        }),
       });
-      setStatus("Upload failed — queued offline");
-      await refreshQueue();
+      if (res.ok) {
+        setStatus("Sent to review queue");
+        router.push(nextRecordingHref());
+      } else {
+        await queueRecording("Upload failed — queued offline");
+      }
+    } catch {
+      // A thrown fetch (network flap) must not drop the only copy of the audio.
+      await queueRecording("Network error — queued offline");
     }
   }
 
