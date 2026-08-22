@@ -8,10 +8,15 @@ import {
 } from "@/lib/store";
 import { filterByShow } from "@/lib/domain/show-scope";
 import { processCritique } from "@/lib/pipeline/process-critique";
-import { canTransition } from "@/lib/domain/critique-status";
+import { canRecall, canTransition } from "@/lib/domain/critique-status";
 import { openCritiqueForEntry } from "@/lib/domain/entry-cascade";
 import { mergeSeIntoCritiqueDraft } from "@/lib/domain/se-to-critique";
-import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
+import {
+  requireApiSession,
+  requireApiWrite,
+  requireSecretaryWrite,
+  isApiUnauthorized,
+} from "@/lib/auth/api-guard";
 import { readJsonBody } from "@/lib/api/read-json";
 import type { DraftCritiqueSchema } from "@/lib/domain/adrk-template";
 
@@ -32,7 +37,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireApiSession();
+  const auth = await requireApiWrite();
   if (isApiUnauthorized(auth)) return auth;
 
   const body = await readJsonBody<{
@@ -186,13 +191,13 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const auth = await requireApiSession();
+  const auth = await requireSecretaryWrite();
   if (isApiUnauthorized(auth)) return auth;
 
   const body = await readJsonBody<{
     show_id: string;
     critique_id: string;
-    action: "update_draft" | "rerun" | "approve";
+    action: "update_draft" | "rerun" | "approve" | "recall";
     draft?: DraftCritiqueSchema;
     audio_base64?: string;
   }>(request);
@@ -315,6 +320,34 @@ export async function PATCH(request: Request) {
       ),
     }));
     return NextResponse.json({ ok: true, status: "APPROVED" });
+  }
+
+  if (body.action === "recall") {
+    if (!canRecall(critique.status, critique.delivery_status)) {
+      return NextResponse.json(
+        {
+          error:
+            critique.delivery_status === "sent"
+              ? "Sent critiques cannot be recalled"
+              : `Cannot recall from ${critique.status}`,
+        },
+        { status: 409 },
+      );
+    }
+    await updateStore((s) => ({
+      ...s,
+      critiques: s.critiques.map((c) =>
+        c.id === body.critique_id
+          ? {
+              ...c,
+              status: "PENDING_REVIEW" as const,
+              approved_at: undefined,
+              updated_at: new Date().toISOString(),
+            }
+          : c,
+      ),
+    }));
+    return NextResponse.json({ ok: true, status: "PENDING_REVIEW" });
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });

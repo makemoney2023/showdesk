@@ -17,7 +17,11 @@ import {
   critiquesForEntry,
   removeEntryAndChildren,
 } from "@/lib/domain/entry-cascade";
-import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
+import {
+  requireApiSession,
+  requireSecretaryWrite,
+  isApiUnauthorized,
+} from "@/lib/auth/api-guard";
 import { readJsonBody } from "@/lib/api/read-json";
 import type { RosterEntryRecord } from "@/lib/types";
 
@@ -38,7 +42,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireApiSession();
+  const auth = await requireSecretaryWrite();
   if (isApiUnauthorized(auth)) return auth;
 
   const body = await readJsonBody<
@@ -114,7 +118,7 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const auth = await requireApiSession();
+  const auth = await requireSecretaryWrite();
   if (isApiUnauthorized(auth)) return auth;
 
   const body = await readJsonBody<{
@@ -156,7 +160,7 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const auth = await requireApiSession();
+  const auth = await requireSecretaryWrite();
   if (isApiUnauthorized(auth)) return auth;
 
   const { searchParams } = new URL(request.url);

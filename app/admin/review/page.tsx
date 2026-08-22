@@ -20,6 +20,7 @@ import {
   type AdrkClassId,
 } from "@/lib/domain/adrk-template";
 import {
+  canRecall,
   canRelease,
   deskAttentionCount,
   needsDeskAttention,
@@ -62,6 +63,7 @@ export default function AdminReviewPage() {
   const [pendingOnly, setPendingOnly] = useState(true);
   const [search, setSearch] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [recallOpen, setRecallOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const saveDraftRef = useRef<() => Promise<boolean>>(async () => false);
@@ -280,6 +282,30 @@ export default function AdminReviewPage() {
     setConfirmOpen(false);
     await load();
     if (afterApprove) setSelectedId(selectAfter ?? null);
+  }
+
+  async function recallCritique() {
+    if (!showId || !selectedId || busy) return;
+    setBusy(true);
+    const res = await fetch("/api/critiques", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        show_id: showId,
+        critique_id: selectedId,
+        action: "recall",
+      }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    const ok = res.ok;
+    const msg = ok
+      ? "Recalled to review queue"
+      : (data.error ?? "Recall failed");
+    setStatusMsg(msg);
+    pushToast(msg, ok ? "ok" : "error");
+    setBusy(false);
+    setRecallOpen(false);
+    if (ok) await load();
   }
 
   const attentionCount = deskAttentionCount(critiques.map((c) => c.status));
@@ -633,7 +659,7 @@ export default function AdminReviewPage() {
                     {showId && selectedId ? (
                       <Button asChild variant="link">
                         <a
-                          href={`/api/pdf?show_id=${showId}&critique_id=${selectedId}`}
+                          href={`/api/pdf?show_id=${showId}&critique_id=${selectedId}&preview=1`}
                           target="_blank"
                           rel="noreferrer"
                         >
@@ -664,8 +690,8 @@ export default function AdminReviewPage() {
                   title="Release this critique to the owner?"
                   body={
                     dirty
-                      ? "Unsaved edits will be saved first. This cannot be undone from the desk."
-                      : "Nothing leaves the desk until you confirm."
+                      ? "Unsaved edits will be saved first. You can recall this if the email has not been sent."
+                      : "Nothing leaves the desk until you confirm. You can recall this if the email has not been sent."
                   }
                   confirmLabel="Confirm"
                   onConfirm={() => void approve()}
@@ -673,14 +699,33 @@ export default function AdminReviewPage() {
                 />
                 {canRelease(selected.status) &&
                 selected.delivery_status !== "sent" ? (
-                  <Button
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => void releaseCritique(false)}
-                  >
-                    Retry email
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => void releaseCritique(false)}
+                    >
+                      Retry email
+                    </Button>
+                    {canRecall(selected.status, selected.delivery_status) ? (
+                      <Button
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => setRecallOpen(true)}
+                      >
+                        Recall to review
+                      </Button>
+                    ) : null}
+                  </div>
                 ) : null}
+                <ConfirmDialog
+                  open={recallOpen}
+                  title="Recall this critique?"
+                  body="Return it to the review queue. Owners will not be emailed again until you approve."
+                  confirmLabel="Recall"
+                  onConfirm={() => void recallCritique()}
+                  onCancel={() => setRecallOpen(false)}
+                />
                 {!canRelease(selected.status) && (
                   <p className="text-xs text-sss-text-muted">
                     Release blocked until secretary approves.

@@ -56,14 +56,25 @@ export function queueAgeLabel(createdAt: string, nowMs: number): string {
 }
 
 export function labelQueuedItem(
-  item: { entryId: string; createdAt: string },
+  item: {
+    entryId: string;
+    createdAt: string;
+    kind?: "recording" | "se";
+  },
   entries: { id: string; dog_name: string; armband: string }[],
   nowMs: number,
 ): { title: string; subtitle: string } {
   const entry = entries.find((e) => e.id === item.entryId);
+  const age = queueAgeLabel(item.createdAt, nowMs);
+  const kindLabel =
+    item.kind === "se"
+      ? "SE draft"
+      : item.kind === "recording"
+        ? "Recording"
+        : null;
   return {
     title: entry ? `#${entry.armband} ${entry.dog_name}` : "Unknown dog",
-    subtitle: queueAgeLabel(item.createdAt, nowMs),
+    subtitle: kindLabel ? `${kindLabel} · ${age}` : age,
   };
 }
 

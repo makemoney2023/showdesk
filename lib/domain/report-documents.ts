@@ -1,6 +1,10 @@
 import type { CritiqueStatus } from "./critique-status";
 import { dogPhotoHref } from "./dog-photo";
-import { canPrintCertificate, canPrintSe } from "./print-documents";
+import {
+  canPrintCertificate,
+  canPrintSe,
+  withPdfPreviewFlag,
+} from "./print-documents";
 import {
   tnrkCritiquePdfHref,
   tnrkSePdfHref,
@@ -27,8 +31,14 @@ export interface ReportDocumentLink {
 export function adrkCritiquePdfHref(
   showId: string,
   critiqueId: string,
+  opts?: { preview?: boolean },
 ): string {
-  return `/api/pdf?show_id=${encodeURIComponent(showId)}&critique_id=${encodeURIComponent(critiqueId)}`;
+  const params = new URLSearchParams({
+    show_id: showId,
+    critique_id: critiqueId,
+  });
+  if (opts?.preview) params.set("preview", "1");
+  return `/api/pdf?${params.toString()}`;
 }
 
 export function tnrkAwardPdfHref(showId: string, entryId: string): string {
@@ -64,29 +74,41 @@ export function buildReportDocumentsForDog(input: {
   seStatus?: "draft" | "complete" | null;
 }): ReportDocumentLink[] {
   const { showId, entryId, armband, critiqueId, seEvaluationId } = input;
+  const critiquePrintable =
+    Boolean(critiqueId) && canPrintCertificate(input.critiqueStatus);
+  const sePrintable = Boolean(seEvaluationId) && canPrintSe(input.seStatus);
+  const critiqueHref = critiqueId
+    ? tnrkCritiquePdfHref(showId, critiqueId)
+    : "";
+  const seHref = seEvaluationId ? tnrkSePdfHref(showId, seEvaluationId) : "";
+  const adrkHref = critiqueId ? adrkCritiquePdfHref(showId, critiqueId) : "";
   const docs: ReportDocumentLink[] = [
     {
       kind: "tnrk_critique",
       label: "TNRK critique PDF",
-      href: critiqueId
-        ? tnrkCritiquePdfHref(showId, critiqueId)
-        : "",
+      href:
+        critiqueHref && !critiquePrintable
+          ? withPdfPreviewFlag(critiqueHref)
+          : critiqueHref,
       filename: `tnrk-critique-${armband}.pdf`,
       available: Boolean(critiqueId),
-      printable: Boolean(critiqueId) && canPrintCertificate(input.critiqueStatus),
+      printable: critiquePrintable,
     },
     {
       kind: "tnrk_se",
       label: "SE PDF",
-      href: seEvaluationId ? tnrkSePdfHref(showId, seEvaluationId) : "",
+      href: seHref && !sePrintable ? withPdfPreviewFlag(seHref) : seHref,
       filename: `tnrk-se-${entryId}.pdf`,
       available: Boolean(seEvaluationId),
-      printable: Boolean(seEvaluationId) && canPrintSe(input.seStatus),
+      printable: sePrintable,
     },
     {
       kind: "adrk",
       label: "ADRK draft PDF",
-      href: critiqueId ? adrkCritiquePdfHref(showId, critiqueId) : "",
+      href:
+        adrkHref && !critiquePrintable
+          ? withPdfPreviewFlag(adrkHref)
+          : adrkHref,
       filename: `critique-${armband}.pdf`,
       available: Boolean(critiqueId),
     },

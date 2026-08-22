@@ -100,3 +100,22 @@ export function printBundleDisabledReason(
     ? "No complete SE forms in this selection."
     : "No approved certificates in this selection.";
 }
+
+/** Complete/approved PDFs are open; drafts need an explicit preview flag. */
+export function canServeDeskPdf(input: {
+  printable: boolean;
+  preview: boolean;
+}): boolean {
+  return input.printable || input.preview;
+}
+
+export const DRAFT_PDF_PREVIEW_REQUIRED =
+  "Draft documents require preview=1";
+
+export function withPdfPreviewFlag(href: string): string {
+  if (!href) return href;
+  const [path, query = ""] = href.split("?");
+  const params = new URLSearchParams(query);
+  params.set("preview", "1");
+  return `${path}?${params.toString()}`;
+}

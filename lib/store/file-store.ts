@@ -1,7 +1,9 @@
 import fs from "fs/promises";
 import path from "path";
+import { parseDeskRole } from "@/lib/auth/roles";
 import type { AppStore } from "@/lib/types";
 import { EMPTY_STORE } from "@/lib/types";
+import { demoWritesBlocked } from "@/lib/supabase/config";
 
 const STORE_DIR = path.join(process.cwd(), ".data");
 const STORE_PATH = path.join(STORE_DIR, "store.json");
@@ -22,19 +24,37 @@ async function ensureStoreDir() {
   await fs.mkdir(STORE_DIR, { recursive: true });
 }
 
+function withDefaultDemoUsers(store: AppStore): AppStore {
+  const byId = new Map(store.demo_users.map((user) => [user.id, user]));
+  for (const user of EMPTY_STORE.demo_users) {
+    if (!byId.has(user.id)) byId.set(user.id, user);
+  }
+  return {
+    ...store,
+    demo_users: [...byId.values()].map((user) => ({
+      ...user,
+      role: parseDeskRole(user.role),
+    })),
+  };
+}
+
 async function readStoreUnlocked(): Promise<AppStore> {
   try {
     const raw = await fs.readFile(STORE_PATH, "utf-8");
     const parsed = JSON.parse(raw) as Partial<AppStore>;
-    return {
+    return withDefaultDemoUsers({
       ...EMPTY_STORE,
       ...parsed,
       se_evaluations: parsed.se_evaluations ?? [],
-    };
+      demo_users: parsed.demo_users ?? EMPTY_STORE.demo_users,
+    });
   } catch {
+    if (demoWritesBlocked()) {
+      return withDefaultDemoUsers(structuredClone(EMPTY_STORE));
+    }
     await ensureStoreDir();
     await fs.writeFile(STORE_PATH, JSON.stringify(EMPTY_STORE, null, 2));
-    return structuredClone(EMPTY_STORE);
+    return withDefaultDemoUsers(structuredClone(EMPTY_STORE));
   }
 }
 
@@ -43,6 +63,9 @@ export async function readStore(): Promise<AppStore> {
 }
 
 export async function writeStore(store: AppStore): Promise<void> {
+  if (demoWritesBlocked()) {
+    throw new Error("Demo mode is read-only on this host");
+  }
   await withStoreLock(async () => {
     await ensureStoreDir();
     await fs.writeFile(STORE_PATH, JSON.stringify(store, null, 2));
@@ -54,6 +77,9 @@ export async function updateStore(
 ): Promise<AppStore> {
   return withStoreLock(async () => {
     const store = await readStoreUnlocked();
+    if (demoWritesBlocked()) {
+      throw new Error("Demo mode is read-only on this host");
+    }
     const next = updater(store) ?? store;
     await ensureStoreDir();
     await fs.writeFile(STORE_PATH, JSON.stringify(next, null, 2));

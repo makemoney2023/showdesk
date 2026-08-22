@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { readStore } from "@/lib/store/file-store";
+import { parseDeskRole, type DeskRole } from "@/lib/auth/roles";
 import { isDemoMode, getDemoSessionCookieName } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -7,6 +8,7 @@ export interface SessionUser {
   id: string;
   email: string;
   name?: string;
+  role: DeskRole;
 }
 
 export async function getSessionUser(): Promise<SessionUser | null> {
@@ -17,7 +19,12 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     const store = await readStore();
     const user = store.demo_users.find((u) => u.id === session);
     if (!user) return null;
-    return { id: user.id, email: user.email, name: user.name };
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: parseDeskRole(user.role),
+    };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -28,6 +35,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     id: data.user.id,
     email: data.user.email ?? "",
     name: data.user.user_metadata?.name,
+    role: parseDeskRole(data.user.user_metadata?.role),
   };
 }
 

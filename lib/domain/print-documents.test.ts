@@ -4,11 +4,13 @@ import {
   canPrintCertificate,
   canPrintSe,
   parsePrintBundleRequest,
+  canServeDeskPdf,
   printBundleDisabledReason,
   printableEntryIdsForDoc,
   rowHasPrintableDocument,
   selectAllPrintableIds,
   tnrkPrintBundleHref,
+  withPdfPreviewFlag,
 } from "./print-documents";
 
 const rows = [
@@ -72,5 +74,14 @@ describe("print eligibility", () => {
       "No approved certificates in this selection.",
     );
     expect(printBundleDisabledReason(2, "se")).toBeNull();
+  });
+
+  it("serves printable PDFs freely and drafts only with preview=1", () => {
+    expect(canServeDeskPdf({ printable: true, preview: false })).toBe(true);
+    expect(canServeDeskPdf({ printable: false, preview: true })).toBe(true);
+    expect(canServeDeskPdf({ printable: false, preview: false })).toBe(false);
+    expect(withPdfPreviewFlag("/api/pdf/tnrk?kind=se&show_id=s&evaluation_id=e")).toBe(
+      "/api/pdf/tnrk?kind=se&show_id=s&evaluation_id=e&preview=1",
+    );
   });
 });

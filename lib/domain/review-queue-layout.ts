@@ -53,16 +53,33 @@ export function tnrkCritiquePdfLabel(): string {
 export function tnrkCritiquePdfHref(
   showId: string,
   critiqueId: string,
+  opts?: { preview?: boolean },
 ): string {
-  return `/api/pdf/tnrk?kind=critique&show_id=${encodeURIComponent(showId)}&critique_id=${encodeURIComponent(critiqueId)}`;
+  const params = new URLSearchParams({
+    kind: "critique",
+    show_id: showId,
+    critique_id: critiqueId,
+  });
+  if (opts?.preview) params.set("preview", "1");
+  return `/api/pdf/tnrk?${params.toString()}`;
 }
 
 export function tnrkSePdfLabel(): string {
   return "SE PDF Preview";
 }
 
-export function tnrkSePdfHref(showId: string, evaluationId: string): string {
-  return `/api/pdf/tnrk?kind=se&show_id=${encodeURIComponent(showId)}&evaluation_id=${encodeURIComponent(evaluationId)}`;
+export function tnrkSePdfHref(
+  showId: string,
+  evaluationId: string,
+  opts?: { preview?: boolean },
+): string {
+  const params = new URLSearchParams({
+    kind: "se",
+    show_id: showId,
+    evaluation_id: evaluationId,
+  });
+  if (opts?.preview) params.set("preview", "1");
+  return `/api/pdf/tnrk?${params.toString()}`;
 }
 
 export type ReviewPdfPreviewAction = {
@@ -81,14 +98,18 @@ export function reviewPdfPreviewActions(input: {
     {
       kind: "critique",
       label: tnrkCritiquePdfLabel(),
-      href: tnrkCritiquePdfHref(input.showId, input.critiqueId),
+      href: tnrkCritiquePdfHref(input.showId, input.critiqueId, {
+        preview: true,
+      }),
     },
   ];
   if (input.seEvaluationId) {
     actions.push({
       kind: "se",
       label: tnrkSePdfLabel(),
-      href: tnrkSePdfHref(input.showId, input.seEvaluationId),
+      href: tnrkSePdfHref(input.showId, input.seEvaluationId, {
+        preview: true,
+      }),
     });
   }
   return actions;

@@ -10,9 +10,19 @@ export type CritiqueStatus = (typeof CRITIQUE_STATUSES)[number];
 const TRANSITIONS: Record<CritiqueStatus, CritiqueStatus[]> = {
   PROCESSING: ["PENDING_REVIEW", "ERROR"],
   PENDING_REVIEW: ["PROCESSING", "APPROVED", "ERROR"],
-  APPROVED: [],
+  APPROVED: ["PENDING_REVIEW"],
   ERROR: ["PROCESSING"],
 };
+
+export type DeliveryStatus = "pending" | "sent" | "failed" | "blocked";
+
+/** Pull an approved critique back to the queue only before email is sent. */
+export function canRecall(
+  status: CritiqueStatus,
+  deliveryStatus: DeliveryStatus | string | null | undefined,
+): boolean {
+  return status === "APPROVED" && deliveryStatus !== "sent";
+}
 
 export function canTransition(
   from: CritiqueStatus,

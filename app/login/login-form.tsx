@@ -66,7 +66,8 @@ export function LoginForm() {
           {demo ? (
             <p className="flex items-start gap-2 rounded-sss-md bg-sss-lifted px-3 py-2 text-sm text-sss-text-secondary">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-sss-accent-deep" />
-              Demo mode uses the saved secretary account.
+              Demo mode uses secretary@demo.local or steward@demo.local
+              (password demo1234).
             </p>
           ) : (
             <p className="text-sm text-sss-text-secondary">

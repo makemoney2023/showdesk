@@ -8,7 +8,7 @@ describe("formatQueueSyncStatus", () => {
     ).toBe("Nothing to sync");
     expect(
       formatQueueSyncStatus({ synced: 1, failed: 0, remaining: 0 }),
-    ).toBe("Synced 1 recording");
+    ).toBe("Synced 1 item");
     expect(
       formatQueueSyncStatus({ synced: 2, failed: 1, remaining: 1 }),
     ).toBe("Synced 2, 1 failed — retry when online");

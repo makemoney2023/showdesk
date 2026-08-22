@@ -72,6 +72,9 @@ describe("TNRK PDF preview affordance", () => {
     expect(tnrkCritiquePdfHref("show-1", "crit-9")).toBe(
       "/api/pdf/tnrk?kind=critique&show_id=show-1&critique_id=crit-9",
     );
+    expect(tnrkCritiquePdfHref("show-1", "crit-9", { preview: true })).toBe(
+      "/api/pdf/tnrk?kind=critique&show_id=show-1&critique_id=crit-9&preview=1",
+    );
   });
 });
 
@@ -94,12 +97,12 @@ describe("SE PDF preview affordance", () => {
       {
         kind: "critique",
         label: "TNRK PDF Preview",
-        href: "/api/pdf/tnrk?kind=critique&show_id=show-1&critique_id=crit-9",
+        href: "/api/pdf/tnrk?kind=critique&show_id=show-1&critique_id=crit-9&preview=1",
       },
       {
         kind: "se",
         label: "SE PDF Preview",
-        href: "/api/pdf/tnrk?kind=se&show_id=show-1&evaluation_id=eval-3",
+        href: "/api/pdf/tnrk?kind=se&show_id=show-1&evaluation_id=eval-3&preview=1",
       },
     ]);
   });
@@ -115,7 +118,7 @@ describe("SE PDF preview affordance", () => {
       {
         kind: "critique",
         label: "TNRK PDF Preview",
-        href: "/api/pdf/tnrk?kind=critique&show_id=show-1&critique_id=crit-9",
+        href: "/api/pdf/tnrk?kind=critique&show_id=show-1&critique_id=crit-9&preview=1",
       },
     ]);
   });

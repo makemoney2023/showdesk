@@ -2,6 +2,7 @@ import type { AdrkClassId } from "@/lib/domain/adrk-template";
 import type { DraftCritiqueSchema } from "@/lib/domain/adrk-template";
 import type { CritiqueStatus } from "@/lib/domain/critique-status";
 import type { RulebookTemplate } from "@/lib/domain/adrk-template";
+import type { DeskRole } from "@/lib/auth/roles";
 import type { TnrkSeForm } from "@/lib/domain/tnrk-se-form";
 
 export interface Show {
@@ -76,6 +77,7 @@ export interface DemoUser {
   email: string;
   password: string;
   name: string;
+  role?: DeskRole;
 }
 
 export interface AppStore {
@@ -101,6 +103,14 @@ export const EMPTY_STORE: AppStore = {
       email: "secretary@demo.local",
       password: "demo1234",
       name: "Demo Secretary",
+      role: "secretary",
+    },
+    {
+      id: "demo-steward",
+      email: "steward@demo.local",
+      password: "demo1234",
+      name: "Demo Steward",
+      role: "steward",
     },
   ],
 };

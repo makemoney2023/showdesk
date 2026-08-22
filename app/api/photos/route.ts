@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { readStore, updateStore, writeDogPhoto, deleteDogPhoto } from "@/lib/store";
-import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
+import { requireApiWrite, isApiUnauthorized } from "@/lib/auth/api-guard";
 import { readJsonBody } from "@/lib/api/read-json";
 import {
   DOG_PHOTO_MAX_BASE64_CHARS,
@@ -8,7 +8,7 @@ import {
 } from "@/lib/domain/dog-photo";
 
 export async function POST(request: Request) {
-  const auth = await requireApiSession();
+  const auth = await requireApiWrite();
   if (isApiUnauthorized(auth)) return auth;
 
   const body = await readJsonBody<{
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const auth = await requireApiSession();
+  const auth = await requireApiWrite();
   if (isApiUnauthorized(auth)) return auth;
 
   const { searchParams } = new URL(request.url);

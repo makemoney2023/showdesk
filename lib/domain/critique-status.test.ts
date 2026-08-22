@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canRecall,
   canRelease,
   canTransition,
   deskAttentionCount,
@@ -48,5 +49,14 @@ describe("critique-status", () => {
 
   it("throws on invalid transition", () => {
     expect(() => assertTransition("APPROVED", "PROCESSING")).toThrow();
+  });
+
+  it("allows recall from approved back to pending review", () => {
+    expect(canTransition("APPROVED", "PENDING_REVIEW")).toBe(true);
+    expect(canRecall("APPROVED", "pending")).toBe(true);
+    expect(canRecall("APPROVED", "failed")).toBe(true);
+    expect(canRecall("APPROVED", "blocked")).toBe(true);
+    expect(canRecall("APPROVED", "sent")).toBe(false);
+    expect(canRecall("PENDING_REVIEW", "pending")).toBe(false);
   });
 });

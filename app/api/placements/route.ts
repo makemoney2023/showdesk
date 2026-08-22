@@ -6,7 +6,11 @@ import {
   upsertPlacements,
   type PlacementInput,
 } from "@/lib/domain/placements";
-import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
+import {
+  requireApiSession,
+  requireApiWrite,
+  isApiUnauthorized,
+} from "@/lib/auth/api-guard";
 import { readJsonBody } from "@/lib/api/read-json";
 
 export async function GET(request: Request) {
@@ -24,7 +28,7 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const auth = await requireApiSession();
+  const auth = await requireApiWrite();
   if (isApiUnauthorized(auth)) return auth;
 
   const body = await readJsonBody<{

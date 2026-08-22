@@ -40,6 +40,7 @@ import {
   shouldRestoreSeDraft,
   writeRecoverableSeDraft,
 } from "@/lib/offline/se-draft";
+import { enqueueSeDraft, removeQueuedSeDraft } from "@/lib/offline/queue";
 import { cn } from "@/lib/utils";
 import type { RosterEntryRecord, SeEvaluationRecord, Show } from "@/lib/types";
 
@@ -293,9 +294,41 @@ export default function StewardSeFormPage() {
       setActionMsg("Select a judge");
       return;
     }
+    const activeShowId = showId;
+    const activeEvaluation = evaluation;
     setSaving(true);
     setActionMsg(markComplete ? "Marking complete…" : "Saving draft…");
     setActionError(false);
+
+    async function queueOfflineSave(message: string) {
+      await writeRecoverableSeDraft({
+        showId: activeShowId,
+        entryId,
+        evaluationId: activeEvaluation.id,
+        form: nextForm,
+        savedAt: new Date().toISOString(),
+        serverUpdatedAt: serverUpdatedAtRef.current,
+      });
+      await enqueueSeDraft({
+        id: `se-${activeEvaluation.id}`,
+        entryId,
+        showId: activeShowId,
+        evaluationId: activeEvaluation.id,
+        form: nextForm,
+        markComplete,
+        createdAt: new Date().toISOString(),
+      });
+      setActionError(true);
+      setActionMsg(message);
+      setAutosaveStatus("Queued on this device");
+    }
+
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      await queueOfflineSave("Offline — saved to sync queue");
+      setSaving(false);
+      return;
+    }
+
     try {
       const res = await fetch("/api/evaluations", {
         method: "PATCH",
@@ -330,7 +363,8 @@ export default function StewardSeFormPage() {
         setForm(data.evaluation.form);
         serverFingerprintRef.current = seFormFingerprint(data.evaluation.form);
         serverUpdatedAtRef.current = data.evaluation.updated_at;
-        await clearRecoverableSeDraft(showId, entryId);
+        await clearRecoverableSeDraft(activeShowId, entryId);
+        await removeQueuedSeDraft(`se-${activeEvaluation.id}`);
         setAutosaveStatus("Saved to desk");
       }
       const okMsg =
@@ -341,8 +375,7 @@ export default function StewardSeFormPage() {
       setActionMsg(okMsg);
       setStatus(okMsg);
     } catch {
-      setActionError(true);
-      setActionMsg("Network error — could not save");
+      await queueOfflineSave("Network error — saved to offline queue");
     } finally {
       setSaving(false);
     }
@@ -394,7 +427,7 @@ export default function StewardSeFormPage() {
           {showId && evaluation ? (
             <Button asChild variant="outline">
               <a
-                href={`/api/pdf/tnrk?kind=se&show_id=${showId}&evaluation_id=${evaluation.id}`}
+                href={`/api/pdf/tnrk?kind=se&show_id=${showId}&evaluation_id=${evaluation.id}&preview=1`}
                 target="_blank"
                 rel="noreferrer"
               >

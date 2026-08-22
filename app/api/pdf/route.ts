@@ -3,6 +3,11 @@ import { readStore } from "@/lib/store";
 import { buildAdrkRichterberichtPdf } from "@/lib/pdf/adrk-richterbericht";
 import { resolvePdfJudge } from "@/lib/domain/show-judges";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
+import {
+  DRAFT_PDF_PREVIEW_REQUIRED,
+  canPrintCertificate,
+  canServeDeskPdf,
+} from "@/lib/domain/print-documents";
 
 export async function GET(request: Request) {
   const auth = await requireApiSession();
@@ -12,6 +17,7 @@ export async function GET(request: Request) {
   const showId = searchParams.get("show_id");
   const critiqueId = searchParams.get("critique_id");
   const asDownload = searchParams.get("download") === "1";
+  const preview = searchParams.get("preview") === "1";
   if (!showId || !critiqueId) {
     return NextResponse.json({ error: "show_id and critique_id required" }, { status: 400 });
   }
@@ -26,6 +32,17 @@ export async function GET(request: Request) {
   const show = store.shows.find((s) => s.id === showId);
   if (!critique || !entry || !show) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if (
+    !canServeDeskPdf({
+      printable: canPrintCertificate(critique.status),
+      preview,
+    })
+  ) {
+    return NextResponse.json(
+      { error: DRAFT_PDF_PREVIEW_REQUIRED },
+      { status: 403 },
+    );
   }
 
   const placement = store.placements.find(
