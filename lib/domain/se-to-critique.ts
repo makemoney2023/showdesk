@@ -1,4 +1,8 @@
 import { createEmptyDraft, type DraftCritiqueSchema } from "@/lib/domain/adrk-template";
+import {
+  critiquesForEntry,
+  openCritiqueForEntry,
+} from "@/lib/domain/entry-cascade";
 import type { TnrkSeForm } from "@/lib/domain/tnrk-se-form";
 import type { CritiqueRecord } from "@/lib/types";
 
@@ -85,8 +89,72 @@ export function canSyncSeIntoCritique(
   critique: CritiqueRecord | undefined,
 ): boolean {
   if (!critique) return true;
-    if (critique.status === "APPROVED") {
+  if (critique.status === "APPROVED") {
     return false;
   }
   return true;
+}
+
+/**
+ * Copy ringside SE fields into the dog's open critique.
+ * Never creates a second queue item after a certificate is approved —
+ * recall first if the SE form should update that draft.
+ */
+export function syncSeIntoCritiques(
+  critiques: CritiqueRecord[],
+  showId: string,
+  entryId: string,
+  form: TnrkSeForm,
+  options: {
+    force: boolean;
+    newId: () => string;
+    now?: string;
+  },
+): CritiqueRecord[] {
+  const existing = openCritiqueForEntry(critiques, entryId, showId);
+  const approved = critiquesForEntry(critiques, entryId, showId).find(
+    (critique) => critique.status === "APPROVED",
+  );
+  if (!canSyncSeIntoCritique(existing ?? approved)) {
+    return critiques;
+  }
+
+  const seText = narrativeFromSeForm(form);
+  // Skip creating empty stubs until steward has typed something or completed.
+  if (!seText.trim() && !options.force) return critiques;
+
+  const draft = existing
+    ? mergeSeIntoCritiqueDraft(existing.draft, form)
+    : critiqueDraftFromSeForm(form);
+
+  const now = options.now ?? new Date().toISOString();
+  if (!existing) {
+    const created: CritiqueRecord = {
+      id: options.newId(),
+      show_id: showId,
+      entry_id: entryId,
+      status: "PENDING_REVIEW",
+      transcript: "Ringside SE form",
+      draft,
+      delivery_status: "pending",
+      created_at: now,
+      updated_at: now,
+    };
+    return [...critiques, created];
+  }
+
+  return critiques.map((critique) =>
+    critique.id === existing.id
+      ? {
+          ...critique,
+          draft,
+          transcript:
+            critique.transcript && !critique.transcript.startsWith("Ringside SE")
+              ? critique.transcript
+              : "Ringside SE form",
+          status: critique.status === "ERROR" ? "PENDING_REVIEW" : critique.status,
+          updated_at: now,
+        }
+      : critique,
+  );
 }

@@ -8,17 +8,12 @@ import {
   type TnrkSeForm,
 } from "@/lib/domain/tnrk-se-form";
 import { openCritiqueForEntry } from "@/lib/domain/entry-cascade";
-import {
-  critiqueDraftFromSeForm,
-  mergeSeIntoCritiqueDraft,
-  narrativeFromSeForm,
-} from "@/lib/domain/se-to-critique";
+import { syncSeIntoCritiques } from "@/lib/domain/se-to-critique";
 import {
   requireApiSession,
   requireApiWrite,
   isApiUnauthorized,
 } from "@/lib/auth/api-guard";
-import type { CritiqueRecord } from "@/lib/types";
 
 export async function GET(request: Request) {
   const auth = await requireApiSession();
@@ -92,55 +87,6 @@ export async function POST(request: Request) {
   return NextResponse.json({ evaluation }, { status: 201 });
 }
 
-function withSeSyncedCritique(
-  critiques: CritiqueRecord[],
-  showId: string,
-  entryId: string,
-  form: TnrkSeForm,
-  force: boolean,
-): CritiqueRecord[] {
-  const existing = openCritiqueForEntry(critiques, entryId, showId);
-
-  const seText = narrativeFromSeForm(form);
-  // Skip creating empty stubs until steward has typed something or completed.
-  if (!seText.trim() && !force) return critiques;
-
-  const draft = existing
-    ? mergeSeIntoCritiqueDraft(existing.draft, form)
-    : critiqueDraftFromSeForm(form);
-
-  const now = new Date().toISOString();
-  if (!existing) {
-    const created: CritiqueRecord = {
-      id: newId("critique"),
-      show_id: showId,
-      entry_id: entryId,
-      status: "PENDING_REVIEW",
-      transcript: "Ringside SE form",
-      draft,
-      delivery_status: "pending",
-      created_at: now,
-      updated_at: now,
-    };
-    return [...critiques, created];
-  }
-
-  return critiques.map((c) =>
-    c.id === existing.id
-      ? {
-          ...c,
-          draft,
-          transcript:
-            c.transcript && !c.transcript.startsWith("Ringside SE")
-              ? c.transcript
-              : "Ringside SE form",
-          status: c.status === "ERROR" ? "PENDING_REVIEW" : c.status,
-          updated_at: now,
-        }
-      : c,
-  );
-}
-
 export async function PATCH(request: Request) {
   const auth = await requireApiWrite();
   if (isApiUnauthorized(auth)) return auth;
@@ -184,12 +130,15 @@ export async function PATCH(request: Request) {
           }
         : e,
     );
-    const critiques = withSeSyncedCritique(
+    const critiques = syncSeIntoCritiques(
       s.critiques,
       body.show_id,
       evaluation.entry_id,
       nextForm,
-      nextStatus === "complete",
+      {
+        force: nextStatus === "complete",
+        newId: () => newId("critique"),
+      },
     );
     return { ...s, se_evaluations, critiques };
   });

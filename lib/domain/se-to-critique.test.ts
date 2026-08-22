@@ -5,6 +5,7 @@ import {
   critiqueDraftFromSeForm,
   mergeSeIntoCritiqueDraft,
   SE_SYNC_NOTE,
+  syncSeIntoCritiques,
 } from "./se-to-critique";
 import type { CritiqueRecord } from "@/lib/types";
 
@@ -71,5 +72,67 @@ describe("se-to-critique", () => {
     expect(
       canSyncSeIntoCritique(baseCritique({ status: "APPROVED" })),
     ).toBe(false);
+  });
+
+  it("creates a review draft from an SE form when the dog has no critique", () => {
+    const form = createEmptyTnrkSeForm();
+    form.comments = "Strong male, good type.";
+    form.final_result = "pass";
+    const next = syncSeIntoCritiques([], "s1", "e1", form, {
+      force: false,
+      newId: () => "c-se",
+      now: "2026-08-22T12:00:00.000Z",
+    });
+    expect(next).toHaveLength(1);
+    expect(next[0]?.id).toBe("c-se");
+    expect(next[0]?.status).toBe("PENDING_REVIEW");
+    expect(next[0]?.draft.narrative).toContain("Strong male");
+  });
+
+  it("does not spawn a second critique after the certificate is approved", () => {
+    const form = createEmptyTnrkSeForm();
+    form.comments = "Corrected bite note after approve.";
+    form.final_result = "pass";
+    const approved = baseCritique({
+      status: "APPROVED",
+      delivery_status: "pending",
+      draft: {
+        narrative: "Approved SE narrative",
+        formwert: null,
+        placement: null,
+        titles: [],
+        draftAssist: { note: SE_SYNC_NOTE },
+      },
+    });
+    const next = syncSeIntoCritiques([approved], "s1", "e1", form, {
+      force: true,
+      newId: () => "c-duplicate",
+    });
+    expect(next).toEqual([approved]);
+  });
+
+  it("merges SE updates into a recalled pending critique", () => {
+    const form = createEmptyTnrkSeForm();
+    form.comments = "Updated after recall.";
+    form.final_result = "pass";
+    const recalled = baseCritique({
+      status: "PENDING_REVIEW",
+      draft: {
+        narrative: "Approved then recalled",
+        formwert: null,
+        placement: null,
+        titles: [],
+        draftAssist: { note: "Draft assist only" },
+      },
+    });
+    const next = syncSeIntoCritiques([recalled], "s1", "e1", form, {
+      force: false,
+      newId: () => "unused",
+      now: "2026-08-22T13:00:00.000Z",
+    });
+    expect(next).toHaveLength(1);
+    expect(next[0]?.id).toBe("c1");
+    expect(next[0]?.draft.narrative).toContain("Approved then recalled");
+    expect(next[0]?.draft.narrative).toContain("Updated after recall");
   });
 });
