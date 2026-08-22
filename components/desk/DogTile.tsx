@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DogAvatar } from "@/components/desk/DogAvatar";
 import { StatusChip } from "@/components/status/StatusChip";
@@ -29,18 +29,11 @@ export function DogTile({
 }) {
   const query = contextQuery ? `?${contextQuery}` : "";
   const seOnly = eventKind === "se";
-  const primaryHref = seOnly
-    ? `/ringside/se/${entryId}${query}`
-    : `/ringside/record/${entryId}${query}`;
+  const seHref = `/ringside/se/${entryId}${query}`;
+  const recordHref = `/ringside/record/${entryId}${query}`;
   return (
-    <li className="sss-paper sss-interactive overflow-hidden">
-      <Link
-        href={primaryHref}
-        className="block p-4"
-        aria-label={
-          seOnly ? `Open SE form for ${dogName}` : `Record critique for ${dogName}`
-        }
-      >
+    <li className="sss-paper overflow-hidden">
+      <div className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
             <DogAvatar src={photoHref} />
@@ -54,20 +47,35 @@ export function DogTile({
           </div>
           <StatusChip label={statusLabel} tone={statusTone} />
         </div>
-        <p className="mt-3 text-sm font-medium text-sss-accent-deep">
-          {seOnly ? "Open SE form →" : "Record critique →"}
-        </p>
-      </Link>
-      {!seOnly ? (
-        <div className="border-t border-sss-border px-4 py-2">
-        <Button asChild variant="outline" size="sm">
-          <Link href={`/ringside/se/${entryId}${query}`}>
-            <ClipboardList className="h-3.5 w-3.5" />
-            SE form
-          </Link>
-        </Button>
-        </div>
-      ) : null}
+      </div>
+      <div className="space-y-2 border-t border-sss-border px-4 py-3">
+        {seOnly ? (
+          <Button asChild className="w-full">
+            <Link href={seHref} aria-label={`Open SE form for ${dogName}`}>
+              <ClipboardList className="h-3.5 w-3.5" />
+              Open SE form
+            </Link>
+          </Button>
+        ) : (
+          <>
+            <Button asChild className="w-full">
+              <Link
+                href={recordHref}
+                aria-label={`Record critique for ${dogName}`}
+              >
+                <Mic className="h-3.5 w-3.5" />
+                Record critique
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="w-full">
+              <Link href={seHref} aria-label={`Open SE form for ${dogName}`}>
+                <ClipboardList className="h-3.5 w-3.5" />
+                SE form
+              </Link>
+            </Button>
+          </>
+        )}
+      </div>
     </li>
   );
 }
