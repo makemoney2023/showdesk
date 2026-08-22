@@ -9,7 +9,7 @@ import {
   type ReactElement,
 } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -84,7 +84,12 @@ const GUN_LABELS: Record<(typeof GUNFIRE_OPTIONS)[number], string> = {
 
 export default function StewardSeFormPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const entryId = params.id as string;
+  const divisionParam = searchParams.get("division");
+  const ringsideHref = divisionParam
+    ? `/ringside?division=${encodeURIComponent(divisionParam)}`
+    : "/ringside";
   const ringsideJudge = useRingsideJudge();
   const [entry, setEntry] = useState<RosterEntryRecord | null>(null);
   const [showId, setShowId] = useState<string | null>(null);
@@ -385,7 +390,7 @@ export default function StewardSeFormPage() {
     return (
       <div className="space-y-4">
         <p className="text-sm text-sss-text-muted">{status}</p>
-        <BackLink href="/ringside">Back to dogs</BackLink>
+        <BackLink href={ringsideHref}>Back to dogs</BackLink>
       </div>
     );
   }
@@ -397,7 +402,7 @@ export default function StewardSeFormPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-8 pb-40">
-      <BackLink href="/ringside">Back to dogs</BackLink>
+      <BackLink href={ringsideHref}>Back to dogs</BackLink>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-wrap items-start gap-3">
           {showId && entry.photo_path ? (
@@ -422,7 +427,7 @@ export default function StewardSeFormPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline">
-            <Link href="/ringside">Ringside</Link>
+            <Link href={ringsideHref}>Ringside</Link>
           </Button>
           {showId && evaluation ? (
             <Button asChild variant="outline">

@@ -107,10 +107,6 @@ export function upsertPlacements(
   newId: () => string,
 ): PlacementRecord[] {
   const otherShows = existing.filter((p) => p.show_id !== showId);
-  const touched = new Set(rows.map((r) => r.entry_id));
-  const keptForShow = existing.filter(
-    (p) => p.show_id === showId && !touched.has(p.entry_id),
-  );
   const added: PlacementRecord[] = [];
   for (const row of rows) {
     if (row.placement === null) continue;
@@ -124,7 +120,9 @@ export function upsertPlacements(
       placement: row.placement,
     });
   }
-  return [...otherShows, ...keptForShow, ...added];
+  // PUT is a full-show replacement. Omitted rows are cleared, never silently
+  // preserved into a duplicate class/sex placement slot.
+  return [...otherShows, ...added];
 }
 
 /** Lower rank = better Formwert. Unrated / unknown sort last. */

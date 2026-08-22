@@ -46,6 +46,20 @@ ALTER TABLE public.placements
 ALTER TABLE public.placements
   ALTER COLUMN sex SET NOT NULL;
 
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM public.placements
+    GROUP BY show_id, class_id, sex, placement
+    HAVING count(*) > 1
+  ) THEN
+    RAISE EXCEPTION
+      'Cannot enforce placement divisions: duplicate class/sex places exist';
+  END IF;
+END;
+$$;
+
 CREATE UNIQUE INDEX IF NOT EXISTS placements_division_place_unique
   ON public.placements (show_id, class_id, sex, placement);
 
@@ -68,8 +82,12 @@ REVOKE ALL ON FUNCTION public.clear_placement_on_division_change()
 DROP TRIGGER IF EXISTS entries_clear_changed_division_placement
   ON public.entries;
 CREATE TRIGGER entries_clear_changed_division_placement
-AFTER UPDATE OF class_id, sex
+AFTER UPDATE OF show_id, class_id, sex
 ON public.entries
 FOR EACH ROW
-WHEN (OLD.class_id IS DISTINCT FROM NEW.class_id OR OLD.sex IS DISTINCT FROM NEW.sex)
+WHEN (
+  OLD.show_id IS DISTINCT FROM NEW.show_id OR
+  OLD.class_id IS DISTINCT FROM NEW.class_id OR
+  OLD.sex IS DISTINCT FROM NEW.sex
+)
 EXECUTE FUNCTION public.clear_placement_on_division_change();

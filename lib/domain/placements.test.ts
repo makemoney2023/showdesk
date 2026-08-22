@@ -74,6 +74,50 @@ describe("upsertPlacements", () => {
     );
     expect(next.filter((p) => p.show_id === "s1")).toHaveLength(0);
   });
+
+  it("treats rows as a full-show replacement", () => {
+    const existing: PlacementRecord[] = [
+      {
+        id: "p1",
+        show_id: "s1",
+        class_id: "zwischenklasse",
+        sex: "R",
+        entry_id: "e1",
+        placement: 1,
+      },
+      {
+        id: "p2",
+        show_id: "s1",
+        class_id: "zwischenklasse",
+        sex: "R",
+        entry_id: "e2",
+        placement: 2,
+      },
+    ];
+    const next = upsertPlacements(
+      existing,
+      "s1",
+      [
+        {
+          entry_id: "e2",
+          class_id: "zwischenklasse",
+          sex: "R",
+          placement: 1,
+        },
+      ],
+      () => "p-new",
+    );
+    expect(next.filter((placement) => placement.show_id === "s1")).toEqual([
+      {
+        id: "p-new",
+        show_id: "s1",
+        class_id: "zwischenklasse",
+        sex: "R",
+        entry_id: "e2",
+        placement: 1,
+      },
+    ]);
+  });
 });
 
 describe("formwertSortRank", () => {
