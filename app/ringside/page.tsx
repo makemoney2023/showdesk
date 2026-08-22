@@ -3,16 +3,19 @@
 import { useCallback, useEffect, useState } from "react";
 import { deskLoadState } from "@/lib/domain/desk-load-state";
 import {
-  catalogDivisionLabel,
   competitionDaysWithEntries,
-  competitionPoolKey,
   competitionPoolsWithDogs,
   defaultCompetitionDay,
   localCalendarIso,
 } from "@/lib/domain/catalog-competition";
-import { dogRecordMatchesSearch } from "@/lib/domain/dog-search";
 import { CompetitionDayFilter } from "@/components/desk/CompetitionDayFilter";
 import { CompetitionPoolFilterChips } from "@/components/desk/CompetitionPoolFilterChips";
+import {
+  isRingsideSearchActive,
+  ringsideEntryContextQuery,
+  ringsideTileClassLabel,
+  visibleRingsideEntries,
+} from "@/lib/domain/ringside-roster";
 import {
   critiqueChipTone,
   labelCritiqueStatus,
@@ -106,26 +109,12 @@ export default function RingsidePage() {
     poolFilter === "all" || pools.some((pool) => pool.key === poolFilter)
       ? poolFilter
       : "all";
-  const poolOrder = new Map(pools.map((pool, index) => [pool.key, index]));
-  const filtered = dayEntries
-    .filter(
-      (entry) =>
-        activePool === "all" || competitionPoolKey(entry) === activePool,
-    )
-    .filter((entry) => dogRecordMatchesSearch(search, entry))
-    .toSorted((a, b) => {
-      const poolDifference =
-        (poolOrder.get(competitionPoolKey(a) ?? "") ?? 99) -
-        (poolOrder.get(competitionPoolKey(b) ?? "") ?? 99);
-      return (
-        poolDifference ||
-        a.armband.localeCompare(b.armband, undefined, { numeric: true })
-      );
-    });
-  const contextParams = new URLSearchParams();
-  if (activeDay) contextParams.set("date", activeDay);
-  if (activePool !== "all") contextParams.set("pool", activePool);
-  const contextQuery = contextParams.toString();
+  const searching = isRingsideSearchActive(search);
+  const filtered = visibleRingsideEntries(entries, {
+    search,
+    activeDay,
+    activePool,
+  });
 
   return (
     <div className="space-y-6">
@@ -158,7 +147,13 @@ export default function RingsidePage() {
           value={search}
           onChange={setSearch}
           aria-label="Search dogs"
+          placeholder="Search all days — armband, dog, or owner"
         />
+        {searching ? (
+          <p className="text-xs text-sss-text-muted" role="status">
+            Showing matches from all days
+          </p>
+        ) : null}
         <CompetitionPoolFilterChips
           pools={pools}
           value={activePool}
@@ -179,8 +174,12 @@ export default function RingsidePage() {
               entryId={e.id}
               armband={e.armband}
               dogName={e.dog_name}
-              classLabel={catalogDivisionLabel(e)}
-              contextQuery={contextQuery}
+              classLabel={ringsideTileClassLabel(e, search)}
+              contextQuery={ringsideEntryContextQuery(e, {
+                search,
+                activeDay,
+                activePool,
+              })}
               statusLabel={
                 e.event_kind === "se"
                   ? "SE entry"
