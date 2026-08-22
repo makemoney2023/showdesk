@@ -95,7 +95,7 @@ test.describe("happy path", () => {
     await expect(
       page.getByRole("heading", { name: /Rex Happy Path/ }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Select all approved" }).click();
+    await page.getByRole("button", { name: "Select all printable" }).click();
     await expect(
       page.getByRole("link", { name: "Print selected certificates" }),
     ).toBeVisible();

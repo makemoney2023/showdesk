@@ -26,14 +26,14 @@ describe("critique-status", () => {
     expect(isReviewable("ERROR")).toBe(false);
   });
 
-  it("includes ERROR in the default desk-attention queue", () => {
+  it("includes ERROR and PROCESSING in the default desk-attention queue", () => {
     expect(needsDeskAttention("PENDING_REVIEW")).toBe(true);
     expect(needsDeskAttention("ERROR")).toBe(true);
-    expect(needsDeskAttention("PROCESSING")).toBe(false);
+    expect(needsDeskAttention("PROCESSING")).toBe(true);
     expect(needsDeskAttention("APPROVED")).toBe(false);
     expect(
       deskAttentionCount(["PENDING_REVIEW", "ERROR", "APPROVED", "PROCESSING"]),
-    ).toBe(2);
+    ).toBe(3);
   });
 
   it("counts only reviewable statuses for the badge and queue heading", () => {

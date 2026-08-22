@@ -14,7 +14,7 @@ import {
   deskNextAction,
   deskSecondaryActions,
 } from "@/lib/domain/desk-next-action";
-import { pendingReviewCount } from "@/lib/domain/critique-status";
+import { deskAttentionCount } from "@/lib/domain/critique-status";
 import { recentDeskActivity } from "@/lib/domain/desk-activity";
 import { formatDisplayDate } from "@/lib/domain/show-day";
 import { formatShowJudges, syncShowJudges } from "@/lib/domain/show-judges";
@@ -60,7 +60,7 @@ export function DeskHome() {
     setEntries(entries);
     setCritiques(critiques);
     setEntryCount(entries.length);
-    setPendingCount(pendingReviewCount(critiques.map((c) => c.status)));
+    setPendingCount(deskAttentionCount(critiques.map((c) => c.status)));
     const critByEntry = new Set(critiques.map((c) => c.entry_id));
     setGapCount(entries.filter((e) => !critByEntry.has(e.id)).length);
   }, []);

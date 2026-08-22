@@ -7,8 +7,8 @@ import {
   validateTnrkSeFormForPass,
   type TnrkSeForm,
 } from "@/lib/domain/tnrk-se-form";
+import { openCritiqueForEntry } from "@/lib/domain/entry-cascade";
 import {
-  canSyncSeIntoCritique,
   critiqueDraftFromSeForm,
   mergeSeIntoCritiqueDraft,
   narrativeFromSeForm,
@@ -88,22 +88,6 @@ export async function POST(request: Request) {
   return NextResponse.json({ evaluation }, { status: 201 });
 }
 
-function findSeSyncTarget(
-  critiques: CritiqueRecord[],
-  showId: string,
-  entryId: string,
-): CritiqueRecord | undefined {
-  const forEntry = critiques.filter(
-    (c) => c.entry_id === entryId && c.show_id === showId,
-  );
-  // Prefer an open review item; never mutate an already-approved critique.
-  return (
-    forEntry.find((c) => c.status === "PENDING_REVIEW") ??
-    forEntry.find((c) => c.status === "PROCESSING" || c.status === "ERROR") ??
-    forEntry.find((c) => canSyncSeIntoCritique(c))
-  );
-}
-
 function withSeSyncedCritique(
   critiques: CritiqueRecord[],
   showId: string,
@@ -111,7 +95,7 @@ function withSeSyncedCritique(
   form: TnrkSeForm,
   force: boolean,
 ): CritiqueRecord[] {
-  const existing = findSeSyncTarget(critiques, showId, entryId);
+  const existing = openCritiqueForEntry(critiques, entryId, showId);
 
   const seText = narrativeFromSeForm(form);
   // Skip creating empty stubs until steward has typed something or completed.
@@ -215,10 +199,10 @@ export async function PATCH(request: Request) {
       { status: 500 },
     );
   }
-  const syncedCritique = findSeSyncTarget(
+  const syncedCritique = openCritiqueForEntry(
     storeAfter.critiques,
-    body.show_id,
     evaluation.entry_id,
+    body.show_id,
   );
   return NextResponse.json({
     evaluation: updated,

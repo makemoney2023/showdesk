@@ -9,6 +9,8 @@ import {
 import { filterByShow } from "@/lib/domain/show-scope";
 import { processCritique } from "@/lib/pipeline/process-critique";
 import { canTransition } from "@/lib/domain/critique-status";
+import { openCritiqueForEntry } from "@/lib/domain/entry-cascade";
+import { mergeSeIntoCritiqueDraft } from "@/lib/domain/se-to-critique";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
 import { readJsonBody } from "@/lib/api/read-json";
 import type { DraftCritiqueSchema } from "@/lib/domain/adrk-template";
@@ -61,27 +63,53 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Entry not found" }, { status: 404 });
   }
 
-  const critiqueId = newId("critique");
+  const existing = openCritiqueForEntry(
+    store.critiques,
+    body.entry_id,
+    body.show_id,
+  );
+  const critiqueId = existing?.id ?? newId("critique");
   const now = new Date().toISOString();
+  const judge = (body.judge ?? "").trim() || existing?.judge;
 
-  await updateStore((s) => ({
-    ...s,
-    critiques: [
-      ...s.critiques,
-      {
-        id: critiqueId,
-        show_id: body.show_id,
-        entry_id: body.entry_id,
-        status: "PROCESSING",
-        transcript: "",
-        draft: { narrative: "", formwert: null, placement: null, titles: [] },
-        delivery_status: "blocked",
-        created_at: now,
-        updated_at: now,
-        judge: (body.judge ?? "").trim() || undefined,
-      },
-    ],
-  }));
+  await updateStore((s) => {
+    if (existing) {
+      return {
+        ...s,
+        critiques: s.critiques.map((c) =>
+          c.id === critiqueId
+            ? {
+                ...c,
+                status: canTransition(c.status, "PROCESSING")
+                  ? ("PROCESSING" as const)
+                  : c.status,
+                error_message: undefined,
+                updated_at: now,
+                judge: judge || c.judge,
+              }
+            : c,
+        ),
+      };
+    }
+    return {
+      ...s,
+      critiques: [
+        ...s.critiques,
+        {
+          id: critiqueId,
+          show_id: body.show_id,
+          entry_id: body.entry_id,
+          status: "PROCESSING" as const,
+          transcript: "",
+          draft: { narrative: "", formwert: null, placement: null, titles: [] },
+          delivery_status: "blocked" as const,
+          created_at: now,
+          updated_at: now,
+          judge: judge || undefined,
+        },
+      ],
+    };
+  });
 
   try {
     let audioPath: string | undefined;
@@ -100,9 +128,18 @@ export async function POST(request: Request) {
       showId: body.show_id,
     });
 
-    const placement = (await readStore()).placements.find(
+    const latest = await readStore();
+    const placement = latest.placements.find(
       (p) => p.entry_id === body.entry_id && p.show_id === body.show_id,
     );
+    const se = (latest.se_evaluations ?? []).find(
+      (evaluation) =>
+        evaluation.entry_id === body.entry_id &&
+        evaluation.show_id === body.show_id,
+    );
+    const draft = se
+      ? mergeSeIntoCritiqueDraft(result.draft, se.form)
+      : result.draft;
 
     await updateStore((s) => ({
       ...s,
@@ -113,10 +150,10 @@ export async function POST(request: Request) {
               status: "PENDING_REVIEW" as const,
               transcript: result.transcript,
               draft: {
-                ...result.draft,
-                placement: placement?.placement ?? result.draft.placement,
+                ...draft,
+                placement: placement?.placement ?? draft.placement,
               },
-              audio_path: audioPath,
+              audio_path: audioPath ?? c.audio_path,
               updated_at: new Date().toISOString(),
             }
           : c,

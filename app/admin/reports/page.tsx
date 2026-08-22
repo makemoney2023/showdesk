@@ -17,6 +17,7 @@ import {
   type ReportDocumentLink,
 } from "@/lib/domain/report-documents";
 import { dogRecordMatchesSearch } from "@/lib/domain/dog-search";
+import { primaryCritiqueForEntry } from "@/lib/domain/entry-cascade";
 import {
   printBundleDisabledReason,
   printableEntryIdsForDoc,
@@ -128,7 +129,11 @@ export default function AdminReportsPage() {
         a.armband.localeCompare(b.armband, undefined, { numeric: true }),
       )
       .map((entry) => {
-        const critique = critiques.find((c) => c.entry_id === entry.id);
+        const critique = primaryCritiqueForEntry(
+          critiques,
+          entry.id,
+          showId,
+        );
         const se = evaluations.find((e) => e.entry_id === entry.id);
         const placement = placements.find((p) => p.entry_id === entry.id);
         const documents = buildReportDocumentsForDog({
@@ -230,6 +235,7 @@ export default function AdminReportsPage() {
               ["ready", "Ready"],
               ["missing", "Missing"],
               ["delivery_failed", "Delivery failed"],
+              ["delivery_blocked", "No email"],
             ] as const
           ).map(([value, label]) => (
             <Button
@@ -251,7 +257,7 @@ export default function AdminReportsPage() {
               variant="outline"
               onClick={() => setSelectedIds(allPrintableIds)}
             >
-              Select all approved
+              Select all printable
             </Button>
             <PrintBundleButton
               label="Print selected SE forms"
@@ -296,6 +302,7 @@ export default function AdminReportsPage() {
                     }) ? (
                       <Checkbox
                         checked={selectedIds.includes(entry.id)}
+                        onPointerDown={(event) => event.stopPropagation()}
                         onClick={(event) => event.stopPropagation()}
                         onCheckedChange={(value) =>
                           toggleSelected(entry.id, value === true)

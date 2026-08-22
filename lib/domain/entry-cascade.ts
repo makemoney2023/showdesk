@@ -11,6 +11,51 @@ export function critiquesForEntry(
   );
 }
 
+function newestFirst(a: CritiqueRecord, b: CritiqueRecord): number {
+  return b.updated_at.localeCompare(a.updated_at);
+}
+
+/** Latest critique for ringside status and generic lookups. */
+export function newestCritiqueForEntry(
+  critiques: CritiqueRecord[],
+  entryId: string,
+  showId: string,
+): CritiqueRecord | undefined {
+  return [...critiquesForEntry(critiques, entryId, showId)].sort(newestFirst)[0];
+}
+
+/**
+ * Open critique that SE sync and a later audio recording must reuse.
+ * Never returns an approved record — those must not be overwritten.
+ */
+export function openCritiqueForEntry(
+  critiques: CritiqueRecord[],
+  entryId: string,
+  showId: string,
+): CritiqueRecord | undefined {
+  const forEntry = critiquesForEntry(critiques, entryId, showId);
+  return (
+    forEntry.find((critique) => critique.status === "PENDING_REVIEW") ??
+    forEntry.find((critique) => critique.status === "ERROR") ??
+    forEntry.find((critique) => critique.status === "PROCESSING")
+  );
+}
+
+/**
+ * Reports / print: prefer an approved certificate, else the newest row.
+ */
+export function primaryCritiqueForEntry(
+  critiques: CritiqueRecord[],
+  entryId: string,
+  showId: string,
+): CritiqueRecord | undefined {
+  const forEntry = critiquesForEntry(critiques, entryId, showId);
+  const approved = forEntry
+    .filter((critique) => critique.status === "APPROVED")
+    .sort(newestFirst)[0];
+  return approved ?? newestCritiqueForEntry(critiques, entryId, showId);
+}
+
 /**
  * Wipe a roster row and its critiques, placements, and SE evaluations.
  * Matches Postgres ON DELETE CASCADE so demo file-store behaves the same.

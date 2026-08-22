@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Mic } from "lucide-react";
-import { pendingReviewCount } from "@/lib/domain/critique-status";
+import { deskAttentionCount } from "@/lib/domain/critique-status";
 import { RingsideJudgeProvider, useRingsideJudge } from "@/components/ringside/RingsideJudgeContext";
 import { ToastHost } from "@/components/feedback/toast";
 import {
@@ -77,7 +77,7 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
     }
     if (!critRes.ok) return;
     const critData = (await critRes.json()) as { critiques: CritiqueRecord[] };
-    setPendingCount(pendingReviewCount(critData.critiques.map((c) => c.status)));
+    setPendingCount(deskAttentionCount(critData.critiques.map((c) => c.status)));
   }, []);
 
   const refreshQueue = useCallback(async () => {

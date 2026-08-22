@@ -221,7 +221,7 @@ export async function buildTnrkSePdf(form: TnrkSeForm): Promise<Uint8Array> {
   // Appearance
   const appearanceLines = wrap(form.overall_appearance, 90);
   appearanceLines.slice(0, 6).forEach((line, i) => {
-    draw(line, 48, yFromTop(462 + i * 11), 8);
+    draw(line, 48, yFromTop(462 + i * 11), 8, 569);
   });
 
   // Ratings — optionText.xMin − ~3 (pdftotext -bbox)

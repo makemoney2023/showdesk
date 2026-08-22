@@ -29,9 +29,13 @@ export function isReviewable(status: CritiqueStatus): boolean {
   return status === "PENDING_REVIEW";
 }
 
-/** Default review queue: drafts waiting for the secretary plus failed processing. */
+/** Default review queue: drafts, failed processing, and in-flight work. */
 export function needsDeskAttention(status: CritiqueStatus): boolean {
-  return status === "PENDING_REVIEW" || status === "ERROR";
+  return (
+    status === "PENDING_REVIEW" ||
+    status === "ERROR" ||
+    status === "PROCESSING"
+  );
 }
 
 export function pendingReviewCount(statuses: Iterable<CritiqueStatus>): number {

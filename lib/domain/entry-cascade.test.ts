@@ -3,8 +3,12 @@ import { EMPTY_STORE } from "@/lib/types";
 import { createEmptyTnrkSeForm } from "./tnrk-se-form";
 import {
   critiquesForEntry,
+  newestCritiqueForEntry,
+  openCritiqueForEntry,
+  primaryCritiqueForEntry,
   removeEntryAndChildren,
 } from "./entry-cascade";
+import type { CritiqueRecord } from "@/lib/types";
 
 const showId = "show-1";
 const entryId = "entry-1";
@@ -89,5 +93,52 @@ describe("removeEntryAndChildren", () => {
     expect(
       critiquesForEntry(store.critiques, entryId, showId).map((c) => c.audio_path),
     ).toEqual(["show-1/c1.webm"]);
+  });
+});
+
+describe("critique selection for one dog", () => {
+  function row(
+    overrides: Partial<CritiqueRecord> & Pick<CritiqueRecord, "id" | "status">,
+  ): CritiqueRecord {
+    return {
+      show_id: showId,
+      entry_id: entryId,
+      transcript: "",
+      draft: { narrative: "", formwert: null, placement: null, titles: [] },
+      delivery_status: "pending",
+      created_at: "t",
+      updated_at: "t",
+      ...overrides,
+    };
+  }
+
+  it("reuses the open SE stub instead of a later approved sibling", () => {
+    const critiques = [
+      row({ id: "old-se", status: "PENDING_REVIEW", updated_at: "1" }),
+      row({ id: "approved", status: "APPROVED", updated_at: "2" }),
+    ];
+    expect(openCritiqueForEntry(critiques, entryId, showId)?.id).toBe("old-se");
+    expect(primaryCritiqueForEntry(critiques, entryId, showId)?.id).toBe(
+      "approved",
+    );
+  });
+
+  it("prefers ERROR over PROCESSING when choosing a recording target", () => {
+    const critiques = [
+      row({ id: "proc", status: "PROCESSING" }),
+      row({ id: "err", status: "ERROR" }),
+    ];
+    expect(openCritiqueForEntry(critiques, entryId, showId)?.id).toBe("err");
+  });
+
+  it("uses the newest critique when none are approved", () => {
+    const critiques = [
+      row({ id: "older", status: "PENDING_REVIEW", updated_at: "1" }),
+      row({ id: "newer", status: "ERROR", updated_at: "3" }),
+    ];
+    expect(newestCritiqueForEntry(critiques, entryId, showId)?.id).toBe("newer");
+    expect(primaryCritiqueForEntry(critiques, entryId, showId)?.id).toBe(
+      "newer",
+    );
   });
 });

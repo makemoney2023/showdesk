@@ -11,6 +11,7 @@ import {
   canPrintSe,
   parsePrintBundleRequest,
 } from "@/lib/domain/print-documents";
+import { primaryCritiqueForEntry } from "@/lib/domain/entry-cascade";
 
 export async function GET(request: Request) {
   const auth = await requireApiSession();
@@ -58,8 +59,10 @@ export async function GET(request: Request) {
         if (!evaluation || !canPrintSe(evaluation.status)) continue;
         parts.push(await buildTnrkSePdf(evaluation.form));
       } else {
-        const critique = store.critiques.find(
-          (item) => item.entry_id === entry.id && item.show_id === showId,
+        const critique = primaryCritiqueForEntry(
+          store.critiques,
+          entry.id,
+          showId,
         );
         if (!critique || !canPrintCertificate(critique.status)) continue;
         const se = (store.se_evaluations ?? []).find(
@@ -163,8 +166,10 @@ export async function GET(request: Request) {
     const se = (store.se_evaluations ?? []).find(
       (e) => e.entry_id === entry.id && e.show_id === showId,
     );
-    const critique = store.critiques.find(
-      (c) => c.entry_id === entry.id && c.show_id === showId,
+    const critique = primaryCritiqueForEntry(
+      store.critiques,
+      entry.id,
+      showId,
     );
     const pdfBytes = await buildTnrkAwardPdf({
       date: show.date,
