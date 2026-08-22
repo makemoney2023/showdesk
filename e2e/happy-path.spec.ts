@@ -62,6 +62,9 @@ test.describe("happy path", () => {
       page.getByRole("link", { name: "Record critique for Bella Division Test" }),
     ).toBeVisible();
     await expect(
+      page.getByRole("link", { name: "Open SE form for Rex Happy Path" }),
+    ).toBeVisible();
+    await expect(
       page.getByRole("button", { name: /Unscheduled conformation/ }),
     ).toBeVisible();
     await expect(

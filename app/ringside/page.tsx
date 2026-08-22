@@ -180,7 +180,6 @@ export default function RingsidePage() {
               armband={e.armband}
               dogName={e.dog_name}
               classLabel={catalogDivisionLabel(e)}
-              eventKind={e.event_kind}
               contextQuery={contextQuery}
               statusLabel={
                 e.event_kind === "se"
