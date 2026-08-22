@@ -4,6 +4,10 @@ import type {
   RulebookTemplate,
 } from "@/lib/domain/adrk-template";
 import type { DogSex } from "@/lib/domain/class-division";
+import type {
+  CatalogClassId,
+  CatalogEventKind,
+} from "@/lib/domain/catalog-competition";
 import type { CritiqueStatus } from "@/lib/domain/critique-status";
 import type { TnrkSeForm } from "@/lib/domain/tnrk-se-form";
 import type { AppStore } from "@/lib/types";
@@ -33,6 +37,9 @@ export interface EntryRow {
   email: string;
   sex: DogSex;
   class_id: AdrkClassId;
+  event_kind?: CatalogEventKind | null;
+  competition_day?: string | null;
+  catalog_class?: CatalogClassId | "standard-evaluation" | null;
   photo_path: string | null;
   sire?: string | null;
   dam?: string | null;
@@ -64,6 +71,8 @@ export interface PlacementRow {
   show_id: string;
   class_id: AdrkClassId;
   sex: DogSex;
+  competition_day?: string | null;
+  catalog_class?: CatalogClassId | null;
   entry_id: string;
   placement: 1 | 2 | 3 | 4;
 }

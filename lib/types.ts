@@ -4,6 +4,10 @@ import type { CritiqueStatus } from "@/lib/domain/critique-status";
 import type { RulebookTemplate } from "@/lib/domain/adrk-template";
 import type { DeskRole } from "@/lib/auth/roles";
 import type { DogSex } from "@/lib/domain/class-division";
+import type {
+  CatalogClassId,
+  CatalogEventKind,
+} from "@/lib/domain/catalog-competition";
 import type { TnrkSeForm } from "@/lib/domain/tnrk-se-form";
 
 export interface Show {
@@ -28,6 +32,9 @@ export interface RosterEntryRecord {
   owner: string;
   sex: DogSex;
   class_id: AdrkClassId;
+  event_kind?: CatalogEventKind;
+  competition_day?: string;
+  catalog_class?: CatalogClassId | "standard-evaluation";
   email: string;
   photo_path?: string;
   /** Catalog pedigree / SE seed fields (optional for older imports). */
@@ -59,6 +66,8 @@ export interface PlacementRecord {
   show_id: string;
   class_id: AdrkClassId;
   sex: DogSex;
+  competition_day?: string;
+  catalog_class?: CatalogClassId;
   entry_id: string;
   placement: 1 | 2 | 3 | 4;
 }

@@ -40,6 +40,9 @@ const entry: RosterEntryRecord = {
   owner: "Pat Owner",
   sex: "R",
   class_id: "zwischenklasse",
+  event_kind: "conformation",
+  competition_day: "2026-09-05",
+  catalog_class: "youth-i",
   email: "pat@example.com",
 };
 
@@ -60,6 +63,8 @@ const placement: PlacementRecord = {
   show_id: "show-1",
   class_id: "zwischenklasse",
   sex: "R",
+  competition_day: "2026-09-05",
+  catalog_class: "youth-i",
   entry_id: "entry-1",
   placement: 1,
 };

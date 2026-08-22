@@ -4,9 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { formatAdrkFormwert } from "@/lib/domain/adrk-template";
 import {
-  divisionLabel,
-  divisionsWithDogs,
-} from "@/lib/domain/class-division";
+  competitionPoolKey,
+  competitionPoolsWithDogs,
+  isConformationEntry,
+} from "@/lib/domain/catalog-competition";
 import {
   assignClassPlacement,
   placementsSuggestedFromFormwert,
@@ -83,16 +84,24 @@ export default function PlacementsPage() {
     [critiques],
   );
 
-  const byDivision = divisionsWithDogs(entries).map((division) => ({
-    ...division,
+  const byPool = competitionPoolsWithDogs(entries).map((pool) => ({
+    ...pool,
     dogs: sortDogsForPlacement(
       entries.filter(
-        (entry) =>
-          entry.class_id === division.class_id && entry.sex === division.sex,
+        (entry) => competitionPoolKey(entry) === pool.key,
       ),
       formwertByEntry,
     ),
   }));
+  const dayGroups = [...new Set(byPool.map((pool) => pool.competitionDay))].map(
+    (competitionDay) => ({
+      competitionDay,
+      dayLabel:
+        byPool.find((pool) => pool.competitionDay === competitionDay)
+          ?.dayLabel ?? competitionDay,
+      pools: byPool.filter((pool) => pool.competitionDay === competitionDay),
+    }),
+  );
 
   function applySortByRating() {
     const suggested = placementsSuggestedFromFormwert(entries, formwertByEntry);
@@ -102,7 +111,7 @@ export default function PlacementsPage() {
     }
     setPlacements(next);
     setStatus("Sorted by rating — review, then Save placements");
-    pushToast("Placements filled from rating order within each division");
+    pushToast("Placements filled within each day, class, and sex division");
   }
 
   async function save() {
@@ -131,13 +140,18 @@ export default function PlacementsPage() {
     await load();
   }
 
-  const ratedCount = Object.values(formwertByEntry).filter(Boolean).length;
+  const conformationIds = new Set(
+    entries.filter(isConformationEntry).map((entry) => entry.id),
+  );
+  const ratedCount = Object.entries(formwertByEntry).filter(
+    ([entryId, rating]) => conformationIds.has(entryId) && Boolean(rating),
+  ).length;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Division placements"
-        description="Male and female divisions are separate. Auto-sort fills places 1–4 from ratings within each division."
+        description="Saturday and Sunday are independent competitions. Auto-sort fills places 1–4 within each day, class, and sex division."
         actions={
           <>
             <Button
@@ -160,18 +174,28 @@ export default function PlacementsPage() {
           No ratings yet — set them in Review, then Auto-sort becomes available.
         </p>
       ) : null}
-      {byDivision.map((division) =>
-        division.dogs.length > 0 ? (
-          <section key={division.key} className="sss-paper p-5">
-            <h2 className="font-medium">{divisionLabel(division)}</h2>
-            <p className="text-xs text-sss-text-muted">
-              {division.count} dog{division.count === 1 ? "" : "s"} · separate
-              placement pool
+      {dayGroups.map((day) => (
+        <section key={day.competitionDay || "unscheduled"} className="space-y-3">
+          <div className="border-b border-sss-border pb-2">
+            <p className="sss-eyebrow text-sss-accent-deep">
+              Independent competition
             </p>
-            <ul className="mt-3 space-y-3">
-              {division.dogs.map((dog) => {
+            <h2 className="font-[family-name:var(--font-fraunces)] text-2xl font-semibold">
+              {day.dayLabel}
+            </h2>
+          </div>
+          {day.pools.map((pool) =>
+            pool.dogs.length > 0 ? (
+              <section key={pool.key} className="sss-paper p-5">
+                <h3 className="font-medium">{pool.label}</h3>
+                <p className="text-xs text-sss-text-muted">
+                  {pool.count} dog{pool.count === 1 ? "" : "s"} · separate
+                  placement pool
+                </p>
+                <ul className="mt-3 space-y-3">
+                  {pool.dogs.map((dog) => {
                 const formwert = formwertByEntry[dog.id];
-                const divisionIds = division.dogs.map((item) => item.id);
+                    const poolIds = pool.dogs.map((item) => item.id);
                 return (
                   <li
                     key={dog.id}
@@ -209,7 +233,7 @@ export default function PlacementsPage() {
                                   p,
                                   dog.id,
                                   n as 1 | 2 | 3 | 4,
-                                  divisionIds,
+                                  poolIds,
                                 ),
                               )
                             }
@@ -221,11 +245,13 @@ export default function PlacementsPage() {
                     </div>
                   </li>
                 );
-              })}
-            </ul>
-          </section>
-        ) : null,
-      )}
+                  })}
+                </ul>
+              </section>
+            ) : null,
+          )}
+        </section>
+      ))}
     </div>
   );
 }

@@ -71,6 +71,9 @@ export function toEntryRow(entry: RosterEntryRecord): EntryRow {
     email: entry.email,
     sex: entry.sex,
     class_id: entry.class_id,
+    event_kind: entry.event_kind ?? null,
+    competition_day: entry.competition_day ?? null,
+    catalog_class: entry.catalog_class ?? null,
     photo_path: entry.photo_path ?? null,
     sire: entry.sire ?? null,
     dam: entry.dam ?? null,
@@ -92,6 +95,11 @@ export function mapEntryRow(row: EntryRow): RosterEntryRecord {
     email: row.email,
     sex: row.sex,
     class_id: row.class_id,
+    ...(row.event_kind ? { event_kind: row.event_kind } : {}),
+    ...(row.competition_day
+      ? { competition_day: row.competition_day }
+      : {}),
+    ...(row.catalog_class ? { catalog_class: row.catalog_class } : {}),
     photo_path: optionalText(row.photo_path),
     ...(row.sire ? { sire: row.sire } : {}),
     ...(row.dam ? { dam: row.dam } : {}),
@@ -143,6 +151,8 @@ export function toPlacementRow(placement: PlacementRecord): PlacementRow {
     show_id: placement.show_id,
     class_id: placement.class_id,
     sex: placement.sex,
+    competition_day: placement.competition_day ?? null,
+    catalog_class: placement.catalog_class ?? null,
     entry_id: placement.entry_id,
     placement: placement.placement,
   };
@@ -154,6 +164,10 @@ export function mapPlacementRow(row: PlacementRow): PlacementRecord {
     show_id: row.show_id,
     class_id: row.class_id,
     sex: row.sex,
+    ...(row.competition_day
+      ? { competition_day: row.competition_day }
+      : {}),
+    ...(row.catalog_class ? { catalog_class: row.catalog_class } : {}),
     entry_id: row.entry_id,
     placement: row.placement,
   };
