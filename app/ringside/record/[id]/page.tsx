@@ -25,7 +25,8 @@ import {
   type ScreenWakeLock,
 } from "@/lib/client/screen-wake-lock";
 import { microphoneErrorLabel } from "@/lib/domain/recording-readiness";
-import type { RosterEntryRecord, Show } from "@/lib/types";
+import { recordingBlockedReason } from "@/lib/domain/entry-cascade";
+import type { CritiqueRecord, RosterEntryRecord, Show } from "@/lib/types";
 import {
   CheckCircle2,
   LoaderCircle,
@@ -66,6 +67,7 @@ export default function RecordPage() {
     "Test the microphone before the class starts.",
   );
   const [wakeLockActive, setWakeLockActive] = useState(false);
+  const [approvedBlock, setApprovedBlock] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -120,6 +122,21 @@ export default function RecordPage() {
       const data = (await res.json()) as { entries: RosterEntryRecord[] };
       setEntries(data.entries);
       setEntry(data.entries.find((e) => e.id === entryId) ?? null);
+      const critRes = await fetch(
+        `/api/critiques?show_id=${showData.active_show_id}`,
+      );
+      if (critRes.ok) {
+        const critData = (await critRes.json()) as {
+          critiques: CritiqueRecord[];
+        };
+        setApprovedBlock(
+          recordingBlockedReason(
+            critData.critiques,
+            entryId,
+            showData.active_show_id,
+          ),
+        );
+      }
       setEntryLoaded(true);
     }
     void loadEntry();
@@ -212,6 +229,10 @@ export default function RecordPage() {
     }
     if (!canRecordWithJudge(judge, judges)) {
       setStatus("Select a judge");
+      return;
+    }
+    if (approvedBlock) {
+      setStatus(approvedBlock);
       return;
     }
     // Mic permission + live STT connect can take seconds; a second tap in
@@ -440,6 +461,16 @@ export default function RecordPage() {
       if (res.ok) {
         setStatus("Sent to review queue");
         router.push(nextRecordingHref());
+      } else if (res.status === 409) {
+        // Approved while we were recording. Queueing would poison the sync
+        // queue until a recall, so surface the reason instead.
+        const data = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        const reason =
+          data?.error ?? "Critique already approved — recall it to re-record";
+        setApprovedBlock(reason);
+        setStatus(reason);
       } else {
         await queueRecording("Upload failed — queued offline");
       }
@@ -473,7 +504,9 @@ export default function RecordPage() {
     setStatus(formatQueueSyncStatus(result));
   }
 
-  const canStart = Boolean(entry && canRecordWithJudge(judge, judges));
+  const canStart = Boolean(
+    entry && canRecordWithJudge(judge, judges) && !approvedBlock,
+  );
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
@@ -501,6 +534,18 @@ export default function RecordPage() {
       {entryLoaded && !entry ? <EmptyDesk variant="no-entry" /> : null}
       {entry && !canRecordWithJudge(judge, judges) ? (
         <EmptyDesk variant="select-judge" />
+      ) : null}
+      {entry && approvedBlock ? (
+        <div className="sss-tray flex items-start gap-2 p-3">
+          <TriangleAlert
+            className="mt-0.5 h-4 w-4 shrink-0 text-sss-warning"
+            aria-hidden
+          />
+          <div>
+            <p className="text-sm font-medium">Recording locked</p>
+            <p className="text-xs text-sss-text-muted">{approvedBlock}</p>
+          </div>
+        </div>
       ) : null}
 
       <div className="sss-tray flex flex-wrap items-center justify-between gap-3 p-3">

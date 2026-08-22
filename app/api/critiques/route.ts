@@ -9,7 +9,10 @@ import {
 import { filterByShow } from "@/lib/domain/show-scope";
 import { processCritique } from "@/lib/pipeline/process-critique";
 import { canRecall, canTransition } from "@/lib/domain/critique-status";
-import { openCritiqueForEntry } from "@/lib/domain/entry-cascade";
+import {
+  openCritiqueForEntry,
+  recordingBlockedReason,
+} from "@/lib/domain/entry-cascade";
 import { mergeSeIntoCritiqueDraft } from "@/lib/domain/se-to-critique";
 import {
   requireApiSession,
@@ -66,6 +69,17 @@ export async function POST(request: Request) {
   );
   if (!entry) {
     return NextResponse.json({ error: "Entry not found" }, { status: 404 });
+  }
+
+  // Approved certificates must never be shadowed by a second take. The desk
+  // recalls (Review page, until the email is sent), which reopens the row.
+  const blocked = recordingBlockedReason(
+    store.critiques,
+    body.entry_id,
+    body.show_id,
+  );
+  if (blocked) {
+    return NextResponse.json({ error: blocked }, { status: 409 });
   }
 
   const existing = openCritiqueForEntry(
