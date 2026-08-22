@@ -8,3 +8,29 @@ export function isDemoMode(): boolean {
 export function getDemoSessionCookieName() {
   return "sss-demo-session";
 }
+
+export function allowDemoWrites(): boolean {
+  return (
+    process.env.ALLOW_DEMO_WRITES === "1" ||
+    process.env.NEXT_PUBLIC_ALLOW_DEMO_WRITES === "1"
+  );
+}
+
+/** Preview or production Vercel deploys. Local next dev is not hosted. */
+export function isHostedVercel(): boolean {
+  const env =
+    process.env.NEXT_PUBLIC_VERCEL_ENV ?? process.env.VERCEL_ENV ?? "";
+  return env === "production" || env === "preview";
+}
+
+/**
+ * File-backed demo writes die on every Vercel deploy. Block them on hosted
+ * demo unless an operator explicitly allows writes.
+ */
+export function demoWritesBlocked(): boolean {
+  return isDemoMode() && isHostedVercel() && !allowDemoWrites();
+}
+
+export const DEMO_WRITES_BLOCKED_MESSAGE =
+  "Demo mode is read-only on this host";
+

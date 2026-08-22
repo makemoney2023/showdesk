@@ -13,12 +13,12 @@ import {
   shellForPath,
 } from "@/lib/domain/role-shell";
 import { labelQueuedItem } from "@/lib/domain/show-day";
-import { listQueuedRecordings } from "@/lib/offline/queue";
+import { listOfflineQueue } from "@/lib/offline/queue";
 import {
   formatQueueSyncStatus,
-  syncQueuedRecordings,
+  syncOfflineQueue,
 } from "@/lib/offline/sync";
-import { isDemoMode } from "@/lib/supabase/config";
+import { demoWritesBlocked, isDemoMode } from "@/lib/supabase/config";
 import type { CritiqueRecord, RosterEntryRecord, Show } from "@/lib/types";
 import { AccountMenu } from "./AccountMenu";
 import { Button } from "@/components/ui/button";
@@ -42,7 +42,7 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
   const [pendingCount, setPendingCount] = useState(0);
   const [online, setOnline] = useState(true);
   const [queueItems, setQueueItems] = useState<
-    Awaited<ReturnType<typeof listQueuedRecordings>>
+    Awaited<ReturnType<typeof listOfflineQueue>>
   >([]);
   const [queueOpen, setQueueOpen] = useState(false);
   const [queueStatus, setQueueStatus] = useState("");
@@ -81,7 +81,7 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshQueue = useCallback(async () => {
-    const items = await listQueuedRecordings();
+    const items = await listOfflineQueue();
     setQueueItems(items);
   }, []);
 
@@ -153,7 +153,7 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
             </DialogHeader>
             {queueCount === 0 ? (
               <p className="text-sm text-sss-text-secondary">
-                No recordings waiting to sync.
+                Nothing waiting to sync.
               </p>
             ) : (
               <ul className="space-y-2 text-sm">
@@ -182,7 +182,7 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
                     return;
                   }
                   setQueueBusy(true);
-                  void syncQueuedRecordings()
+                  void syncOfflineQueue()
                     .then(async (result) => {
                       await refreshQueue();
                       setQueueStatus(formatQueueSyncStatus(result));
@@ -222,7 +222,7 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
               <ShowChip name={show?.name ?? null} date={show?.date ?? null} />
               {isDemoMode() ? (
                 <span className="hidden rounded-full border border-sss-accent px-2 py-0.5 text-xs font-medium text-sss-accent-deep sm:inline">
-                  DEMO
+                  {demoWritesBlocked() ? "DEMO · read-only" : "DEMO"}
                 </span>
               ) : null}
             </div>

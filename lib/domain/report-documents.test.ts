@@ -92,8 +92,13 @@ describe("buildReportDocumentsForDog", () => {
     });
     expect(docs.find((d) => d.kind === "tnrk_critique")?.available).toBe(true);
     expect(docs.find((d) => d.kind === "tnrk_critique")?.printable).toBe(false);
+    expect(docs.find((d) => d.kind === "tnrk_critique")?.href).toContain(
+      "preview=1",
+    );
     expect(docs.find((d) => d.kind === "tnrk_se")?.available).toBe(true);
     expect(docs.find((d) => d.kind === "tnrk_se")?.printable).toBe(false);
+    expect(docs.find((d) => d.kind === "tnrk_se")?.href).toContain("preview=1");
+    expect(docs.find((d) => d.kind === "adrk")?.href).toContain("preview=1");
   });
 
   it("adds download=1 for attachment downloads", () => {

@@ -1,6 +1,9 @@
+import { clearRecoverableSeDraft } from "./se-draft";
 import {
   listQueuedRecordings,
+  listQueuedSeDrafts,
   removeQueuedRecording,
+  removeQueuedSeDraft,
 } from "./queue";
 
 export function blobToBase64(blob: Blob): Promise<string> {
@@ -21,8 +24,7 @@ export interface QueueSyncResult {
   remaining: number;
 }
 
-/** Upload queued recordings; keep failures in IndexedDB. */
-export async function syncQueuedRecordings(): Promise<QueueSyncResult> {
+async function syncRecordings(): Promise<{ synced: number; failed: number }> {
   const items = await listQueuedRecordings();
   let synced = 0;
   let failed = 0;
@@ -50,16 +52,61 @@ export async function syncQueuedRecordings(): Promise<QueueSyncResult> {
       failed += 1;
     }
   }
-  const remaining = (await listQueuedRecordings()).length;
-  return { synced, failed, remaining };
+  return { synced, failed };
 }
+
+async function syncSeDrafts(): Promise<{ synced: number; failed: number }> {
+  const items = await listQueuedSeDrafts();
+  let synced = 0;
+  let failed = 0;
+  for (const item of items) {
+    try {
+      const res = await fetch("/api/evaluations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          show_id: item.showId,
+          evaluation_id: item.evaluationId,
+          form: item.form,
+          mark_complete: item.markComplete,
+        }),
+      });
+      if (res.ok) {
+        await removeQueuedSeDraft(item.id);
+        await clearRecoverableSeDraft(item.showId, item.entryId);
+        synced += 1;
+      } else {
+        failed += 1;
+      }
+    } catch {
+      failed += 1;
+    }
+  }
+  return { synced, failed };
+}
+
+/** Upload queued recordings and SE drafts; keep failures in IndexedDB. */
+export async function syncOfflineQueue(): Promise<QueueSyncResult> {
+  const recordings = await syncRecordings();
+  const seDrafts = await syncSeDrafts();
+  const remaining =
+    (await listQueuedRecordings()).length + (await listQueuedSeDrafts()).length;
+  return {
+    synced: recordings.synced + seDrafts.synced,
+    failed: recordings.failed + seDrafts.failed,
+    remaining,
+  };
+}
+
+/** @deprecated Use syncOfflineQueue — kept for existing ringside callers. */
+export const syncQueuedRecordings = syncOfflineQueue;
 
 export function formatQueueSyncStatus(result: QueueSyncResult): string {
   if (result.synced === 0 && result.failed === 0) {
     return "Nothing to sync";
   }
   if (result.failed === 0) {
-    return `Synced ${result.synced} recording${result.synced === 1 ? "" : "s"}`;
+    return `Synced ${result.synced} item${result.synced === 1 ? "" : "s"}`;
   }
   return `Synced ${result.synced}, ${result.failed} failed — retry when online`;
 }

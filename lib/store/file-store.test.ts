@@ -67,4 +67,33 @@ describe("file-store concurrency", () => {
     expect(store.entries).toHaveLength(1);
     expect(store.active_show_id).toBe("show-1");
   });
+
+  it("adds the default steward demo user to older stores", async () => {
+    await fs.writeFile(
+      STORE_PATH,
+      JSON.stringify(
+        {
+          ...EMPTY_STORE,
+          demo_users: [
+            {
+              id: "demo-secretary",
+              email: "secretary@demo.local",
+              password: "demo1234",
+              name: "Demo Secretary",
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+    );
+    const store = await readStore();
+    expect(store.demo_users.map((user) => user.id)).toEqual([
+      "demo-secretary",
+      "demo-steward",
+    ]);
+    expect(store.demo_users.find((user) => user.id === "demo-secretary")?.role).toBe(
+      "secretary",
+    );
+  });
 });

@@ -3,11 +3,11 @@ import { readStore, updateStore } from "@/lib/store";
 import { canRelease } from "@/lib/domain/critique-status";
 import { buildTnrkCritiquePdfForRecords } from "@/lib/pdf/tnrk-critique-from-records";
 import { sendCritiqueEmail } from "@/lib/email/resend";
-import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
+import { requireSecretaryWrite, isApiUnauthorized } from "@/lib/auth/api-guard";
 import { readJsonBody } from "@/lib/api/read-json";
 
 export async function POST(request: Request) {
-  const auth = await requireApiSession();
+  const auth = await requireSecretaryWrite();
   if (isApiUnauthorized(auth)) return auth;
 
   const body = await readJsonBody<{

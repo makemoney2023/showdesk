@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { purgeShowData, deleteShowAudio, deleteShowPhotos } from "@/lib/store";
-import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
+import { requireSecretaryWrite, isApiUnauthorized } from "@/lib/auth/api-guard";
 
 export async function POST(request: Request) {
-  const auth = await requireApiSession();
+  const auth = await requireSecretaryWrite();
   if (isApiUnauthorized(auth)) return auth;
 
   const body = (await request.json()) as { show_id: string; confirm: string };

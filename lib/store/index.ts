@@ -1,5 +1,9 @@
 import { dogPhotoRelativePath } from "@/lib/domain/dog-photo";
-import { isDemoMode } from "@/lib/supabase/config";
+import {
+  DEMO_WRITES_BLOCKED_MESSAGE,
+  demoWritesBlocked,
+  isDemoMode,
+} from "@/lib/supabase/config";
 import type { AppStore } from "@/lib/types";
 import {
   audioExists as fileAudioExists,
@@ -65,6 +69,12 @@ export function getStoreBackend(): StoreBackend {
   return isDemoMode() ? "file" : "supabase";
 }
 
+function assertDemoWritesAllowed() {
+  if (demoWritesBlocked()) {
+    throw new Error(DEMO_WRITES_BLOCKED_MESSAGE);
+  }
+}
+
 async function requireSupabaseClient(): Promise<StoreClient> {
   const { createSupabaseServerClient } = await import("@/lib/supabase/server");
   const client = await createSupabaseServerClient();
@@ -80,6 +90,7 @@ export async function readStore(): Promise<AppStore> {
 }
 
 export async function writeStore(store: AppStore): Promise<void> {
+  assertDemoWritesAllowed();
   if (getStoreBackend() === "file") return fileWriteStore(store);
   return sbWriteStore(await requireSupabaseClient(), store);
 }
@@ -87,11 +98,13 @@ export async function writeStore(store: AppStore): Promise<void> {
 export async function updateStore(
   updater: (store: AppStore) => AppStore | void,
 ): Promise<AppStore> {
+  assertDemoWritesAllowed();
   if (getStoreBackend() === "file") return fileUpdateStore(updater);
   return sbUpdateStore(await requireSupabaseClient(), updater);
 }
 
 export async function purgeShowData(showId: string): Promise<AppStore> {
+  assertDemoWritesAllowed();
   if (getStoreBackend() === "file") return filePurgeShowData(showId);
   return sbPurgeShowData(await requireSupabaseClient(), showId);
 }
@@ -102,6 +115,7 @@ export async function writeCritiqueAudio(opts: {
   base64: string;
   root?: string;
 }): Promise<string> {
+  assertDemoWritesAllowed();
   if (getStoreBackend() === "file") return fileWriteCritiqueAudio(opts);
   return writeCritiqueAudioBytes(await requireSupabaseClient(), {
     showId: opts.showId,
@@ -121,6 +135,7 @@ export async function readCritiqueAudio(
 }
 
 export async function deleteShowAudio(showId: string, root?: string) {
+  assertDemoWritesAllowed();
   if (getStoreBackend() === "file") {
     return fileDeleteShowAudio(showId, root);
   }
@@ -131,6 +146,7 @@ export async function deleteCritiqueAudio(
   relativePath: string,
   root?: string,
 ): Promise<void> {
+  assertDemoWritesAllowed();
   if (getStoreBackend() === "file") {
     return deleteCritiqueAudioFile(relativePath, root);
   }
@@ -162,6 +178,7 @@ export async function writeDogPhoto(opts: {
   contentType: string;
   root?: string;
 }): Promise<string> {
+  assertDemoWritesAllowed();
   if (getStoreBackend() === "file") return writeDogPhotoFile(opts);
   return writeDogPhotoBytes(await requireSupabaseClient(), {
     objectPath: dogPhotoRelativePath(opts.showId, opts.entryId, opts.ext),
@@ -184,6 +201,7 @@ export async function deleteDogPhoto(
   relativePath: string,
   root?: string,
 ): Promise<void> {
+  assertDemoWritesAllowed();
   if (getStoreBackend() === "file") {
     return deleteDogPhotoFile(relativePath, root);
   }
@@ -191,6 +209,7 @@ export async function deleteDogPhoto(
 }
 
 export async function deleteShowPhotos(showId: string, root?: string) {
+  assertDemoWritesAllowed();
   if (getStoreBackend() === "file") {
     return fileDeleteShowPhotos(showId, root);
   }

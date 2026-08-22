@@ -18,7 +18,7 @@ import { deskAttentionCount } from "@/lib/domain/critique-status";
 import { recentDeskActivity } from "@/lib/domain/desk-activity";
 import { formatDisplayDate } from "@/lib/domain/show-day";
 import { formatShowJudges, syncShowJudges } from "@/lib/domain/show-judges";
-import { isDemoMode } from "@/lib/supabase/config";
+import { demoWritesBlocked, isDemoMode } from "@/lib/supabase/config";
 import type { CritiqueRecord, RosterEntryRecord, Show } from "@/lib/types";
 
 export function DeskHome() {
@@ -87,7 +87,7 @@ export function DeskHome() {
             </h1>
             {isDemoMode() ? (
               <span className="rounded-full border border-sss-accent px-2 py-0.5 text-xs font-medium text-sss-accent-soft">
-                DEMO
+                {demoWritesBlocked() ? "DEMO · read-only" : "DEMO"}
               </span>
             ) : null}
           </div>

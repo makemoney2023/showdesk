@@ -3,7 +3,11 @@ import { readStore, updateStore, newId } from "@/lib/store";
 import { ADRK_CLASSES } from "@/lib/domain/adrk-template";
 import { validateShowCreate } from "@/lib/domain/show-draft";
 import { syncShowJudges } from "@/lib/domain/show-judges";
-import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
+import {
+  requireApiSession,
+  requireSecretaryWrite,
+  isApiUnauthorized,
+} from "@/lib/auth/api-guard";
 import type { Show } from "@/lib/types";
 
 function presentShow(show: Show): Show {
@@ -23,7 +27,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireApiSession();
+  const auth = await requireSecretaryWrite();
   if (isApiUnauthorized(auth)) return auth;
 
   const body = (await request.json()) as {
@@ -73,7 +77,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const auth = await requireApiSession();
+  const auth = await requireSecretaryWrite();
   if (isApiUnauthorized(auth)) return auth;
 
   const body = (await request.json()) as {

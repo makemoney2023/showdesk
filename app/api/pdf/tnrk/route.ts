@@ -7,8 +7,10 @@ import { mergePdfDocuments } from "@/lib/pdf/merge-pdfs";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
 import { resolvePdfJudge } from "@/lib/domain/show-judges";
 import {
+  DRAFT_PDF_PREVIEW_REQUIRED,
   canPrintCertificate,
   canPrintSe,
+  canServeDeskPdf,
   parsePrintBundleRequest,
 } from "@/lib/domain/print-documents";
 import { primaryCritiqueForEntry } from "@/lib/domain/entry-cascade";
@@ -25,6 +27,7 @@ export async function GET(request: Request) {
   const entryId = searchParams.get("entry_id");
   const awardTitle = searchParams.get("award_title") ?? "Award";
   const asDownload = searchParams.get("download") === "1";
+  const preview = searchParams.get("preview") === "1";
   const disposition = asDownload ? "attachment" : "inline";
 
   if (!showId) {
@@ -110,6 +113,17 @@ export async function GET(request: Request) {
     if (!evaluation) {
       return NextResponse.json({ error: "Evaluation not found" }, { status: 404 });
     }
+    if (
+      !canServeDeskPdf({
+        printable: canPrintSe(evaluation.status),
+        preview,
+      })
+    ) {
+      return NextResponse.json(
+        { error: DRAFT_PDF_PREVIEW_REQUIRED },
+        { status: 403 },
+      );
+    }
     const pdfBytes = await buildTnrkSePdf(evaluation.form);
     return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
@@ -130,6 +144,17 @@ export async function GET(request: Request) {
     );
     if (!entry) {
       return NextResponse.json({ error: "Entry not found" }, { status: 404 });
+    }
+    if (
+      !canServeDeskPdf({
+        printable: canPrintCertificate(critique?.status),
+        preview,
+      })
+    ) {
+      return NextResponse.json(
+        { error: DRAFT_PDF_PREVIEW_REQUIRED },
+        { status: 403 },
+      );
     }
 
     const se = (store.se_evaluations ?? []).find(

@@ -13,7 +13,11 @@ import {
   mergeSeIntoCritiqueDraft,
   narrativeFromSeForm,
 } from "@/lib/domain/se-to-critique";
-import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
+import {
+  requireApiSession,
+  requireApiWrite,
+  isApiUnauthorized,
+} from "@/lib/auth/api-guard";
 import type { CritiqueRecord } from "@/lib/types";
 
 export async function GET(request: Request) {
@@ -35,7 +39,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireApiSession();
+  const auth = await requireApiWrite();
   if (isApiUnauthorized(auth)) return auth;
 
   const body = (await request.json()) as {
@@ -138,7 +142,7 @@ function withSeSyncedCritique(
 }
 
 export async function PATCH(request: Request) {
-  const auth = await requireApiSession();
+  const auth = await requireApiWrite();
   if (isApiUnauthorized(auth)) return auth;
 
   const body = (await request.json()) as {

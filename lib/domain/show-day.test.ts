@@ -84,6 +84,19 @@ describe("labelQueuedItem", () => {
     expect(labeled.title).toBe("Unknown dog");
     expect(labeled.subtitle).toBe("Just now");
   });
+
+  it("names SE drafts in the subtitle", () => {
+    const labeled = labelQueuedItem(
+      {
+        entryId: "e1",
+        createdAt: "2026-08-14T14:08:00.000Z",
+        kind: "se",
+      },
+      [{ id: "e1", dog_name: "Rex Happy Path", armband: "101" }],
+      Date.parse("2026-08-14T14:10:00.000Z"),
+    );
+    expect(labeled.subtitle).toBe("SE draft · 2 min ago");
+  });
 });
 
 describe("seSectionProgress", () => {
