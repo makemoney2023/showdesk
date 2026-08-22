@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { ADRK_CLASSES } from "@/lib/domain/adrk-template";
 import { deskLoadState } from "@/lib/domain/desk-load-state";
+import { dogRecordMatchesSearch } from "@/lib/domain/dog-search";
 import { classesWithDogs } from "@/lib/domain/show-day";
 import {
   critiqueChipTone,
   labelCritiqueStatus,
   type CritiqueUiStatus,
 } from "@/lib/domain/status-labels";
+import { DogSearchField } from "@/components/desk/DogSearchField";
 import { DogTile } from "@/components/desk/DogTile";
 import { dogPhotoHref } from "@/lib/domain/dog-photo";
 import { EmptyDesk } from "@/components/desk/EmptyDesk";
@@ -28,6 +30,7 @@ export default function RingsidePage() {
   const [entries, setEntries] = useState<RosterEntryRecord[]>([]);
   const [critiques, setCritiques] = useState<CritiqueRecord[]>([]);
   const [classFilter, setClassFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [fetchFailed, setFetchFailed] = useState(false);
   const [status, setStatus] = useState<number | undefined>();
@@ -72,10 +75,11 @@ export default function RingsidePage() {
     loaded,
   });
   const presentClasses = classesWithDogs(entries);
-  const filtered =
+  const inClass =
     classFilter === "all"
       ? entries
       : entries.filter((e) => e.class_id === classFilter);
+  const filtered = inClass.filter((e) => dogRecordMatchesSearch(search, e));
 
   return (
     <div className="space-y-6">
@@ -86,9 +90,14 @@ export default function RingsidePage() {
         <p className="text-sm text-sss-text-secondary">Class / armband picker</p>
       </div>
 
-      {presentClasses.length > 0 ? (
-      <div className="sticky top-[3.25rem] z-20 -mx-4 overflow-x-auto bg-sss-ground/90 px-4 py-2 backdrop-blur">
-        <div className="flex w-max gap-2">
+      {presentClasses.length > 0 || entries.length > 0 ? (
+      <div className="sticky top-[3.25rem] z-20 -mx-4 space-y-2 bg-sss-ground/90 px-4 py-2 backdrop-blur">
+        <DogSearchField
+          value={search}
+          onChange={setSearch}
+          aria-label="Search dogs"
+        />
+        <div className="flex w-max gap-2 overflow-x-auto">
         <button
           type="button"
           aria-pressed={classFilter === "all"}
@@ -155,8 +164,13 @@ export default function RingsidePage() {
       {loadState.kind === "no-show" ? (
         <EmptyDesk variant="no-show-steward" />
       ) : null}
-      {loadState.kind === "ready" && filtered.length === 0 ? (
+      {loadState.kind === "ready" && filtered.length === 0 && !search.trim() ? (
         <EmptyDesk variant="no-entries-steward" />
+      ) : null}
+      {loadState.kind === "ready" && filtered.length === 0 && search.trim() ? (
+        <p className="sss-tray p-5 text-sm text-sss-text-muted">
+          No dogs match “{search}”.
+        </p>
       ) : null}
     </div>
   );

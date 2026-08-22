@@ -17,6 +17,8 @@ describe("buildReportDocumentsForDog", () => {
       hasAudio: true,
       hasPlacement: true,
       hasPhoto: true,
+      critiqueStatus: "APPROVED",
+      seStatus: "complete",
     });
 
     expect(docs.map((d) => d.kind)).toEqual([
@@ -28,6 +30,8 @@ describe("buildReportDocumentsForDog", () => {
       "photo",
     ]);
     expect(docs.every((d) => d.available)).toBe(true);
+    expect(docs.find((d) => d.kind === "tnrk_critique")?.printable).toBe(true);
+    expect(docs.find((d) => d.kind === "tnrk_se")?.printable).toBe(true);
     expect(docs.find((d) => d.kind === "photo")?.href).toBe(
       "/api/photos/entry-1?show_id=show-1",
     );
@@ -57,7 +61,9 @@ describe("buildReportDocumentsForDog", () => {
     expect(docs.filter((d) => d.available)).toHaveLength(0);
     expect(docs).toHaveLength(6);
     expect(docs.find((d) => d.kind === "tnrk_se")?.available).toBe(false);
+    expect(docs.find((d) => d.kind === "tnrk_se")?.printable).toBe(false);
     expect(docs.find((d) => d.kind === "tnrk_critique")?.available).toBe(false);
+    expect(docs.find((d) => d.kind === "tnrk_critique")?.printable).toBe(false);
     expect(docs.find((d) => d.kind === "award")?.available).toBe(false);
     expect(docs.find((d) => d.kind === "photo")?.unavailableLabel).toBe(
       "No photo yet",
@@ -71,6 +77,23 @@ describe("buildReportDocumentsForDog", () => {
     expect(adrkCritiquePdfHref("show-1", "crit-2")).toBe(
       "/api/pdf?show_id=show-1&critique_id=crit-2",
     );
+  });
+
+  it("marks draft SE and unapproved critique as viewable but not printable", () => {
+    const docs = buildReportDocumentsForDog({
+      showId: "show-1",
+      entryId: "entry-1",
+      armband: "101",
+      critiqueId: "crit-1",
+      seEvaluationId: "eval-1",
+      hasAudio: false,
+      critiqueStatus: "PENDING_REVIEW",
+      seStatus: "draft",
+    });
+    expect(docs.find((d) => d.kind === "tnrk_critique")?.available).toBe(true);
+    expect(docs.find((d) => d.kind === "tnrk_critique")?.printable).toBe(false);
+    expect(docs.find((d) => d.kind === "tnrk_se")?.available).toBe(true);
+    expect(docs.find((d) => d.kind === "tnrk_se")?.printable).toBe(false);
   });
 
   it("adds download=1 for attachment downloads", () => {

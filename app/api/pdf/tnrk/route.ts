@@ -3,8 +3,14 @@ import { readStore } from "@/lib/store";
 import { buildTnrkSePdf } from "@/lib/pdf/tnrk-se-pdf";
 import { buildTnrkAwardPdf } from "@/lib/pdf/tnrk-award-pdf";
 import { buildTnrkCritiquePdfForRecords } from "@/lib/pdf/tnrk-critique-from-records";
+import { mergePdfDocuments } from "@/lib/pdf/merge-pdfs";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
 import { resolvePdfJudge } from "@/lib/domain/show-judges";
+import {
+  canPrintCertificate,
+  canPrintSe,
+  parsePrintBundleRequest,
+} from "@/lib/domain/print-documents";
 
 export async function GET(request: Request) {
   const auth = await requireApiSession();
@@ -28,6 +34,64 @@ export async function GET(request: Request) {
   const show = store.shows.find((s) => s.id === showId);
   if (!show) {
     return NextResponse.json({ error: "Show not found" }, { status: 404 });
+  }
+
+  if (kind === "bundle") {
+    const parsed = parsePrintBundleRequest({
+      doc: searchParams.get("doc"),
+      entryIdsRaw: searchParams.get("entry_ids"),
+    });
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+
+    const parts: Uint8Array[] = [];
+    for (const id of parsed.entryIds) {
+      const entry = store.entries.find(
+        (item) => item.id === id && item.show_id === showId,
+      );
+      if (!entry) continue;
+      if (parsed.doc === "se") {
+        const evaluation = (store.se_evaluations ?? []).find(
+          (item) => item.entry_id === entry.id && item.show_id === showId,
+        );
+        if (!evaluation || !canPrintSe(evaluation.status)) continue;
+        parts.push(await buildTnrkSePdf(evaluation.form));
+      } else {
+        const critique = store.critiques.find(
+          (item) => item.entry_id === entry.id && item.show_id === showId,
+        );
+        if (!critique || !canPrintCertificate(critique.status)) continue;
+        const se = (store.se_evaluations ?? []).find(
+          (item) => item.entry_id === entry.id && item.show_id === showId,
+        );
+        parts.push(
+          await buildTnrkCritiquePdfForRecords({
+            show,
+            entry,
+            critique,
+            se,
+          }),
+        );
+      }
+    }
+
+    if (parts.length === 0) {
+      return NextResponse.json(
+        { error: "No printable documents in this selection" },
+        { status: 400 },
+      );
+    }
+
+    const pdfBytes = await mergePdfDocuments(parts);
+    const filename =
+      parsed.doc === "se" ? "tnrk-se-batch.pdf" : "tnrk-certificates-batch.pdf";
+    return new NextResponse(Buffer.from(pdfBytes), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename="${filename}"`,
+      },
+    });
   }
 
   if (kind === "se") {
@@ -121,7 +185,7 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json(
-    { error: "kind must be se, critique, or award" },
+    { error: "kind must be se, critique, award, or bundle" },
     { status: 400 },
   );
 }

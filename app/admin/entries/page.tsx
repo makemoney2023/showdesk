@@ -31,6 +31,8 @@ import {
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { pushToast } from "@/components/feedback/toast";
 import { DogAvatar } from "@/components/desk/DogAvatar";
+import { DogSearchField } from "@/components/desk/DogSearchField";
+import { dogRecordMatchesSearch } from "@/lib/domain/dog-search";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -302,15 +304,7 @@ export default function AdminEntriesPage() {
     await load();
   }
 
-  const filtered = entries.filter((e) => {
-    const q = search.trim().toLowerCase();
-    if (!q) return true;
-    return (
-      e.armband.toLowerCase().includes(q) ||
-      e.dog_name.toLowerCase().includes(q) ||
-      e.owner.toLowerCase().includes(q)
-    );
-  });
+  const filtered = entries.filter((e) => dogRecordMatchesSearch(search, e));
 
   const selectValue = shows.some((s) => s.id === showId) ? showId! : undefined;
 
@@ -454,23 +448,11 @@ export default function AdminEntriesPage() {
         title={`Entries (${filtered.length} of ${entries.length})`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Input
-              className="w-56"
-              placeholder="Search armband, dog, owner"
+            <DogSearchField
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={setSearch}
               aria-label="Search roster"
             />
-            {search ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setSearch("")}
-              >
-                Clear search
-              </Button>
-            ) : null}
             <Button onClick={openCsvImport} disabled={!showId}>
               <Upload className="h-4 w-4" />
               Import CSV

@@ -40,6 +40,10 @@ test.describe("happy path", () => {
     await page.goto("/ringside");
     await page.getByLabel("Judge").selectOption("Test Judge");
     await expect(page.getByText("Rex Happy Path")).toBeVisible();
+    await page.getByLabel("Search dogs").fill("does-not-match");
+    await expect(page.getByText(/No dogs match/)).toBeVisible();
+    await page.getByRole("button", { name: "Clear search" }).click();
+    await expect(page.getByText("Rex Happy Path")).toBeVisible();
 
     // Create a mock critique via API (cookie from login)
     const showRes = await page.request.get("/api/shows");
@@ -83,5 +87,24 @@ test.describe("happy path", () => {
     await page.getByRole("button", { name: "Approve & release" }).click();
     await page.getByRole("button", { name: "Confirm" }).click();
     await expect(page.getByText(/Approved/i)).toBeVisible({ timeout: 10000 });
+
+    await page.goto("/admin/reports");
+    await page.getByLabel("Search reports").fill("does-not-match");
+    await expect(page.getByText(/No dogs match/)).toBeVisible();
+    await page.getByRole("button", { name: "Clear search" }).click();
+    await expect(
+      page.getByRole("heading", { name: /Rex Happy Path/ }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Select all approved" }).click();
+    await expect(
+      page.getByRole("link", { name: "Print selected certificates" }),
+    ).toBeVisible();
+    await page.getByRole("heading", { name: /Rex Happy Path/ }).click();
+    await expect(
+      page.getByRole("link", { name: "Print TNRK critique PDF" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Print SE PDF" }),
+    ).toHaveCount(0);
   });
 });

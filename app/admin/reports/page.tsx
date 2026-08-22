@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, CircleDashed, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DogAvatar } from "@/components/desk/DogAvatar";
+import { DogSearchField } from "@/components/desk/DogSearchField";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { StatusChip } from "@/components/status/StatusChip";
@@ -14,6 +16,14 @@ import {
   reportDocumentDownloadHref,
   type ReportDocumentLink,
 } from "@/lib/domain/report-documents";
+import { dogRecordMatchesSearch } from "@/lib/domain/dog-search";
+import {
+  printBundleDisabledReason,
+  printableEntryIdsForDoc,
+  rowHasPrintableDocument,
+  selectAllPrintableIds,
+  tnrkPrintBundleHref,
+} from "@/lib/domain/print-documents";
 import {
   reportRowMatchesFilter,
   type ReportDeskFilter,
@@ -42,6 +52,8 @@ export default function AdminReportsPage() {
   const [message, setMessage] = useState("");
   const [hasShow, setHasShow] = useState(true);
   const [filter, setFilter] = useState<ReportDeskFilter>("all");
+  const [search, setSearch] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async () => {
@@ -128,20 +140,52 @@ export default function AdminReportsPage() {
           hasAudio: Boolean(critique?.audio_path),
           hasPlacement: Boolean(placement),
           hasPhoto: Boolean(entry.photo_path),
+          critiqueStatus: critique?.status,
+          seStatus: se?.status,
         });
         return { entry, critique, se, placement, documents };
       });
   }, [showId, entries, critiques, evaluations, placements]);
 
-  const visibleRows = rows.filter((row) =>
-    reportRowMatchesFilter(
-      {
-        documents: row.documents,
-        deliveryStatus: row.critique?.delivery_status,
-      },
-      filter,
-    ),
+  const visibleRows = rows.filter(
+    (row) =>
+      dogRecordMatchesSearch(search, row.entry) &&
+      reportRowMatchesFilter(
+        {
+          documents: row.documents,
+          deliveryStatus: row.critique?.delivery_status,
+        },
+        filter,
+      ),
   );
+
+  const printRows = visibleRows.map((row) => ({
+    entryId: row.entry.id,
+    seStatus: row.se?.status,
+    critiqueStatus: row.critique?.status,
+  }));
+  const selectedSeIds = showId
+    ? printableEntryIdsForDoc(printRows, "se", selectedIds)
+    : [];
+  const selectedCertificateIds = showId
+    ? printableEntryIdsForDoc(printRows, "critique", selectedIds)
+    : [];
+  const allPrintableIds = selectAllPrintableIds(printRows);
+  const sePrintReason = printBundleDisabledReason(selectedSeIds.length, "se");
+  const certificatePrintReason = printBundleDisabledReason(
+    selectedCertificateIds.length,
+    "critique",
+  );
+
+  function toggleSelected(entryId: string, checked: boolean) {
+    setSelectedIds((current) =>
+      checked
+        ? current.includes(entryId)
+          ? current
+          : [...current, entryId]
+        : current.filter((id) => id !== entryId),
+    );
+  }
 
   if (!loaded) {
     return <PageSkeleton rows={4} />;
@@ -151,7 +195,7 @@ export default function AdminReportsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Reports"
-        description="View or download generated documents per dog for the active show."
+        description="Search dogs, then view, download, or print approved SE forms and certificates."
         actions={
           <Button variant="outline" onClick={() => void load()}>
             <RefreshCw className="h-4 w-4" />
@@ -173,6 +217,12 @@ export default function AdminReportsPage() {
         </div>
       ) : (
         <div className="space-y-3">
+        <div className="space-y-3">
+        <DogSearchField
+          value={search}
+          onChange={setSearch}
+          aria-label="Search reports"
+        />
         <div className="flex flex-wrap gap-2">
           {(
             [
@@ -193,12 +243,67 @@ export default function AdminReportsPage() {
             </Button>
           ))}
         </div>
+        {allPrintableIds.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setSelectedIds(allPrintableIds)}
+            >
+              Select all approved
+            </Button>
+            <PrintBundleButton
+              label="Print selected SE forms"
+              href={
+                showId
+                  ? tnrkPrintBundleHref({
+                      showId,
+                      doc: "se",
+                      entryIds: selectedSeIds,
+                    })
+                  : ""
+              }
+              disabled={Boolean(sePrintReason)}
+              title={sePrintReason ?? undefined}
+            />
+            <PrintBundleButton
+              label="Print selected certificates"
+              href={
+                showId
+                  ? tnrkPrintBundleHref({
+                      showId,
+                      doc: "critique",
+                      entryIds: selectedCertificateIds,
+                    })
+                  : ""
+              }
+              disabled={Boolean(certificatePrintReason)}
+              title={certificatePrintReason ?? undefined}
+            />
+          </div>
+        ) : null}
+        </div>
         <ul className="space-y-3">
           {visibleRows.map(({ entry, critique, se, placement, documents }) => (
             <li key={entry.id}>
               <details className="sss-paper group p-4">
                 <summary className="flex cursor-pointer list-none flex-wrap items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
+                    {rowHasPrintableDocument({
+                      seStatus: se?.status,
+                      critiqueStatus: critique?.status,
+                    }) ? (
+                      <Checkbox
+                        checked={selectedIds.includes(entry.id)}
+                        onClick={(event) => event.stopPropagation()}
+                        onCheckedChange={(value) =>
+                          toggleSelected(entry.id, value === true)
+                        }
+                        aria-label={`Select ${entry.dog_name} for print`}
+                        className="mt-1"
+                      />
+                    ) : null}
                     <DogAvatar
                       src={
                         entry.photo_path && showId
@@ -254,13 +359,42 @@ export default function AdminReportsPage() {
           ) : null}
           {rows.length > 0 && visibleRows.length === 0 ? (
             <li className="sss-tray p-5 text-sm text-sss-text-muted">
-              No dogs match this filter.
+              {search.trim()
+                ? `No dogs match “${search}”.`
+                : "No dogs match this filter."}
             </li>
           ) : null}
         </ul>
         </div>
       )}
     </div>
+  );
+}
+
+function PrintBundleButton({
+  label,
+  href,
+  disabled,
+  title,
+}: {
+  label: string;
+  href: string;
+  disabled: boolean;
+  title?: string;
+}) {
+  if (disabled || !href) {
+    return (
+      <Button size="sm" disabled title={title}>
+        {label}
+      </Button>
+    );
+  }
+  return (
+    <Button asChild size="sm" title={title}>
+      <a href={href} target="_blank" rel="noreferrer">
+        {label}
+      </a>
+    </Button>
   );
 }
 
@@ -303,6 +437,18 @@ function DocumentActions({
                   Download
                 </a>
               </Button>
+              {doc.printable ? (
+                <Button asChild size="sm" variant="outline">
+                  <a
+                    href={doc.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`Print ${doc.label}`}
+                  >
+                    Print
+                  </a>
+                </Button>
+              ) : null}
             </div>
           ) : (
             <span className="text-xs text-sss-text-muted">

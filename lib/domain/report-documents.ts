@@ -1,4 +1,6 @@
+import type { CritiqueStatus } from "./critique-status";
 import { dogPhotoHref } from "./dog-photo";
+import { canPrintCertificate, canPrintSe } from "./print-documents";
 import {
   tnrkCritiquePdfHref,
   tnrkSePdfHref,
@@ -18,6 +20,7 @@ export interface ReportDocumentLink {
   href: string;
   filename: string;
   available: boolean;
+  printable?: boolean;
   unavailableLabel?: string;
 }
 
@@ -57,6 +60,8 @@ export function buildReportDocumentsForDog(input: {
   hasAudio: boolean;
   hasPlacement?: boolean;
   hasPhoto?: boolean;
+  critiqueStatus?: CritiqueStatus | string | null;
+  seStatus?: "draft" | "complete" | null;
 }): ReportDocumentLink[] {
   const { showId, entryId, armband, critiqueId, seEvaluationId } = input;
   const docs: ReportDocumentLink[] = [
@@ -68,6 +73,7 @@ export function buildReportDocumentsForDog(input: {
         : "",
       filename: `tnrk-critique-${armband}.pdf`,
       available: Boolean(critiqueId),
+      printable: Boolean(critiqueId) && canPrintCertificate(input.critiqueStatus),
     },
     {
       kind: "tnrk_se",
@@ -75,6 +81,7 @@ export function buildReportDocumentsForDog(input: {
       href: seEvaluationId ? tnrkSePdfHref(showId, seEvaluationId) : "",
       filename: `tnrk-se-${entryId}.pdf`,
       available: Boolean(seEvaluationId),
+      printable: Boolean(seEvaluationId) && canPrintSe(input.seStatus),
     },
     {
       kind: "adrk",
