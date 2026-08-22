@@ -37,6 +37,13 @@ export interface CompetitionPool {
   count: number;
 }
 
+export interface CompetitionDaySummary {
+  day: string;
+  label: string;
+  count: number;
+  eventKind: CatalogEventKind | "legacy";
+}
+
 const LEGACY_CLASS_MAP: Record<AdrkClassId, CatalogClassId> = {
   babyklasse: "puppy-i",
   juengstenklasse: "puppy-ii",
@@ -162,4 +169,53 @@ export function competitionPoolsWithDogs(
           (classOrder.get(b.catalogClass) ?? 99) ||
         (a.sex === b.sex ? 0 : a.sex === "R" ? -1 : 1),
     );
+}
+
+export function competitionDaysWithEntries(
+  entries: CatalogEntryMetadata[],
+): CompetitionDaySummary[] {
+  const summaries = new Map<string, CompetitionDaySummary>();
+  for (const entry of entries) {
+    const day = entry.competition_day ?? "";
+    const previous = summaries.get(day);
+    summaries.set(day, {
+      day,
+      label: competitionDayLabel(day),
+      count: (previous?.count ?? 0) + 1,
+      eventKind:
+        entry.event_kind ??
+        previous?.eventKind ??
+        "legacy",
+    });
+  }
+  return [...summaries.values()].toSorted((a, b) =>
+    a.day.localeCompare(b.day),
+  );
+}
+
+export function defaultCompetitionDay(
+  days: CompetitionDaySummary[],
+  todayIso: string,
+): string {
+  if (days.length === 0) return "";
+  const exact = days.find((day) => day.day === todayIso);
+  if (exact) return exact.day;
+  const upcoming = days.find((day) => day.day && day.day >= todayIso);
+  return upcoming?.day ?? days.at(-1)?.day ?? "";
+}
+
+export function nextDogInCompetitionPool<
+  T extends CompetitionPoolEntry & { id: string; armband: string },
+>(entries: T[], currentId: string): string | null {
+  const current = entries.find((entry) => entry.id === currentId);
+  if (!current) return null;
+  const currentPool = competitionPoolKey(current);
+  if (!currentPool) return null;
+  const ordered = entries
+    .filter((entry) => competitionPoolKey(entry) === currentPool)
+    .toSorted((a, b) =>
+      a.armband.localeCompare(b.armband, undefined, { numeric: true }),
+    );
+  const index = ordered.findIndex((entry) => entry.id === currentId);
+  return index < 0 ? null : (ordered[index + 1]?.id ?? null);
 }

@@ -11,10 +11,10 @@ import {
 } from "@/lib/offline/sync";
 import { formatElapsed } from "@/lib/domain/show-day";
 import {
-  divisionKey,
-  divisionLabel,
-  nextDogInDivision,
-} from "@/lib/domain/class-division";
+  catalogCompetitionLabel,
+  competitionPoolKey,
+  nextDogInCompetitionPool,
+} from "@/lib/domain/catalog-competition";
 import { canRecordWithJudge, syncShowJudges } from "@/lib/domain/show-judges";
 import { stickyJudgeForShow } from "@/lib/client/sticky-judge";
 import { useRingsideJudge } from "@/components/ringside/RingsideJudgeContext";
@@ -430,11 +430,16 @@ export default function RecordPage() {
 
   function nextRecordingHref(): string {
     if (!entry) return "/ringside";
-    const division = divisionKey(entry);
-    const nextId = nextDogInDivision(entries, entry.id);
+    const pool = competitionPoolKey(entry);
+    const nextId = nextDogInCompetitionPool(entries, entry.id);
+    const context = new URLSearchParams();
+    const day = entry.competition_day ?? searchParams.get("date");
+    if (day) context.set("date", day);
+    if (pool) context.set("pool", pool);
+    const query = context.toString();
     return nextId
-      ? `/ringside/record/${nextId}?division=${encodeURIComponent(division)}`
-      : `/ringside?division=${encodeURIComponent(division)}&division_complete=${encodeURIComponent(division)}`;
+      ? `/ringside/record/${nextId}${query ? `?${query}` : ""}`
+      : `/ringside?${query ? `${query}&` : ""}pool_complete=1`;
   }
 
   async function syncQueue() {
@@ -454,8 +459,8 @@ export default function RecordPage() {
       <div className="space-y-2">
         <BackLink
           href={
-            searchParams.get("division")
-              ? `/ringside?division=${encodeURIComponent(searchParams.get("division")!)}`
+            searchParams.toString()
+              ? `/ringside?${searchParams.toString()}`
               : "/ringside"
           }
         >
@@ -466,8 +471,8 @@ export default function RecordPage() {
         </h1>
         {entry ? (
           <p className="text-sm text-sss-text-secondary">
-            #{entry.armband} {entry.dog_name} · {divisionLabel(entry)} · Space
-            starts or stops
+            #{entry.armband} {entry.dog_name} ·{" "}
+            {catalogCompetitionLabel(entry)} · Space starts or stops
           </p>
         ) : null}
       </div>
