@@ -21,12 +21,14 @@ import type {
   CritiqueRecord,
   PlacementRecord,
   RosterEntryRecord,
+  SeEvaluationRecord,
 } from "@/lib/types";
 
 export default function PlacementsPage() {
   const [showId, setShowId] = useState<string | null>(null);
   const [entries, setEntries] = useState<RosterEntryRecord[]>([]);
   const [critiques, setCritiques] = useState<CritiqueRecord[]>([]);
+  const [evaluations, setEvaluations] = useState<SeEvaluationRecord[]>([]);
   const [placements, setPlacements] = useState<Record<string, number | "">>({});
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
@@ -47,13 +49,15 @@ export default function PlacementsPage() {
       setShowId(null);
       setEntries([]);
       setCritiques([]);
+      setEvaluations([]);
       return;
     }
     setShowId(showData.active_show_id);
-    const [entryRes, placeRes, critRes] = await Promise.all([
+    const [entryRes, placeRes, critRes, seRes] = await Promise.all([
       fetch(`/api/entries?show_id=${showData.active_show_id}`),
       fetch(`/api/placements?show_id=${showData.active_show_id}`),
       fetch(`/api/critiques?show_id=${showData.active_show_id}`),
+      fetch(`/api/evaluations?show_id=${showData.active_show_id}`),
     ]);
     if (!entryRes.ok || !placeRes.ok) {
       setStatus("Could not load roster or placements");
@@ -63,15 +67,22 @@ export default function PlacementsPage() {
     const placeData = (await placeRes.json()) as { placements: PlacementRecord[] };
     setEntries(entryData.entries);
     let nextCritiques: CritiqueRecord[] = [];
+    let nextEvaluations: SeEvaluationRecord[] = [];
     if (critRes.ok) {
       nextCritiques = ((await critRes.json()) as { critiques: CritiqueRecord[] })
         .critiques;
     }
+    if (seRes.ok) {
+      nextEvaluations = (
+        (await seRes.json()) as { evaluations: SeEvaluationRecord[] }
+      ).evaluations;
+    }
     setCritiques(nextCritiques);
+    setEvaluations(nextEvaluations);
     const suggested = initialPlacementSelections(
       placeData.placements,
       entryData.entries,
-      resolveFormwertByEntryId(nextCritiques),
+      resolveFormwertByEntryId(nextCritiques, nextEvaluations),
     );
     setPlacements(suggested);
     const filledFromRatings =
@@ -89,8 +100,8 @@ export default function PlacementsPage() {
   }, [load]);
 
   const formwertByEntry = useMemo(
-    () => resolveFormwertByEntryId(critiques),
-    [critiques],
+    () => resolveFormwertByEntryId(critiques, evaluations),
+    [critiques, evaluations],
   );
 
   const byPool = competitionPoolsWithDogs(entries).map((pool) => ({

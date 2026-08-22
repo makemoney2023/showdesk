@@ -11,6 +11,7 @@ import {
   type CatalogClassId,
   type CatalogEntryMetadata,
 } from "./catalog-competition";
+import { seFormFormwert, type TnrkSeForm } from "./tnrk-se-form";
 import type { PlacementRecord } from "@/lib/types";
 
 export interface PlacementInput {
@@ -178,6 +179,10 @@ export function resolveFormwertByEntryId(
     updated_at: string;
     draft: { formwert: AdrkFormwertCode | null };
   }>,
+  evaluations: Array<{
+    entry_id: string;
+    form: Pick<TnrkSeForm, "formwert">;
+  }> = [],
 ): Record<string, AdrkFormwertCode | null> {
   const newest = new Map<
     string,
@@ -195,6 +200,12 @@ export function resolveFormwertByEntryId(
   const out: Record<string, AdrkFormwertCode | null> = {};
   for (const [entryId, value] of newest) {
     out[entryId] = value.formwert;
+  }
+  // SE form is the source of truth for ringside ratings. A saved SE Formwert
+  // wins over a transcript guess and covers dogs that are not in review yet.
+  for (const evaluation of evaluations) {
+    const seRating = seFormFormwert(evaluation.form);
+    if (seRating) out[evaluation.entry_id] = seRating;
   }
   return out;
 }

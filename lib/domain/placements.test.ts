@@ -174,6 +174,27 @@ describe("resolveFormwertByEntryId", () => {
       ]),
     ).toEqual({ e1: "V" });
   });
+
+  it("lets a saved SE Formwert win over a critique transcript guess", () => {
+    expect(
+      resolveFormwertByEntryId(
+        [
+          {
+            entry_id: "e1",
+            updated_at: "2026-08-02T10:00:00.000Z",
+            draft: { formwert: "V" },
+          },
+        ],
+        [{ entry_id: "e1", form: { formwert: "Sg" } }],
+      ),
+    ).toEqual({ e1: "Sg" });
+  });
+
+  it("uses the SE Formwert when the dog is not in the review queue yet", () => {
+    expect(
+      resolveFormwertByEntryId([], [{ entry_id: "e1", form: { formwert: "V" } }]),
+    ).toEqual({ e1: "V" });
+  });
 });
 
 describe("placementsSuggestedFromFormwert", () => {

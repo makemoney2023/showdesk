@@ -1,4 +1,5 @@
 import { catalogDivisionLabel } from "@/lib/domain/catalog-competition";
+import { seFormFormwert } from "@/lib/domain/tnrk-se-form";
 import { resolvePdfJudge } from "@/lib/domain/show-judges";
 import type {
   CritiqueRecord,
@@ -51,7 +52,7 @@ export async function buildTnrkCritiquePdfForRecords(input: {
     narrative,
     class_and_rating: [
       catalogDivisionLabel(entry),
-      critique?.draft.formwert ?? "",
+      critique?.draft.formwert ?? seFormFormwert(se?.form) ?? "",
       seSynced && se?.form.final_result
         ? `SE ${se.form.final_result.toUpperCase()}`
         : "",

@@ -68,6 +68,34 @@ describe("se-to-critique", () => {
     expect(merged.formwert).toBe("V");
   });
 
+  it("copies Formwert onto an existing audio draft even without SE notes", () => {
+    const form = createEmptyTnrkSeForm();
+    form.formwert = "Sg";
+    const merged = mergeSeIntoCritiqueDraft(
+      {
+        narrative: "Judge audio narrative",
+        formwert: "V",
+        placement: null,
+        titles: [],
+        draftAssist: { note: "Draft assist only" },
+      },
+      form,
+    );
+    expect(merged.narrative).toBe("Judge audio narrative");
+    expect(merged.formwert).toBe("Sg");
+  });
+
+  it("creates a review draft from a rating-only SE save", () => {
+    const form = createEmptyTnrkSeForm();
+    form.formwert = "V";
+    const next = syncSeIntoCritiques([], "s1", "e1", form, {
+      force: false,
+      newId: () => "c-rating",
+    });
+    expect(next).toHaveLength(1);
+    expect(next[0]?.draft.formwert).toBe("V");
+  });
+
   it("lets an SE Formwert override a prior audio rating", () => {
     const form = createEmptyTnrkSeForm();
     form.comments = "SE steward notes";
