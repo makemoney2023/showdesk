@@ -14,6 +14,7 @@ import {
   parsePrintBundleRequest,
 } from "@/lib/domain/print-documents";
 import { primaryCritiqueForEntry } from "@/lib/domain/entry-cascade";
+import { divisionLabel } from "@/lib/domain/class-division";
 
 export async function GET(request: Request) {
   const auth = await requireApiSession();
@@ -198,7 +199,12 @@ export async function GET(request: Request) {
     );
     const pdfBytes = await buildTnrkAwardPdf({
       date: show.date,
-      lines: [awardTitle, entry.dog_name, `Owner: ${entry.owner}`],
+      lines: [
+        awardTitle,
+        divisionLabel(entry),
+        entry.dog_name,
+        `Owner: ${entry.owner}`,
+      ],
       judge: resolvePdfJudge({
         critiqueJudge: critique?.judge,
         seJudge: se?.form.judge,

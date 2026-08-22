@@ -10,21 +10,24 @@ import {
 const rows = [
   {
     id: "v",
-    class_id: "veteranenklasse",
+    class_id: "veteranenklasse" as const,
+    sex: "H" as const,
     armband: "12",
     dog_name: "Vega",
     owner: "Ann",
   },
   {
     id: "z2",
-    class_id: "zwischenklasse",
+    class_id: "zwischenklasse" as const,
+    sex: "R" as const,
     armband: "102",
     dog_name: "Zeno",
     owner: "Bo",
   },
   {
     id: "z1",
-    class_id: "zwischenklasse",
+    class_id: "zwischenklasse" as const,
+    sex: "R" as const,
     armband: "11",
     dog_name: "Rex Happy Path",
     owner: "Max Mustermann",

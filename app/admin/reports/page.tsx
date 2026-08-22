@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DogAvatar } from "@/components/desk/DogAvatar";
 import { DogSearchField } from "@/components/desk/DogSearchField";
+import { DivisionFilterChips } from "@/components/desk/DivisionFilterChips";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { StatusChip } from "@/components/status/StatusChip";
@@ -17,6 +18,15 @@ import {
   type ReportDocumentLink,
 } from "@/lib/domain/report-documents";
 import { dogRecordMatchesSearch } from "@/lib/domain/dog-search";
+import {
+  divisionLabel,
+  divisionsWithDogs,
+  entryMatchesDivision,
+} from "@/lib/domain/class-division";
+import {
+  compareRosterEntries,
+  sanitizeRosterDivisionFilter,
+} from "@/lib/domain/roster-view";
 import { primaryCritiqueForEntry } from "@/lib/domain/entry-cascade";
 import {
   printBundleDisabledReason,
@@ -35,8 +45,6 @@ import {
   labelDeliveryStatus,
   labelSeStatus,
 } from "@/lib/domain/status-labels";
-import { getAdrkClassLabel } from "@/lib/domain/adrk-template";
-import type { AdrkClassId } from "@/lib/domain/adrk-template";
 import type {
   CritiqueRecord,
   PlacementRecord,
@@ -54,6 +62,7 @@ export default function AdminReportsPage() {
   const [hasShow, setHasShow] = useState(true);
   const [filter, setFilter] = useState<ReportDeskFilter>("all");
   const [search, setSearch] = useState("");
+  const [divisionFilter, setDivisionFilter] = useState("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -125,9 +134,7 @@ export default function AdminReportsPage() {
   const rows = useMemo(() => {
     if (!showId) return [];
     return [...entries]
-      .toSorted((a, b) =>
-        a.armband.localeCompare(b.armband, undefined, { numeric: true }),
-      )
+      .toSorted((a, b) => compareRosterEntries(a, b, "class"))
       .map((entry) => {
         const critique = primaryCritiqueForEntry(
           critiques,
@@ -152,9 +159,15 @@ export default function AdminReportsPage() {
       });
   }, [showId, entries, critiques, evaluations, placements]);
 
+  const divisions = divisionsWithDogs(entries);
+  const activeDivisionFilter = sanitizeRosterDivisionFilter(
+    divisionFilter,
+    entries,
+  );
   const visibleRows = rows.filter(
     (row) =>
       dogRecordMatchesSearch(search, row.entry) &&
+      entryMatchesDivision(row.entry, activeDivisionFilter) &&
       reportRowMatchesFilter(
         {
           documents: row.documents,
@@ -227,6 +240,11 @@ export default function AdminReportsPage() {
           value={search}
           onChange={setSearch}
           aria-label="Search reports"
+        />
+        <DivisionFilterChips
+          divisions={divisions}
+          value={activeDivisionFilter}
+          onChange={setDivisionFilter}
         />
         <div className="flex flex-wrap gap-2">
           {(
@@ -325,7 +343,7 @@ export default function AdminReportsPage() {
                         #{entry.armband} {entry.dog_name}
                       </h2>
                       <p className="text-xs text-sss-text-muted">
-                        {getAdrkClassLabel(entry.class_id as AdrkClassId)}
+                        {divisionLabel(entry)}
                         {placement ? ` · Place ${placement.placement}` : ""}
                       </p>
                     </div>

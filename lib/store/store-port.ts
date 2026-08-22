@@ -3,6 +3,7 @@ import type {
   DraftCritiqueSchema,
   RulebookTemplate,
 } from "@/lib/domain/adrk-template";
+import type { DogSex } from "@/lib/domain/class-division";
 import type { CritiqueStatus } from "@/lib/domain/critique-status";
 import type { TnrkSeForm } from "@/lib/domain/tnrk-se-form";
 import type { AppStore } from "@/lib/types";
@@ -30,7 +31,7 @@ export interface EntryRow {
   wt: string;
   owner: string;
   email: string;
-  sex: "R" | "H";
+  sex: DogSex;
   class_id: AdrkClassId;
   photo_path: string | null;
   sire?: string | null;
@@ -62,6 +63,7 @@ export interface PlacementRow {
   id: string;
   show_id: string;
   class_id: AdrkClassId;
+  sex: DogSex;
   entry_id: string;
   placement: 1 | 2 | 3 | 4;
 }

@@ -3,43 +3,107 @@ import {
   type AdrkClassId,
   type AdrkFormwertCode,
 } from "./adrk-template";
+import { divisionKey, type DogSex } from "./class-division";
 import type { PlacementRecord } from "@/lib/types";
 
 export interface PlacementInput {
   entry_id: string;
-  class_id: AdrkClassId;
   placement: 1 | 2 | 3 | 4 | null;
 }
 
-export function placementEntriesBelongToShow(
+export interface ResolvedPlacementInput extends PlacementInput {
+  class_id: AdrkClassId;
+  sex: DogSex;
+}
+
+export function resolvePlacementInputs(
   rows: PlacementInput[],
-  entries: Array<{ id: string; show_id: string; class_id: AdrkClassId }>,
+  entries: Array<{
+    id: string;
+    show_id: string;
+    class_id: AdrkClassId;
+    sex: DogSex;
+  }>,
   showId: string,
-): { valid: true } | { valid: false; error: string } {
+):
+  | { valid: true; rows: ResolvedPlacementInput[] }
+  | { valid: false; error: string } {
   const byId = new Map(
     entries
       .filter((entry) => entry.show_id === showId)
       .map((entry) => [entry.id, entry]),
   );
+  const entryIds = new Set<string>();
+  const occupiedSlots = new Map<string, string>();
+  const resolved: ResolvedPlacementInput[] = [];
   for (const row of rows) {
     const entry = byId.get(row.entry_id);
     if (!entry) {
       return { valid: false, error: `Unknown entry for this show: ${row.entry_id}` };
     }
-    if (entry.class_id !== row.class_id) {
+    if (entryIds.has(row.entry_id)) {
+      return {
+        valid: false,
+        error: `Duplicate placement row for entry ${row.entry_id}`,
+      };
+    }
+    entryIds.add(row.entry_id);
+    if (
+      row.placement !== null &&
+      !([1, 2, 3, 4] as const).includes(row.placement)
+    ) {
+      return { valid: false, error: "placement must be 1–4 or null" };
+    }
+    if (row.placement !== null) {
+      const slot = `${divisionKey(entry)}:${row.placement}`;
+      const occupiedBy = occupiedSlots.get(slot);
+      if (occupiedBy) {
+        return {
+          valid: false,
+          error: `Place ${row.placement} is already assigned in ${divisionKey(entry)}`,
+        };
+      }
+      occupiedSlots.set(slot, row.entry_id);
+    }
+    resolved.push({
+      ...row,
+      class_id: entry.class_id,
+      sex: entry.sex,
+    });
+  }
+  return { valid: true, rows: resolved };
+}
+
+/** @deprecated Compatibility boolean for older domain callers. */
+export function placementEntriesBelongToShow(
+  rows: Array<PlacementInput & { class_id?: AdrkClassId }>,
+  entries: Array<{
+    id: string;
+    show_id: string;
+    class_id: AdrkClassId;
+    sex: DogSex;
+  }>,
+  showId: string,
+): { valid: true } | { valid: false; error: string } {
+  for (const row of rows) {
+    const entry = entries.find(
+      (item) => item.id === row.entry_id && item.show_id === showId,
+    );
+    if (entry && row.class_id && entry.class_id !== row.class_id) {
       return {
         valid: false,
         error: `class_id mismatch for entry ${row.entry_id}`,
       };
     }
   }
-  return { valid: true };
+  const resolved = resolvePlacementInputs(rows, entries, showId);
+  return resolved.valid ? { valid: true } : resolved;
 }
 
 export function upsertPlacements(
   existing: PlacementRecord[],
   showId: string,
-  rows: PlacementInput[],
+  rows: ResolvedPlacementInput[],
   newId: () => string,
 ): PlacementRecord[] {
   const otherShows = existing.filter((p) => p.show_id !== showId);
@@ -55,6 +119,7 @@ export function upsertPlacements(
       id: newId(),
       show_id: showId,
       class_id: row.class_id,
+      sex: row.sex,
       entry_id: row.entry_id,
       placement: row.placement,
     });
@@ -115,25 +180,25 @@ export function sortDogsForPlacement<
 }
 
 /**
- * Suggest placements 1–4 per class from Formwert order.
+ * Suggest placements 1–4 per class/sex division from Formwert order.
  * Only rated dogs receive a placement; unrated clear to null.
  */
 /**
  * Assign a 1–4 place to a dog. Tapping the same place clears it.
- * If another dog in the class already holds that place, they swap.
+ * If another dog in the division already holds that place, they swap.
  */
 export function assignClassPlacement(
   current: Record<string, number | "">,
   entryId: string,
   place: 1 | 2 | 3 | 4,
-  classEntryIds: string[],
+  divisionEntryIds: string[],
 ): Record<string, number | ""> {
   const next: Record<string, number | ""> = { ...current };
   if (next[entryId] === place) {
     next[entryId] = "";
     return next;
   }
-  const other = classEntryIds.find(
+  const other = divisionEntryIds.find(
     (id) => id !== entryId && next[id] === place,
   );
   if (other) {
@@ -144,21 +209,27 @@ export function assignClassPlacement(
 }
 
 export function placementsSuggestedFromFormwert<
-  T extends { id: string; armband: string; class_id: AdrkClassId },
+  T extends {
+    id: string;
+    armband: string;
+    class_id: AdrkClassId;
+    sex: DogSex;
+  },
 >(
   dogs: T[],
   formwertByEntry: Record<string, AdrkFormwertCode | null | undefined>,
 ): PlacementInput[] {
-  const byClass = new Map<AdrkClassId, T[]>();
+  const byDivision = new Map<string, T[]>();
   for (const dog of dogs) {
-    const list = byClass.get(dog.class_id) ?? [];
+    const key = divisionKey(dog);
+    const list = byDivision.get(key) ?? [];
     list.push(dog);
-    byClass.set(dog.class_id, list);
+    byDivision.set(key, list);
   }
 
   const suggested: PlacementInput[] = [];
-  for (const [classId, classDogs] of byClass) {
-    const ordered = sortDogsForPlacement(classDogs, formwertByEntry);
+  for (const divisionDogs of byDivision.values()) {
+    const ordered = sortDogsForPlacement(divisionDogs, formwertByEntry);
     const rated = ordered.filter((dog) => formwertByEntry[dog.id]);
     const placementById = new Map<string, 1 | 2 | 3 | 4>();
     rated.slice(0, 4).forEach((dog, index) => {
@@ -167,7 +238,6 @@ export function placementsSuggestedFromFormwert<
     for (const dog of ordered) {
       suggested.push({
         entry_id: dog.id,
-        class_id: classId,
         placement: placementById.get(dog.id) ?? null,
       });
     }

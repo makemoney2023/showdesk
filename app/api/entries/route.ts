@@ -79,18 +79,30 @@ export async function POST(request: Request) {
     }));
     let added = 0;
     let updated = 0;
+    let placementsCleared = 0;
     await updateStore((s) => {
       const merged = mergeImportedEntries(s.entries, incoming, () =>
         newId("entry"),
       );
       added = merged.added;
       updated = merged.updated;
-      return { ...s, entries: merged.entries };
+      const changed = new Set(merged.changedDivisionEntryIds);
+      placementsCleared = s.placements.filter((placement) =>
+        changed.has(placement.entry_id),
+      ).length;
+      return {
+        ...s,
+        entries: merged.entries,
+        placements: s.placements.filter(
+          (placement) => !changed.has(placement.entry_id),
+        ),
+      };
     });
     return NextResponse.json({
       imported: added + updated,
       added,
       updated,
+      placements_cleared: placementsCleared,
       errors: parsed.errors,
     });
   }
@@ -149,14 +161,23 @@ export async function PUT(request: Request) {
     ...body.entry,
     photo_path: existing.photo_path,
   };
+  const divisionChanged =
+    existing.class_id !== nextEntry.class_id || existing.sex !== nextEntry.sex;
 
   await updateStore((s) => ({
     ...s,
     entries: s.entries.map((e) =>
       e.id === body.entry.id && e.show_id === body.show_id ? nextEntry : e,
     ),
+    placements: divisionChanged
+      ? s.placements.filter((placement) => placement.entry_id !== body.entry.id)
+      : s.placements,
   }));
-  return NextResponse.json({ ok: true, entry: nextEntry });
+  return NextResponse.json({
+    ok: true,
+    entry: nextEntry,
+    placement_cleared: divisionChanged,
+  });
 }
 
 export async function DELETE(request: Request) {

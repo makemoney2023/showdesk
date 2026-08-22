@@ -1,4 +1,4 @@
-import { getAdrkClassLabel, type AdrkClassId } from "@/lib/domain/adrk-template";
+import { divisionLabel } from "@/lib/domain/class-division";
 import { resolvePdfJudge } from "@/lib/domain/show-judges";
 import type {
   CritiqueRecord,
@@ -50,7 +50,7 @@ export async function buildTnrkCritiquePdfForRecords(input: {
     armband: entry.armband,
     narrative,
     class_and_rating: [
-      getAdrkClassLabel(entry.class_id as AdrkClassId),
+      divisionLabel(entry),
       critique?.draft.formwert ?? "",
       seSynced && se?.form.final_result
         ? `SE ${se.form.final_result.toUpperCase()}`

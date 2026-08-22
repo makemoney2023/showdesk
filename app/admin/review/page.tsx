@@ -16,9 +16,14 @@ import {
 import {
   ADRK_FORMWERT_CODES,
   formatAdrkFormwert,
-  getAdrkClassLabel,
-  type AdrkClassId,
 } from "@/lib/domain/adrk-template";
+import {
+  divisionLabel,
+  divisionsWithDogs,
+  entryMatchesDivision,
+} from "@/lib/domain/class-division";
+import { sanitizeRosterDivisionFilter } from "@/lib/domain/roster-view";
+import { DivisionFilterChips } from "@/components/desk/DivisionFilterChips";
 import {
   canRecall,
   canRelease,
@@ -62,6 +67,7 @@ export default function AdminReviewPage() {
   const [statusMsg, setStatusMsg] = useState("");
   const [pendingOnly, setPendingOnly] = useState(true);
   const [search, setSearch] = useState("");
+  const [divisionFilter, setDivisionFilter] = useState("all");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [recallOpen, setRecallOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -311,13 +317,21 @@ export default function AdminReviewPage() {
   const attentionCount = deskAttentionCount(critiques.map((c) => c.status));
   const attention = critiques.filter((c) => needsDeskAttention(c.status));
   const visible = pendingOnly ? attention : critiques;
-  const searched = visible.filter((critique) =>
-    reviewQueueMatchesSearch(
-      search,
-      critique,
-      entries.find((entryItem) => entryItem.id === critique.entry_id),
-    ),
+  const divisions = divisionsWithDogs(entries);
+  const activeDivisionFilter = sanitizeRosterDivisionFilter(
+    divisionFilter,
+    entries,
   );
+  const searched = visible.filter((critique) => {
+    const queueEntry = entries.find(
+      (entryItem) => entryItem.id === critique.entry_id,
+    );
+    return (
+      Boolean(queueEntry) &&
+      entryMatchesDivision(queueEntry!, activeDivisionFilter) &&
+      reviewQueueMatchesSearch(search, critique, queueEntry)
+    );
+  });
   const queue = [...searched].toSorted((a, b) => {
     const rank = (s: string) =>
       s === "PENDING_REVIEW" ? 0 : s === "ERROR" ? 1 : s === "PROCESSING" ? 2 : 3;
@@ -423,6 +437,11 @@ export default function AdminReviewPage() {
             ⌘/Ctrl+S saves · Alt+←/→ navigates
           </span>
         </div>
+        <DivisionFilterChips
+          divisions={divisions}
+          value={activeDivisionFilter}
+          onChange={setDivisionFilter}
+        />
         <div className="grid gap-4 lg:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)]">
           <ul className="space-y-2 lg:max-h-[70vh] lg:overflow-y-auto">
             {queue.map((c) => {
@@ -462,7 +481,7 @@ export default function AdminReviewPage() {
                           <div className="text-xs text-sss-text-muted">
                             {e ? `#${e.armband}` : ""}
                             {e
-                              ? ` · ${getAdrkClassLabel(e.class_id as AdrkClassId)}`
+                              ? ` · ${divisionLabel(e)}`
                               : ""}
                             {` · ${fromSe ? "SE form" : "Audio"}`}
                             {se

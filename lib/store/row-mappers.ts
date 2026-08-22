@@ -142,6 +142,7 @@ export function toPlacementRow(placement: PlacementRecord): PlacementRow {
     id: placement.id,
     show_id: placement.show_id,
     class_id: placement.class_id,
+    sex: placement.sex,
     entry_id: placement.entry_id,
     placement: placement.placement,
   };
@@ -152,6 +153,7 @@ export function mapPlacementRow(row: PlacementRow): PlacementRecord {
     id: row.id,
     show_id: row.show_id,
     class_id: row.class_id,
+    sex: row.sex,
     entry_id: row.entry_id,
     placement: row.placement,
   };

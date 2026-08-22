@@ -73,6 +73,7 @@ const placement: PlacementRecord = {
   id: "place-1",
   show_id: "show-1",
   class_id: "zwischenklasse",
+  sex: "R",
   entry_id: "entry-1",
   placement: 1,
 };

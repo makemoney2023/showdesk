@@ -30,6 +30,18 @@ describe("roster", () => {
     expect(result.errors[0]).toMatch(/Missing headers/);
   });
 
+  it("normalizes documented sex aliases and rejects unknown values", () => {
+    const csv = `armband,dog_name,zb_number,wt,owner,sex,class_id,email
+101,Rex,,,Owner,male,zwischenklasse,
+102,Bella,,,Owner,Hündin,zwischenklasse,
+103,Unknown,,,Owner,X,zwischenklasse,`;
+    const result = parseRosterCsv(csv);
+    expect(result.entries.map((entry) => entry.sex)).toEqual(["R", "H"]);
+    expect(result.errors).toEqual([
+      'Row 4: sex must be R/H, male/female, or Rüde/Hündin (received "X")',
+    ]);
+  });
+
   it("validates individual entries", () => {
     expect(
       validateRosterEntry({
@@ -156,6 +168,30 @@ describe("roster", () => {
     expect(merged.entries[0].dog_name).toBe("Rex Updated");
     expect(merged.entries[0].photo_path).toBe("show-1/entry-keep.jpg");
     expect(merged.entries[1].id).toBe("entry-new");
+    expect(merged.changedDivisionEntryIds).toEqual([]);
+  });
+
+  it("reports imported entries that changed class or sex division", () => {
+    const existing: RosterEntry[] = [
+      {
+        id: "entry-1",
+        show_id: "show-1",
+        armband: "101",
+        dog_name: "Rex",
+        zb_number: "",
+        wt: "",
+        owner: "Owner",
+        sex: "R",
+        class_id: "zwischenklasse",
+        email: "",
+      },
+    ];
+    const merged = mergeImportedEntries(
+      existing,
+      [{ ...existing[0], sex: "H" as const }],
+      () => "unused",
+    );
+    expect(merged.changedDivisionEntryIds).toEqual(["entry-1"]);
   });
 
   it("collects row-level errors without aborting", () => {
