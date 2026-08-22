@@ -76,6 +76,13 @@ export function catalogClassLabel(catalogClass: CatalogClassId): string {
   );
 }
 
+export function isCatalogClassId(value: unknown): value is CatalogClassId {
+  return (
+    typeof value === "string" &&
+    CATALOG_CLASSES.some((item) => item.id === value)
+  );
+}
+
 export function competitionDayLabel(day: string): string {
   if (!day) return "Unscheduled conformation";
   const [year, month, date] = day.split("-").map(Number);
@@ -102,6 +109,19 @@ export function competitionPoolLabel(input: {
   sex: DogSex;
 }): string {
   return `${catalogClassLabel(input.catalogClass)} — ${dogSexLabel(input.sex)}`;
+}
+
+export function catalogDivisionLabel(entry: CompetitionPoolEntry): string {
+  const catalogClass = resolvedCatalogClass(entry);
+  if (!catalogClass) return "Unmapped division";
+  return competitionPoolLabel({ catalogClass, sex: entry.sex });
+}
+
+export function catalogCompetitionLabel(entry: CompetitionPoolEntry): string {
+  const division = catalogDivisionLabel(entry);
+  return entry.competition_day
+    ? `${competitionDayLabel(entry.competition_day)} · ${division}`
+    : division;
 }
 
 export function competitionPoolsWithDogs(

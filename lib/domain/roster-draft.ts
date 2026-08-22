@@ -17,6 +17,9 @@ export function blankRosterEntryDraft(
     // Deliberately blank at runtime so a new profile cannot silently default male.
     sex: "" as RosterEntryRecord["sex"],
     class_id: "zwischenklasse" as AdrkClassId,
+    event_kind: "conformation",
+    competition_day: "",
+    catalog_class: "youth-i",
     email: "",
   };
 }

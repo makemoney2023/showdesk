@@ -1,4 +1,4 @@
-import { divisionLabel } from "@/lib/domain/class-division";
+import { catalogDivisionLabel } from "@/lib/domain/catalog-competition";
 import { resolvePdfJudge } from "@/lib/domain/show-judges";
 import type {
   CritiqueRecord,
@@ -50,7 +50,7 @@ export async function buildTnrkCritiquePdfForRecords(input: {
     armband: entry.armband,
     narrative,
     class_and_rating: [
-      divisionLabel(entry),
+      catalogDivisionLabel(entry),
       critique?.draft.formwert ?? "",
       seSynced && se?.form.final_result
         ? `SE ${se.form.final_result.toUpperCase()}`
@@ -58,7 +58,7 @@ export async function buildTnrkCritiquePdfForRecords(input: {
     ]
       .filter(Boolean)
       .join(" — "),
-    date: se?.form.date?.trim() || show.date,
+    date: se?.form.date?.trim() || entry.competition_day || show.date,
     owner: se?.form.owner_co_owner?.trim() || entry.owner,
     co_owner: "",
     judge_signature:

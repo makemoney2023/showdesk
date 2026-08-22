@@ -124,7 +124,9 @@ export default function PlacementsPage() {
     const payload = entries.map((e) => ({
       entry_id: e.id,
       placement:
-        placements[e.id] === "" || placements[e.id] == null
+        !isConformationEntry(e) ||
+        placements[e.id] === "" ||
+        placements[e.id] == null
           ? null
           : (Number(placements[e.id]) as 1 | 2 | 3 | 4),
     }));

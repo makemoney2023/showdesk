@@ -19,10 +19,10 @@ import {
 } from "@/lib/domain/report-documents";
 import { dogRecordMatchesSearch } from "@/lib/domain/dog-search";
 import {
-  divisionLabel,
   divisionsWithDogs,
   entryMatchesDivision,
 } from "@/lib/domain/class-division";
+import { catalogCompetitionLabel } from "@/lib/domain/catalog-competition";
 import {
   compareRosterEntries,
   sanitizeRosterDivisionFilter,
@@ -343,7 +343,7 @@ export default function AdminReportsPage() {
                         #{entry.armband} {entry.dog_name}
                       </h2>
                       <p className="text-xs text-sss-text-muted">
-                        {divisionLabel(entry)}
+                        {catalogCompetitionLabel(entry)}
                         {placement ? ` · Place ${placement.placement}` : ""}
                       </p>
                     </div>
