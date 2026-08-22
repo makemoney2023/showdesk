@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { currentStandaloneDisplay } from "@/lib/client/pwa-install";
+import { openPwaInstallPrompt } from "@/components/pwa/PwaInstallHost";
 import { accountRoleLabel } from "@/lib/domain/show-day";
 import type { RoleShellKind } from "@/lib/domain/role-shell";
 
@@ -25,8 +27,13 @@ export function AccountMenu({
   const router = useRouter();
   const [user, setUser] = useState<AccountUser | null>(null);
   const [open, setOpen] = useState(false);
+  const [canInstall, setCanInstall] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const role = accountRoleLabel(kind);
+
+  useEffect(() => {
+    setCanInstall(!currentStandaloneDisplay());
+  }, []);
 
   useEffect(() => {
     void fetch("/api/auth/login")
@@ -98,6 +105,18 @@ export function AccountMenu({
             <p className="text-xs uppercase tracking-[0.16em] text-sss-text-muted">
               {role}
             </p>
+          ) : null}
+          {canInstall ? (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setOpen(false);
+                openPwaInstallPrompt();
+              }}
+            >
+              Install app
+            </Button>
           ) : null}
           {user ? (
             <Button variant="outline" className="w-full" onClick={() => void signOut()}>

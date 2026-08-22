@@ -32,6 +32,7 @@ import { RoleNav } from "./RoleNav";
 import { ShowChip } from "./ShowChip";
 import { StewardNav } from "./StewardNav";
 import { SyncChip } from "./SyncChip";
+import { PwaInstallHost } from "@/components/pwa/PwaInstallHost";
 
 export function RoleShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "/";
@@ -112,6 +113,7 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
       <RingsideJudgeProvider show={show}>
       <div className="min-h-dvh">
         <ToastHost />
+        <PwaInstallHost />
         <header className="sss-paper sticky top-0 z-30 rounded-none border-x-0 border-t-0">
           <div className="mx-auto max-w-3xl space-y-2 px-4 py-2">
             <div className="flex items-center gap-2">
@@ -206,6 +208,7 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh">
       <ToastHost />
+      <PwaInstallHost />
       <header className="sss-paper sticky top-0 z-30 rounded-none border-x-0 border-t-0">
         <div className="mx-auto max-w-6xl px-4">
           <div className="flex items-center justify-between gap-3 py-2">

@@ -17,10 +17,15 @@ export const metadata: Metadata = {
   title: "Show Desk",
   description:
     "Ringside critique capture, secretary review, and ADRK-aligned PDF delivery for Sieger shows.",
+  applicationName: "Show Desk",
+  manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     title: "Show Desk",
     statusBarStyle: "default",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
   },
 };
 
