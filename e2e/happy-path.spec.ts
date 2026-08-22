@@ -182,6 +182,9 @@ test.describe("happy path", () => {
     ).toHaveCount(0);
 
     await page.goto("/admin/entries");
+    await expect(
+      page.getByRole("cell", { name: "Rex Happy Path", exact: true }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "Add scratch entry" }).click();
     await expect(
       page.getByRole("heading", { name: "Create entry profile" }),
