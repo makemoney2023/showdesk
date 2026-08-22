@@ -91,13 +91,20 @@ export async function POST(request: Request) {
     pdfBytes,
   });
 
+  // A mocked send (no RESEND_API_KEY) delivered nothing: keep the critique
+  // recallable/retryable instead of locking it behind "sent".
+  const deliveryStatus = emailResult.sent
+    ? emailResult.mock
+      ? ("pending" as const)
+      : ("sent" as const)
+    : ("failed" as const);
   await updateStore((s) => ({
     ...s,
     critiques: s.critiques.map((c) =>
       c.id === body.critique_id
         ? {
             ...c,
-            delivery_status: emailResult.sent ? "sent" : "failed",
+            delivery_status: deliveryStatus,
             updated_at: new Date().toISOString(),
           }
         : c,

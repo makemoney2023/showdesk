@@ -100,7 +100,9 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  await deleteDogPhoto(entry.photo_path).catch(() => undefined);
+  // Clear the reference first so a failed store write never leaves an entry
+  // pointing at an already-deleted object.
+  const photoPath = entry.photo_path;
   await updateStore((s) => ({
     ...s,
     entries: s.entries.map((e) =>
@@ -109,5 +111,6 @@ export async function DELETE(request: Request) {
         : e,
     ),
   }));
+  await deleteDogPhoto(photoPath).catch(() => undefined);
   return NextResponse.json({ ok: true });
 }

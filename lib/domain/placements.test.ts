@@ -313,6 +313,62 @@ describe("placementsSuggestedFromFormwert", () => {
     ).toBe(false);
   });
 
+  it("accepts legacy rows next to catalog entries in one save", () => {
+    // A scratch add carries catalog metadata; legacy imports do not. The
+    // full-show save must not reject the legacy rows.
+    const entries = [
+      {
+        id: "legacy",
+        show_id: "s1",
+        class_id: "offene-klasse" as const,
+        sex: "R" as const,
+      },
+      {
+        id: "scratch",
+        show_id: "s1",
+        class_id: "offene-klasse" as const,
+        sex: "R" as const,
+        event_kind: "conformation" as const,
+        competition_day: "2026-09-05",
+        catalog_class: "open" as const,
+      },
+    ];
+    const result = resolvePlacementInputs(
+      [
+        { entry_id: "legacy", placement: 1 },
+        { entry_id: "scratch", placement: 1 },
+      ],
+      entries,
+      "s1",
+    );
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      expect(result.rows.map((row) => row.competition_day)).toEqual([
+        "",
+        "2026-09-05",
+      ]);
+    }
+  });
+
+  it("still rejects a catalog entry that is missing its competition day", () => {
+    const entries = [
+      {
+        id: "no-day",
+        show_id: "s1",
+        class_id: "offene-klasse" as const,
+        sex: "R" as const,
+        event_kind: "conformation" as const,
+        catalog_class: "open" as const,
+      },
+    ];
+    const result = resolvePlacementInputs(
+      [{ entry_id: "no-day", placement: 1 }],
+      entries,
+      "s1",
+    );
+    expect(result.valid).toBe(false);
+  });
+
   it("allows the same place on Saturday and Sunday", () => {
     const entries = [
       {

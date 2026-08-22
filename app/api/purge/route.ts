@@ -17,9 +17,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "show_id required" }, { status: 400 });
   }
 
-  await deleteShowAudio(body.show_id);
-  await deleteShowPhotos(body.show_id);
+  // Purge rows first: if the store write fails, no media has been destroyed
+  // yet. Orphaned storage objects after a partial failure are harmless;
+  // DB rows pointing at deleted audio/photos are not.
   const store = await purgeShowData(body.show_id);
+  await deleteShowAudio(body.show_id).catch(() => undefined);
+  await deleteShowPhotos(body.show_id).catch(() => undefined);
   return NextResponse.json({
     ok: true,
     remaining_shows: store.shows.length,
