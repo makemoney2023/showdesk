@@ -71,6 +71,7 @@ test.describe("happy path", () => {
 
     await page.goto("/ringside");
     await page.getByLabel("Judge").selectOption("Test Judge");
+    await page.getByRole("button", { name: /Unscheduled conformation/ }).click();
     await expect(page.getByText("Rex Happy Path")).toBeVisible();
     await expect(
       page.getByRole("link", { name: "Record critique for Rex Happy Path" }),
