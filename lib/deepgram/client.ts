@@ -7,6 +7,33 @@ export function hasDeepgramKey(): boolean {
   return Boolean(process.env.DEEPGRAM_API_KEY?.trim());
 }
 
+/** Detect WAV / WebM so batch STT is not always labeled audio/webm. */
+export function sniffAudioContentType(bytes: Uint8Array): string {
+  if (
+    bytes.length >= 12 &&
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x41 &&
+    bytes[10] === 0x56 &&
+    bytes[11] === 0x45
+  ) {
+    return "audio/wav";
+  }
+  if (
+    bytes.length >= 4 &&
+    bytes[0] === 0x1a &&
+    bytes[1] === 0x45 &&
+    bytes[2] === 0xdf &&
+    bytes[3] === 0xa3
+  ) {
+    return "audio/webm";
+  }
+  return "audio/webm";
+}
+
 export async function grantDeepgramTemporaryToken(opts?: {
   ttlSeconds?: number;
 }): Promise<{ access_token: string; expires_in: number }> {

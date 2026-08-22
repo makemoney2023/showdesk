@@ -1,9 +1,25 @@
 import { describe, expect, it } from "vitest";
+import { sniffAudioContentType } from "./client";
 import {
   deepgramListenUrl,
   extractDeepgramTranscript,
   mergeLiveAndBatchTranscript,
 } from "./transcript";
+
+describe("sniffAudioContentType", () => {
+  it("detects RIFF WAVE", () => {
+    const wav = new Uint8Array(12);
+    wav.set([0x52, 0x49, 0x46, 0x46], 0);
+    wav.set([0x57, 0x41, 0x56, 0x45], 8);
+    expect(sniffAudioContentType(wav)).toBe("audio/wav");
+  });
+
+  it("detects EBML WebM", () => {
+    expect(sniffAudioContentType(new Uint8Array([0x1a, 0x45, 0xdf, 0xa3]))).toBe(
+      "audio/webm",
+    );
+  });
+});
 
 describe("extractDeepgramTranscript", () => {
   it("reads the top alternative from a prerecorded response", () => {
