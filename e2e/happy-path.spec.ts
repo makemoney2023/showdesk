@@ -137,10 +137,10 @@ test.describe("happy path", () => {
       page.getByRole("heading", { name: /Rex Happy Path/ }),
     ).toBeVisible();
     await expect(
-      page.getByText("Intermediate Class — Male (Rüde) · Place 1"),
+      page.getByText("Youth I — Male (Rüde) · Place 1"),
     ).toBeVisible();
     await expect(
-      page.getByText("Intermediate Class — Female (Hündin) · Place 1"),
+      page.getByText("Youth I — Female (Hündin) · Place 1"),
     ).toBeVisible();
     await page.getByRole("button", { name: "Select all printable" }).click();
     await expect(
