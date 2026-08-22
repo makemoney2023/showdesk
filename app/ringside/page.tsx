@@ -1,10 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ADRK_CLASSES } from "@/lib/domain/adrk-template";
+import { getAdrkClassLabel } from "@/lib/domain/adrk-template";
 import { deskLoadState } from "@/lib/domain/desk-load-state";
-import { dogRecordMatchesSearch } from "@/lib/domain/dog-search";
 import { classesWithDogs } from "@/lib/domain/show-day";
+import {
+  sanitizeRosterClassFilter,
+  visibleRosterEntries,
+} from "@/lib/domain/roster-view";
+import { ClassFilterChips } from "@/components/desk/ClassFilterChips";
 import {
   critiqueChipTone,
   labelCritiqueStatus,
@@ -75,11 +79,12 @@ export default function RingsidePage() {
     loaded,
   });
   const presentClasses = classesWithDogs(entries);
-  const inClass =
-    classFilter === "all"
-      ? entries
-      : entries.filter((e) => e.class_id === classFilter);
-  const filtered = inClass.filter((e) => dogRecordMatchesSearch(search, e));
+  const activeClassFilter = sanitizeRosterClassFilter(classFilter, entries);
+  const filtered = visibleRosterEntries(entries, {
+    search,
+    classFilter: activeClassFilter,
+    sort: "armband",
+  });
 
   return (
     <div className="space-y-6">
@@ -97,35 +102,11 @@ export default function RingsidePage() {
           onChange={setSearch}
           aria-label="Search dogs"
         />
-        <div className="flex w-max gap-2 overflow-x-auto">
-        <button
-          type="button"
-          aria-pressed={classFilter === "all"}
-          className={`min-h-11 rounded-sss-md px-3 text-sm ${
-            classFilter === "all"
-              ? "bg-sss-ink text-[var(--sss-paper)] shadow-sss-card"
-              : "sss-paper text-sss-text-secondary"
-          }`}
-          onClick={() => setClassFilter("all")}
-        >
-          All classes
-        </button>
-        {ADRK_CLASSES.filter((c) => presentClasses.includes(c.id)).map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            aria-pressed={classFilter === c.id}
-            className={`min-h-11 rounded-sss-md px-3 text-sm ${
-              classFilter === c.id
-                ? "bg-sss-ink text-[var(--sss-paper)] shadow-sss-card"
-                : "sss-paper text-sss-text-secondary"
-            }`}
-            onClick={() => setClassFilter(c.id)}
-          >
-            {c.label}
-          </button>
-        ))}
-        </div>
+        <ClassFilterChips
+          classIds={presentClasses}
+          value={activeClassFilter}
+          onChange={setClassFilter}
+        />
       </div>
       ) : null}
 
@@ -138,9 +119,7 @@ export default function RingsidePage() {
               entryId={e.id}
               armband={e.armband}
               dogName={e.dog_name}
-              classLabel={
-                ADRK_CLASSES.find((c) => c.id === e.class_id)?.label ?? e.class_id
-              }
+              classLabel={getAdrkClassLabel(e.class_id)}
               statusLabel={labelCritiqueStatus(status)}
               statusTone={critiqueChipTone(status)}
               photoHref={

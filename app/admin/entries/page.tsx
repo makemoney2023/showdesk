@@ -11,8 +11,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ADRK_CLASSES } from "@/lib/domain/adrk-template";
-import { formatDisplayDate } from "@/lib/domain/show-day";
+import { ADRK_CLASSES, getAdrkClassLabel } from "@/lib/domain/adrk-template";
+import { classesWithDogs, formatDisplayDate } from "@/lib/domain/show-day";
+import {
+  rosterEmptyMessage,
+  sanitizeRosterClassFilter,
+  visibleRosterEntries,
+  type RosterSort,
+} from "@/lib/domain/roster-view";
+import { ClassFilterChips } from "@/components/desk/ClassFilterChips";
 import type { RulebookTemplate } from "@/lib/domain/adrk-template";
 import { validateRosterEntry } from "@/lib/domain/roster";
 import { blankRosterEntryDraft } from "@/lib/domain/roster-draft";
@@ -32,7 +39,6 @@ import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { pushToast } from "@/components/feedback/toast";
 import { DogAvatar } from "@/components/desk/DogAvatar";
 import { DogSearchField } from "@/components/desk/DogSearchField";
-import { dogRecordMatchesSearch } from "@/lib/domain/dog-search";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -47,6 +53,8 @@ export default function AdminEntriesPage() {
   const [entries, setEntries] = useState<RosterEntryRecord[]>([]);
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
+  const [classFilter, setClassFilter] = useState("all");
+  const [sort, setSort] = useState<RosterSort>("class");
   const [entryFormMode, setEntryFormMode] = useState<EntryFormMode | null>(null);
   const [entryDraft, setEntryDraft] = useState<RosterEntryRecord | null>(null);
   const [showFormOpen, setShowFormOpen] = useState(false);
@@ -304,7 +312,19 @@ export default function AdminEntriesPage() {
     await load();
   }
 
-  const filtered = entries.filter((e) => dogRecordMatchesSearch(search, e));
+  const presentClasses = classesWithDogs(entries);
+  const activeClassFilter = sanitizeRosterClassFilter(classFilter, entries);
+  const filtered = visibleRosterEntries(entries, {
+    search,
+    classFilter: activeClassFilter,
+    sort,
+  });
+  const emptyMessage = rosterEmptyMessage({
+    entryCount: entries.length,
+    visibleCount: filtered.length,
+    search,
+    classFilter: activeClassFilter,
+  });
 
   const selectValue = shows.some((s) => s.id === showId) ? showId! : undefined;
 
@@ -453,6 +473,23 @@ export default function AdminEntriesPage() {
               onChange={setSearch}
               aria-label="Search roster"
             />
+            <div className="space-y-1">
+              <Label htmlFor="roster-sort" className="sr-only">
+                Sort roster
+              </Label>
+              <Select
+                value={sort}
+                onValueChange={(value) => setSort(value as RosterSort)}
+              >
+                <SelectTrigger id="roster-sort" aria-label="Sort roster">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="class">Sort by class</SelectItem>
+                  <SelectItem value="armband">Sort by armband</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Button onClick={openCsvImport} disabled={!showId}>
               <Upload className="h-4 w-4" />
               Import CSV
@@ -468,6 +505,15 @@ export default function AdminEntriesPage() {
           <p className="text-xs text-sss-text-muted">
             Select or create a show to enable import.
           </p>
+        ) : null}
+        {presentClasses.length > 0 ? (
+          <div className="mb-3">
+            <ClassFilterChips
+              classIds={presentClasses}
+              value={activeClassFilter}
+              onChange={setClassFilter}
+            />
+          </div>
         ) : null}
         {!loaded ? (
           <div className="space-y-2">
@@ -493,7 +539,7 @@ export default function AdminEntriesPage() {
                   <p className="font-medium">{e.dog_name}</p>
                   <p className="text-xs text-sss-text-muted">
                     #{e.armband} · {e.owner} ·{" "}
-                    {ADRK_CLASSES.find((c) => c.id === e.class_id)?.label ?? e.class_id}
+                    {getAdrkClassLabel(e.class_id)}
                   </p>
                 </div>
               </div>
@@ -520,22 +566,36 @@ export default function AdminEntriesPage() {
               </div>
             </li>
           ))}
-          {filtered.length === 0 ? (
-            <li className="text-sm text-sss-text-muted">
-              {entries.length === 0
-                ? "No dogs on this roster yet."
-                : "No dogs match this search."}
-            </li>
+          {emptyMessage ? (
+            <li className="text-sm text-sss-text-muted">{emptyMessage}</li>
           ) : null}
         </ul>
         <div className="hidden overflow-x-auto rounded-sss-md border border-sss-border md:block">
           <table className="w-full text-sm">
             <thead className="bg-sss-lifted text-left">
               <tr>
-                <th className="p-3 font-medium">Armband</th>
+                <th className="p-3 font-medium">
+                  <button
+                    type="button"
+                    className="text-left hover:text-sss-accent-deep"
+                    aria-pressed={sort === "armband"}
+                    onClick={() => setSort("armband")}
+                  >
+                    Armband{sort === "armband" ? " · sorted" : ""}
+                  </button>
+                </th>
                 <th className="p-3 font-medium">Dog</th>
                 <th className="p-3 font-medium">Owner</th>
-                <th className="p-3 font-medium">Class</th>
+                <th className="p-3 font-medium">
+                  <button
+                    type="button"
+                    className="text-left hover:text-sss-accent-deep"
+                    aria-pressed={sort === "class"}
+                    onClick={() => setSort("class")}
+                  >
+                    Class{sort === "class" ? " · sorted" : ""}
+                  </button>
+                </th>
                 <th className="p-3 font-medium">Actions</th>
               </tr>
             </thead>
@@ -546,9 +606,7 @@ export default function AdminEntriesPage() {
                     colSpan={5}
                     className="p-6 text-sm text-sss-text-muted"
                   >
-                    {entries.length === 0
-                      ? "No dogs on this roster yet."
-                      : "No dogs match this search."}
+                    {emptyMessage}
                   </td>
                 </tr>
               ) : null}
@@ -575,7 +633,7 @@ export default function AdminEntriesPage() {
                   </td>
                   <td className="p-3">{e.owner}</td>
                   <td className="p-3">
-                    {ADRK_CLASSES.find((c) => c.id === e.class_id)?.label ?? e.class_id}
+                    {getAdrkClassLabel(e.class_id)}
                   </td>
                   <td className="space-x-2 p-3">
                     <Button
