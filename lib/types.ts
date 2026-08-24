@@ -20,6 +20,8 @@ export interface Show {
   rulebook: RulebookTemplate;
   logo_url?: string;
   created_at: string;
+  /** ISO timestamp set when the club releases results to the public archive. */
+  results_published_at?: string;
 }
 
 export interface RosterEntryRecord {

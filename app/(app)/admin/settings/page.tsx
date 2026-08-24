@@ -30,6 +30,9 @@ export default function AdminSettingsPage() {
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [purgeOpen, setPurgeOpen] = useState(false);
+  const [resultsHref, setResultsHref] = useState<string | null>(null);
+  const [resultsPublished, setResultsPublished] = useState(false);
+  const [facebookConfigured, setFacebookConfigured] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/shows");
@@ -49,6 +52,20 @@ export default function AdminSettingsPage() {
     setForm(active ? { ...active, ...syncShowJudges(active) } : null);
     if (!active) {
       setMessage("No active show — create one on Roster.");
+    }
+    const publishRes = await fetch("/api/results/publish");
+    if (publishRes.ok) {
+      const publishData = (await publishRes.json()) as {
+        published?: boolean;
+        href?: string;
+        facebook_configured?: boolean;
+      };
+      setResultsPublished(Boolean(publishData.published));
+      setResultsHref(publishData.href ?? null);
+      setFacebookConfigured(Boolean(publishData.facebook_configured));
+    } else {
+      setResultsPublished(false);
+      setResultsHref(null);
     }
     setLoaded(true);
   }, []);
@@ -70,6 +87,37 @@ export default function AdminSettingsPage() {
     pushToast(ok ? "Show settings saved" : "Save failed", ok ? "ok" : "error");
     setBusy(false);
     await load();
+  }
+
+  async function publishResults(published: boolean, postToFacebook = false) {
+    if (busy) return;
+    setBusy(true);
+    const res = await fetch("/api/results/publish", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        show_id: activeShowId,
+        published,
+        post_to_facebook: postToFacebook,
+      }),
+    });
+    const data = (await res.json()) as {
+      href?: string;
+      error?: string;
+      facebook?: { ok?: boolean; error?: string; skipped?: string };
+    };
+    const ok = res.ok;
+    let note = published ? "Results published" : "Results unpublished";
+    if (data.facebook?.error) note = `${note} · Facebook: ${data.facebook.error}`;
+    if (data.facebook?.skipped) note = `${note} · ${data.facebook.skipped}`;
+    if (data.facebook?.ok) note = `${note} · Posted to Facebook Page`;
+    setMessage(ok ? note : (data.error ?? "Publish failed"));
+    pushToast(ok ? note : (data.error ?? "Publish failed"), ok ? "ok" : "error");
+    if (ok && data.href) {
+      setResultsHref(data.href);
+      setResultsPublished(published);
+    }
+    setBusy(false);
   }
 
   async function purgeShow() {
@@ -183,6 +231,58 @@ export default function AdminSettingsPage() {
           No active show — create one on Roster.
         </p>
       )}
+
+      {form ? (
+        <SectionCard title="Public results">
+          <p className="text-sm text-sss-text-secondary">
+            Release this show to the public archive. Only approved critiques
+            and placements appear. Owner emails, addresses, audio, and photos
+            stay private.
+          </p>
+          {resultsHref ? (
+            <p className="text-sm">
+              Public page:{" "}
+              <a
+                href={resultsHref}
+                className="font-medium text-sss-accent-deep underline"
+              >
+                {resultsHref}
+              </a>
+              {resultsPublished ? " · live" : " · unpublished"}
+            </p>
+          ) : null}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              disabled={busy || resultsPublished}
+              onClick={() => void publishResults(true, false)}
+            >
+              Publish results
+            </Button>
+            <Button
+              variant="outline"
+              disabled={busy || !resultsPublished}
+              onClick={() => void publishResults(false)}
+            >
+              Unpublish
+            </Button>
+            {facebookConfigured ? (
+              <Button
+                variant="outline"
+                disabled={busy}
+                onClick={() => void publishResults(true, true)}
+              >
+                Publish & post to Facebook Page
+              </Button>
+            ) : (
+              <p className="text-xs text-sss-text-muted">
+                Facebook Page auto-post is off until FACEBOOK_PAGE_ID and
+                FACEBOOK_PAGE_ACCESS_TOKEN are set. Copy the public page into
+                Global Sieger Show Results.
+              </p>
+            )}
+          </div>
+        </SectionCard>
+      ) : null}
 
       <section className="sss-paper space-y-3 border-sss-error/40 bg-sss-error-soft/30 p-5">
         <h2 className="inline-flex items-center gap-2 font-medium text-destructive">

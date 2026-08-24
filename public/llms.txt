@@ -26,7 +26,17 @@
 - An SE (Standard Evaluation) is a structured single-dog evaluation covering measurements,
   bite, temperament, and gun-sureness, ending in a pass or fail with a Formwert rating.
 
+## Public results archive
+
+- /results — index of published Sieger shows
+- /results/{show-slug} — all official ratings, placements, and critiques for one show
+- /results/{show-slug}/{armband-dog-slug} — one dog's result page (shareable, indexable)
+
+A show is public only after the club publishes it. Public pages never include owner
+emails, addresses, audio recordings, or unpublished drafts.
+
 ## Pages
 
 - Home: /
+- Results archive: /results
 - Sign in / live demo: /login

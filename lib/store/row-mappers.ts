@@ -52,6 +52,7 @@ export function toShowRow(show: Show): ShowRow {
     rulebook: show.rulebook,
     logo_url: show.logo_url ?? null,
     created_at: show.created_at,
+    results_published_at: show.results_published_at ?? null,
   };
 }
 
@@ -66,6 +67,9 @@ export function mapShowRow(row: ShowRow): Show {
     rulebook: row.rulebook,
     logo_url: optionalText(row.logo_url),
     created_at: row.created_at,
+    ...(optionalText(row.results_published_at)
+      ? { results_published_at: optionalText(row.results_published_at) }
+      : {}),
   };
 }
 
