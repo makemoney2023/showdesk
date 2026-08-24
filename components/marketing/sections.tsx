@@ -26,18 +26,24 @@ export function MarketingNav() {
           </span>
         </Link>
         <div className="flex items-center gap-3">
-          <a
-            href="#how-it-works"
+          <Link
+            href="/results"
+            className="hidden text-sm text-[#f7f4ed]/60 transition-colors hover:text-[#f7f4ed] sm:block"
+          >
+            Results
+          </Link>
+          <Link
+            href="/#how-it-works"
             className="hidden text-sm text-[#f7f4ed]/60 transition-colors hover:text-[#f7f4ed] sm:block"
           >
             How it works
-          </a>
-          <a
-            href="#faq"
+          </Link>
+          <Link
+            href="/#faq"
             className="hidden text-sm text-[#f7f4ed]/60 transition-colors hover:text-[#f7f4ed] sm:block"
           >
             FAQ
-          </a>
+          </Link>
           <Link
             href="/login"
             className="rounded-full border border-[#c4a35a]/50 px-5 py-2 text-sm font-semibold text-[#d4b87a] transition-colors hover:bg-[#c4a35a] hover:text-[#141210]"
@@ -415,12 +421,15 @@ export function MarketingFooter() {
           </p>
         </div>
         <div className="flex items-center gap-6 text-sm text-[#f7f4ed]/50">
-          <a href="#how-it-works" className="transition-colors hover:text-[#f7f4ed]">
+          <Link href="/results" className="transition-colors hover:text-[#f7f4ed]">
+            Results
+          </Link>
+          <Link href="/#how-it-works" className="transition-colors hover:text-[#f7f4ed]">
             How it works
-          </a>
-          <a href="#faq" className="transition-colors hover:text-[#f7f4ed]">
+          </Link>
+          <Link href="/#faq" className="transition-colors hover:text-[#f7f4ed]">
             FAQ
-          </a>
+          </Link>
           <Link href="/login" className="transition-colors hover:text-[#f7f4ed]">
             Sign in
           </Link>

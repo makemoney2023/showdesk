@@ -109,6 +109,15 @@ describe("show row mappers", () => {
     const row = toShowRow({ ...show, logo_url: undefined, judges: undefined });
     expect(row.logo_url).toBeNull();
     expect(row.judges).toBeNull();
+    expect(row.results_published_at).toBeNull();
+  });
+
+  it("round-trips a published results timestamp", () => {
+    const published = {
+      ...show,
+      results_published_at: "2026-09-06T18:00:00.000Z",
+    };
+    expect(mapShowRow(toShowRow(published))).toEqual(published);
   });
 
   it("parses stringified judges jsonb from the driver", () => {

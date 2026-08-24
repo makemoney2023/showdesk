@@ -23,6 +23,7 @@ export interface ShowRow {
   rulebook: RulebookTemplate;
   logo_url: string | null;
   created_at: string;
+  results_published_at?: string | null;
 }
 
 /** Postgres `entries` row. */
