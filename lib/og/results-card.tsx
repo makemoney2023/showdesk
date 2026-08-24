@@ -30,7 +30,10 @@ export function dogResultOgImage(input: {
         }}
       >
         {input.photoSrc ? (
+          // ImageResponse only accepts <img>; next/image is not available here.
+          // eslint-disable-next-line @next/next/no-img-element
           <img
+            alt=""
             src={input.photoSrc}
             width={1200}
             height={630}
