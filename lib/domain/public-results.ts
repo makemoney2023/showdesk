@@ -7,6 +7,7 @@ import {
   type AdrkTitleOption,
 } from "./adrk-template";
 import { dogSexLabel, type DogSex } from "./class-division";
+import { publicDogPhotoHref } from "./dog-photo";
 import { formatDisplayDate } from "./show-day";
 import type {
   AppStore,
@@ -58,6 +59,8 @@ export function isShowResultsPublished(
 
 export interface PublicDogResult {
   slug: string;
+  entryId: string;
+  showId: string;
   armband: string;
   dogName: string;
   owner: string | null;
@@ -77,6 +80,8 @@ export interface PublicDogResult {
   titles: AdrkTitleOption[];
   narrative: string | null;
   judge: string | null;
+  photoPath: string | null;
+  photoHref: string | null;
   href: string;
 }
 
@@ -154,8 +159,12 @@ function toPublicDog(
   const hasResult = Boolean(formwert || rank || narrative);
   if (!hasResult) return null;
 
+  const photoPath = optionalPublicText(entry.photo_path);
+
   return {
     slug: dogResultsSlug(entry),
+    entryId: entry.id,
+    showId: show.id,
     armband: entry.armband,
     dogName: entry.dog_name,
     owner: optionalPublicText(entry.owner),
@@ -175,6 +184,10 @@ function toPublicDog(
     titles: critique?.draft.titles ?? [],
     narrative,
     judge: optionalPublicText(critique?.judge) ?? optionalPublicText(show.judge),
+    photoPath,
+    photoHref: photoPath
+      ? publicDogPhotoHref(show.id, entry.id, { cacheBust: photoPath })
+      : null,
     href: dogResultsPath(show, entry),
   };
 }
@@ -372,5 +385,21 @@ export function dogResultDescription(dog: PublicDogResult): string {
     `in ${dog.classLabel} — ${dog.sexLabel}`,
     dog.judge ? `under ${dog.judge}` : null,
   ].filter(Boolean);
-  return `${bits.join(" ")}. The letter is the Formwert rating; the number is the class placement — they are separate.`;
+  const excerpt = critiqueExcerpt(dog.narrative, 180);
+  const lead = `${bits.join(" ")}. The letter is the Formwert rating; the number is the class placement — they are separate.`;
+  return excerpt ? `${lead} ${excerpt}` : lead;
+}
+
+/** Share-card / meta excerpt of the judge's critique. */
+export function critiqueExcerpt(
+  narrative: string | null | undefined,
+  maxChars = 280,
+): string | null {
+  const text = narrative?.trim().replace(/\s+/g, " ");
+  if (!text) return null;
+  if (text.length <= maxChars) return text;
+  const cut = text.slice(0, maxChars - 1);
+  const lastSpace = cut.lastIndexOf(" ");
+  const clipped = (lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trim();
+  return `${clipped}…`;
 }
