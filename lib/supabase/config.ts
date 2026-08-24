@@ -16,11 +16,18 @@ export function allowDemoWrites(): boolean {
   );
 }
 
+function vercelEnv(): string {
+  return process.env.NEXT_PUBLIC_VERCEL_ENV || process.env.VERCEL_ENV || "";
+}
+
 /** Preview or production Vercel deploys. Local next dev is not hosted. */
 export function isHostedVercel(): boolean {
-  const env =
-    process.env.NEXT_PUBLIC_VERCEL_ENV ?? process.env.VERCEL_ENV ?? "";
-  return env === "production" || env === "preview";
+  return vercelEnv() === "production" || vercelEnv() === "preview";
+}
+
+/** Git-branch preview deploys. Used to show sample results when none are published. */
+export function isVercelPreview(): boolean {
+  return vercelEnv() === "preview";
 }
 
 /**
