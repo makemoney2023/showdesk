@@ -15,20 +15,23 @@ export function dogResultOgImage(input: {
   critique?: string | null;
   photoSrc?: string | null;
 }) {
+  const frameStyle = {
+    width: 1200,
+    height: 630,
+    display: "flex",
+    position: "relative" as const,
+    backgroundColor: "#070707",
+    ...(input.photoSrc
+      ? {}
+      : {
+          backgroundImage:
+            "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(196,163,90,0.25), rgba(7,7,7,0) 60%)",
+        }),
+  };
+
   return new ImageResponse(
     (
-      <div
-        style={{
-          width: 1200,
-          height: 630,
-          display: "flex",
-          position: "relative",
-          backgroundColor: "#070707",
-          backgroundImage: input.photoSrc
-            ? undefined
-            : "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(196,163,90,0.25), rgba(7,7,7,0) 60%)",
-        }}
-      >
+      <div style={frameStyle}>
         {input.photoSrc ? (
           // ImageResponse only accepts <img>; next/image is not available here.
           // eslint-disable-next-line @next/next/no-img-element
@@ -44,7 +47,6 @@ export function dogResultOgImage(input: {
               width: 1200,
               height: 630,
               objectFit: "cover",
-              objectPosition: "center 30%",
             }}
           />
         ) : null}
@@ -52,8 +54,8 @@ export function dogResultOgImage(input: {
           style={{
             position: "absolute",
             left: 0,
-            right: 0,
-            bottom: 0,
+            top: 210,
+            width: 1200,
             height: 420,
             display: "flex",
             backgroundImage:
@@ -64,8 +66,9 @@ export function dogResultOgImage(input: {
           style={{
             position: "absolute",
             left: 0,
-            right: 0,
-            bottom: 0,
+            top: 0,
+            width: 1200,
+            height: 630,
             display: "flex",
             flexDirection: "column",
             justifyContent: "flex-end",
