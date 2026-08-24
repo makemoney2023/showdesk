@@ -24,6 +24,12 @@ export function middleware(request: NextRequest) {
 
   if (hasSession(request)) return NextResponse.next();
 
+  // Anonymous visitors on the root see the public marketing page
+  // (rewrite keeps the URL at "/"); app routes still require login.
+  if (pathname === "/") {
+    return NextResponse.rewrite(new URL("/home", request.url));
+  }
+
   const login = new URL("/login", request.url);
   login.searchParams.set("next", pathname);
   return NextResponse.redirect(login);
