@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { demoWritesBlocked, isDemoMode, isHostedVercel } from "./config";
+import {
+  demoWritesBlocked,
+  isDemoMode,
+  isHostedVercel,
+  isVercelPreview,
+} from "./config";
 
 describe("demo write guard", () => {
   afterEach(() => {
@@ -35,6 +40,13 @@ describe("demo write guard", () => {
     vi.stubEnv("NEXT_PUBLIC_VERCEL_ENV", "");
     vi.stubEnv("VERCEL_ENV", "");
     expect(demoWritesBlocked()).toBe(false);
+  });
+
+  it("treats VERCEL_ENV=preview as a preview deploy", () => {
+    vi.stubEnv("NEXT_PUBLIC_VERCEL_ENV", "");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    expect(isVercelPreview()).toBe(true);
+    expect(isHostedVercel()).toBe(true);
   });
 
   it("does not block when supabase is configured", () => {

@@ -32,6 +32,7 @@ export function samplePublishedStore(): AppStore {
         sire: "Yago vom Hause Neubrand",
         dam: "Gina vom Blacksage",
         breeder: "Blacksage Kennels",
+        photo_path: "sample-show/sample-rex.jpg",
       },
       {
         id: "sample-axel",
@@ -44,6 +45,7 @@ export function samplePublishedStore(): AppStore {
         sex: "R",
         class_id: "jugendklasse-i",
         email: "",
+        photo_path: "sample-show/sample-axel.jpg",
       },
       {
         id: "sample-bella",
@@ -56,6 +58,7 @@ export function samplePublishedStore(): AppStore {
         sex: "H",
         class_id: "offene-klasse",
         email: "",
+        photo_path: "sample-show/sample-bella.jpg",
       },
     ],
     critiques: [

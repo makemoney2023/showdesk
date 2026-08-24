@@ -94,6 +94,7 @@ export function dogResultJsonLd(show: PublicShowResults, dog: PublicDogResult) {
         : { "@type": "Organization", name: "Show Desk" },
       publisher: { "@type": "Organization", name: "Show Desk" },
       mainEntityOfPage: `${origin}${dog.href}`,
+      image: dog.photoHref ? `${origin}${dog.photoHref}` : undefined,
       about: {
         "@type": "Thing",
         name: dog.dogName,

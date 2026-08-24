@@ -38,7 +38,11 @@ test.describe("smoke", () => {
     await expect(
       page.getByRole("heading", { name: "Rex vom Blacksage" }),
     ).toBeVisible();
+    await expect(page.getByRole("img", { name: "Rex vom Blacksage" })).toBeVisible();
     await expect(page.getByText("V1", { exact: true }).first()).toBeVisible();
+    await expect(
+      page.getByText(/Correct medium size, strong and typey head/),
+    ).toBeVisible();
     await expect(page.getByRole("button", { name: "Share results" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Facebook" })).toBeVisible();
   });

@@ -110,16 +110,26 @@ export function ShowResultsView({
                     href={dog.href}
                     className="flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-white/[0.03]"
                   >
-                    <div>
-                      <p className="font-semibold text-[#f7f4ed]">
-                        <span className="mr-2 text-[#f7f4ed]/40">
-                          #{dog.armband}
-                        </span>
-                        {dog.dogName}
-                      </p>
-                      <p className="mt-0.5 text-sm text-[#f7f4ed]/45">
-                        {dog.judge ? `Judge ${dog.judge}` : dog.classLabel}
-                      </p>
+                    <div className="flex min-w-0 items-center gap-4">
+                      {dog.photoHref ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={dog.photoHref}
+                          alt=""
+                          className="h-14 w-14 shrink-0 rounded-xl object-cover"
+                        />
+                      ) : null}
+                      <div>
+                        <p className="font-semibold text-[#f7f4ed]">
+                          <span className="mr-2 text-[#f7f4ed]/40">
+                            #{dog.armband}
+                          </span>
+                          {dog.dogName}
+                        </p>
+                        <p className="mt-0.5 text-sm text-[#f7f4ed]/45">
+                          {dog.judge ? `Judge ${dog.judge}` : dog.classLabel}
+                        </p>
+                      </div>
                     </div>
                     <span className="shrink-0 rounded-full bg-[#c4a35a] px-3 py-1 font-[family-name:var(--font-fraunces)] text-sm font-bold text-[#141210]">
                       {dog.ratingPlacement ?? "Result"}
@@ -189,19 +199,43 @@ export function DogResultView({
         <span className="text-[#f7f4ed]/70">{dog.dogName}</span>
       </nav>
 
-      <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold tracking-[0.18em] text-[#c4a35a] uppercase">
-            #{dog.armband} · {dog.classLabel} — {dog.sexLabel}
-          </p>
-          <h1 className="mt-2 font-[family-name:var(--font-fraunces)] text-4xl font-semibold text-[#f7f4ed] sm:text-5xl">
-            {dog.dogName}
-          </h1>
+      {dog.photoHref ? (
+        <figure className="relative mt-6 overflow-hidden rounded-3xl border border-white/8 bg-black">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={dog.photoHref}
+            alt={dog.dogName}
+            className="aspect-[16/10] w-full object-cover object-[center_28%]"
+          />
+          <figcaption className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 bg-gradient-to-t from-black/85 via-black/40 to-transparent px-5 pb-5 pt-20 sm:px-7 sm:pb-6">
+            <div>
+              <p className="text-xs font-semibold tracking-[0.18em] text-[#c4a35a] uppercase">
+                #{dog.armband} · {dog.classLabel} — {dog.sexLabel}
+              </p>
+              <h1 className="mt-1 font-[family-name:var(--font-fraunces)] text-3xl font-semibold text-[#f7f4ed] sm:text-5xl">
+                {dog.dogName}
+              </h1>
+            </div>
+            <span className="shrink-0 rounded-full bg-[#c4a35a] px-4 py-2 font-[family-name:var(--font-fraunces)] text-xl font-bold text-[#141210]">
+              {dog.ratingPlacement ?? dog.formwert ?? "Result"}
+            </span>
+          </figcaption>
+        </figure>
+      ) : (
+        <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold tracking-[0.18em] text-[#c4a35a] uppercase">
+              #{dog.armband} · {dog.classLabel} — {dog.sexLabel}
+            </p>
+            <h1 className="mt-2 font-[family-name:var(--font-fraunces)] text-4xl font-semibold text-[#f7f4ed] sm:text-5xl">
+              {dog.dogName}
+            </h1>
+          </div>
+          <span className="rounded-full bg-[#c4a35a] px-4 py-2 font-[family-name:var(--font-fraunces)] text-xl font-bold text-[#141210]">
+            {dog.ratingPlacement ?? dog.formwert ?? "Result"}
+          </span>
         </div>
-        <span className="rounded-full bg-[#c4a35a] px-4 py-2 font-[family-name:var(--font-fraunces)] text-xl font-bold text-[#141210]">
-          {dog.ratingPlacement ?? dog.formwert ?? "Result"}
-        </span>
-      </div>
+      )}
 
       <p className="mt-6 text-base leading-relaxed text-[#f7f4ed]/65">
         {dog.ratingPlacement

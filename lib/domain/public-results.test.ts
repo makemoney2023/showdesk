@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { EMPTY_STORE } from "@/lib/types";
 import {
+  critiqueExcerpt,
   dogResultsPath,
   dogResultDescription,
   facebookShowPost,
@@ -107,7 +108,20 @@ describe("projection", () => {
     expect(dogResultDescription(found!.dog)).toContain(
       "The letter is the Formwert rating",
     );
+    expect(dogResultDescription(found!.dog)).toContain("Correct medium size");
     expect(found?.dog.narrative).toContain("Vorzüglich");
+    expect(found?.dog.photoHref).toContain("/api/public/photos/sample-rex");
+    expect(found?.dog.photoPath).toBe("sample-show/sample-rex.jpg");
+  });
+
+  it("clips critique text on a word boundary for share cards", () => {
+    expect(critiqueExcerpt(null)).toBeNull();
+    expect(critiqueExcerpt("Short letter.")).toBe("Short letter.");
+    const long = `${"Very typey head with a dark eye. ".repeat(20)}Vorzüglich.`;
+    const excerpt = critiqueExcerpt(long, 80);
+    expect(excerpt?.endsWith("…")).toBe(true);
+    expect(excerpt!.length).toBeLessThanOrEqual(80);
+    expect(excerpt).not.toContain("  ");
   });
 
   it("builds a Facebook post that names placements and the archive URL", () => {

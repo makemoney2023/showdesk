@@ -4,6 +4,7 @@ import {
   dogPhotoContentType,
   dogPhotoDownloadFilename,
   dogPhotoHref,
+  publicDogPhotoHref,
   dogPhotoRelativePath,
   isOwnedDogPhotoPath,
   sniffDogPhotoMime,
@@ -33,6 +34,9 @@ describe("dog-photo", () => {
       "show-1/entry-9.jpg",
     );
     expect(dogPhotoContentType("show-1/entry-9.png")).toBe("image/png");
+    expect(publicDogPhotoHref("show-1", "entry-9", { cacheBust: "v2" })).toBe(
+      "/api/public/photos/entry-9?show_id=show-1&v=v2",
+    );
   });
 
   it("sniffs JPEG, PNG, and WebP magic bytes", () => {

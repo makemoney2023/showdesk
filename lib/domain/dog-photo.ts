@@ -21,6 +21,19 @@ export function dogPhotoHref(
   return `/api/photos/${encodeURIComponent(entryId)}?${params.toString()}`;
 }
 
+/** Anonymous URL for a published show result photo. Unpublished shows 404. */
+export function publicDogPhotoHref(
+  showId: string,
+  entryId: string,
+  opts?: { cacheBust?: string | number },
+): string {
+  const params = new URLSearchParams({ show_id: showId });
+  if (opts?.cacheBust != null && String(opts.cacheBust).length > 0) {
+    params.set("v", String(opts.cacheBust));
+  }
+  return `/api/public/photos/${encodeURIComponent(entryId)}?${params.toString()}`;
+}
+
 export function dogPhotoDownloadFilename(
   dogName: string,
   relativePath: string,
