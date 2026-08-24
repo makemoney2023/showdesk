@@ -1,0 +1,32 @@
+# Show Desk
+
+> Show Desk is show secretary software for German-style breed shows — Sieger shows, SE
+> (Standard Evaluation) events, and breed surveys. It records the judge's spoken critique
+> ringside, transcribes it live, and delivers the official critique certificate to the
+> owner's inbox the same day.
+
+## What Show Desk does
+
+- Ringside critique recording with live speech-to-text, keyed to armband numbers
+- SE (Standard Evaluation) digital forms: measurements, bite, behavior, gun-sureness, final result
+- Formwert ratings (V, SG, G, and the other official codes) with placements 1–4 kept in
+  separate pools per class, sex, and show day
+- Official PDFs: critique certificates, SE forms, award certificates, judge-report drafts
+- Same-day email delivery of approved critique certificates to owners
+- Offline-first ringside capture that queues on the device and syncs when coverage returns
+
+## Key terms
+
+- A Sieger show is a German-style conformation show where every dog is critiqued aloud by
+  the judge and receives a written critique, a rating, and a placement of 1–4 in its class.
+- A Richterbericht is the judge's written critique of a dog. Under ADRK rules, judge reports
+  rated V or SG are required documents for a Körung (breed survey).
+- In a rating like V1, the letter is the rating (V, vorzüglich, Excellent) and the number is
+  the placement within the class. They are separate: many dogs can earn V, but only four place.
+- An SE (Standard Evaluation) is a structured single-dog evaluation covering measurements,
+  bite, temperament, and gun-sureness, ending in a pass or fail with a Formwert rating.
+
+## Pages
+
+- Home: /
+- Sign in / live demo: /login

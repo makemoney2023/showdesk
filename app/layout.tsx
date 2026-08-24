@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Manrope } from "next/font/google";
 import "./globals.css";
-import { RoleShell } from "@/components/layout/RoleShell";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -13,7 +12,12 @@ const fraunces = Fraunces({
   variable: "--font-fraunces",
 });
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: "Show Desk",
   description:
     "Ringside critique capture, secretary review, and ADRK-aligned PDF delivery for Sieger shows.",
@@ -42,7 +46,7 @@ export default function RootLayout({
       <body
         className={`${manrope.variable} ${fraunces.variable} font-sans antialiased`}
       >
-        <RoleShell>{children}</RoleShell>
+        {children}
       </body>
     </html>
   );
