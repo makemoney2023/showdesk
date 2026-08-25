@@ -25,6 +25,9 @@ import {
 } from "@/lib/auth/api-guard";
 import { readJsonBody } from "@/lib/api/read-json";
 import { catalogMetadataError } from "@/lib/domain/catalog-competition";
+import { assignArmbands, type EntryDays } from "@/lib/domain/armband-assignment";
+import { buildDogAppearances, identityFromEntry, syncIdentityToDog } from "@/lib/domain/dog-identity";
+import { showWeekendDays } from "@/lib/domain/show-weekend";
 import type { RosterEntryRecord } from "@/lib/types";
 
 function hostedCatalogMetadataError(
@@ -67,6 +70,8 @@ export async function POST(request: Request) {
         action: "create";
         show_id: string;
         entry: Omit<RosterEntryRecord, "id" | "show_id">;
+        days?: Partial<EntryDays>;
+        armband_mode?: "sequential" | "random";
       }
   >(request);
   if (!body || !body.show_id) {
@@ -149,23 +154,74 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: metadataError }, { status: 400 });
   }
 
+  const days: EntryDays = {
+    se: Boolean(body.days?.se),
+    saturday: Boolean(body.days?.saturday),
+    sunday: Boolean(body.days?.sunday),
+  };
+  const multiDay = days.se || days.saturday || days.sunday;
+  const show = store.shows.find((item) => item.id === body.show_id);
+  const identity = identityFromEntry({
+    ...body.entry,
+    photo_path: undefined,
+  });
+
+  if (multiDay) {
+    if (!days.saturday && !days.sunday && !days.se) {
+      return NextResponse.json(
+        { error: "Select at least one date" },
+        { status: 400 },
+      );
+    }
+    const weekend = showWeekendDays(show?.date ?? body.entry.competition_day ?? "");
+    const dogId = newId("dog");
+    const created = buildDogAppearances({
+      dogId,
+      showId: body.show_id,
+      identity,
+      catalogClass:
+        body.entry.catalog_class &&
+        body.entry.catalog_class !== "standard-evaluation"
+          ? body.entry.catalog_class
+          : "open",
+      classId: body.entry.class_id,
+      weekend,
+      days,
+      armbands: assignArmbands({
+        existing: store.entries.filter((item) => item.show_id === body.show_id),
+        days,
+        mode: body.armband_mode === "random" ? "random" : "sequential",
+      }),
+      newId: () => newId("entry"),
+    });
+    const metadataError = created
+      .map(hostedCatalogMetadataError)
+      .find((error): error is string => Boolean(error));
+    if (metadataError) {
+      return NextResponse.json({ error: metadataError }, { status: 400 });
+    }
+    try {
+      await updateStore((s) => ({ ...s, entries: [...s.entries, ...created] }));
+    } catch {
+      return storeWriteFailed("Could not create entry");
+    }
+    return NextResponse.json({ entry: created[0], entries: created });
+  }
+
   const entry: RosterEntryRecord = {
     ...body.entry,
+    ...identity,
     id: newId("entry"),
     show_id: body.show_id,
+    dog_id: body.entry.dog_id ?? newId("dog"),
     photo_path: undefined,
-    sire: body.entry.sire ?? "",
-    dam: body.entry.dam ?? "",
-    breeder: body.entry.breeder ?? "",
-    address: body.entry.address ?? "",
-    hd_ed_jlpp: body.entry.hd_ed_jlpp ?? "",
   };
   try {
     await updateStore((s) => ({ ...s, entries: [...s.entries, entry] }));
   } catch {
     return storeWriteFailed("Could not create entry");
   }
-  return NextResponse.json({ entry });
+  return NextResponse.json({ entry, entries: [entry] });
 }
 
 export async function PUT(request: Request) {
@@ -202,7 +258,9 @@ export async function PUT(request: Request) {
 
   const nextEntry: RosterEntryRecord = {
     ...body.entry,
+    ...identityFromEntry(body.entry),
     photo_path: existing.photo_path,
+    dog_id: existing.dog_id ?? body.entry.dog_id ?? newId("dog"),
     sire: body.entry.sire ?? existing.sire ?? "",
     dam: body.entry.dam ?? existing.dam ?? "",
     breeder: body.entry.breeder ?? existing.breeder ?? "",
@@ -219,8 +277,11 @@ export async function PUT(request: Request) {
   try {
     await updateStore((s) => ({
       ...s,
-      entries: s.entries.map((e) =>
-        e.id === body.entry.id && e.show_id === body.show_id ? nextEntry : e,
+      entries: syncIdentityToDog(
+        s.entries.map((e) =>
+          e.id === body.entry.id && e.show_id === body.show_id ? nextEntry : e,
+        ),
+        nextEntry,
       ),
       placements: divisionChanged
         ? s.placements.filter((placement) => placement.entry_id !== body.entry.id)

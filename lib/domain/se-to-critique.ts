@@ -119,6 +119,57 @@ export function canSyncSeIntoCritique(
  * Never creates a second queue item after a certificate is approved —
  * recall first if the SE form should update that draft.
  */
+/** Copy SE narrative onto this appearance and every conformation sibling. */
+export function conformationSiblingIds<
+  T extends {
+    id: string;
+    show_id: string;
+    dog_id?: string;
+    event_kind?: "se" | "conformation";
+  },
+>(entries: T[], seEntry: T): string[] {
+  if (!seEntry.dog_id) return [];
+  return entries
+    .filter(
+      (entry) =>
+        entry.show_id === seEntry.show_id &&
+        entry.dog_id === seEntry.dog_id &&
+        entry.event_kind === "conformation",
+    )
+    .map((entry) => entry.id);
+}
+
+export function syncSeIntoDogCritiques(
+  critiques: CritiqueRecord[],
+  entries: Array<{
+    id: string;
+    show_id: string;
+    dog_id?: string;
+    event_kind?: "se" | "conformation";
+  }>,
+  showId: string,
+  seEntryId: string,
+  form: TnrkSeForm,
+  options: {
+    force: boolean;
+    newId: () => string;
+    now?: string;
+  },
+): CritiqueRecord[] {
+  const seEntry = entries.find(
+    (entry) => entry.id === seEntryId && entry.show_id === showId,
+  );
+  const targets = [
+    seEntryId,
+    ...(seEntry ? conformationSiblingIds(entries, seEntry) : []),
+  ];
+  return targets.reduce(
+    (next, entryId) =>
+      syncSeIntoCritiques(next, showId, entryId, form, options),
+    critiques,
+  );
+}
+
 export function syncSeIntoCritiques(
   critiques: CritiqueRecord[],
   showId: string,

@@ -10,6 +10,7 @@ import {
 export interface RosterEntry {
   id: string;
   show_id: string;
+  dog_id?: string;
   armband: string;
   dog_name: string;
   zb_number: string;
@@ -27,6 +28,13 @@ export interface RosterEntry {
   breeder?: string;
   address?: string;
   hd_ed_jlpp?: string;
+  date_of_birth?: string;
+  prefix_titles?: string;
+  suffix_titles?: string;
+  microchip?: string;
+  registration_club?: string;
+  co_owner?: string;
+  kennel_name?: string;
 }
 
 export interface RosterParseResult {
@@ -54,6 +62,14 @@ const OPTIONAL_HEADERS = [
   "event_kind",
   "competition_day",
   "catalog_class",
+  "dog_id",
+  "date_of_birth",
+  "prefix_titles",
+  "suffix_titles",
+  "microchip",
+  "registration_club",
+  "co_owner",
+  "kennel_name",
 ] as const;
 
 function isIsoCalendarDate(value: string): boolean {
@@ -182,7 +198,22 @@ export function parseRosterCsv(csv: string): RosterParseResult {
           return acc;
         },
         {} as Partial<
-          Pick<RosterEntry, "sire" | "dam" | "breeder" | "address" | "hd_ed_jlpp">
+          Pick<
+            RosterEntry,
+            | "sire"
+            | "dam"
+            | "breeder"
+            | "address"
+            | "hd_ed_jlpp"
+            | "dog_id"
+            | "date_of_birth"
+            | "prefix_titles"
+            | "suffix_titles"
+            | "microchip"
+            | "registration_club"
+            | "co_owner"
+            | "kennel_name"
+          >
         >,
       )),
     };
@@ -252,11 +283,39 @@ export function validateRosterEntryUpdate(
 }
 
 export function rosterCsvTemplate(): string {
-  return `${[...REQUIRED_HEADERS, ...OPTIONAL_HEADERS].join(",")}\n101,Rex vom Test,DE-12345,2024-01-01,Max Mustermann,R,zwischenklasse,owner@example.com,Sire Name,Dam Name,Breeder Name,123 Main St,Hips: Excellent,conformation,2026-09-05,youth-i`;
+  return `${[...REQUIRED_HEADERS, ...OPTIONAL_HEADERS].join(",")}\n101,Rex vom Test,DE-12345,2024-01-01,Max Mustermann,R,zwischenklasse,owner@example.com,Sire Name,Dam Name,Breeder Name,123 Main St,Hips: Excellent,conformation,2026-09-05,youth-i,,,2024-01-01,,,123456789,ADRK,,Kennel`;
+}
+
+function findImportMatchIndex<T extends RosterEntry>(
+  existing: T[],
+  row: Omit<T, "id">,
+): number {
+  const sameShowArmband = existing
+    .map((entry, index) => ({ entry, index }))
+    .filter(
+      ({ entry }) =>
+        entry.show_id === row.show_id &&
+        entry.armband.trim() === row.armband.trim(),
+    );
+  const exact = sameShowArmband.find(
+    ({ entry }) =>
+      (entry.event_kind ?? "") === (row.event_kind ?? "") &&
+      (entry.competition_day ?? "") === (row.competition_day ?? ""),
+  );
+  if (exact) return exact.index;
+  const sameEvent = sameShowArmband.filter(
+    ({ entry }) => (entry.event_kind ?? "") === (row.event_kind ?? ""),
+  );
+  if (sameEvent.length === 1) return sameEvent[0].index;
+  if (sameShowArmband.length === 1 && !row.event_kind && !row.competition_day) {
+    return sameShowArmband[0].index;
+  }
+  return -1;
 }
 
 /**
  * Re-importing the same CSV should update existing armbands, not duplicate dogs.
+ * SE and conformation may share a number; match event (and day when present).
  */
 export function mergeImportedEntries<T extends RosterEntry>(
   existing: T[],
@@ -273,11 +332,7 @@ export function mergeImportedEntries<T extends RosterEntry>(
   let updated = 0;
   const changedDivisionEntryIds: string[] = [];
   for (const row of incoming) {
-    const idx = next.findIndex(
-      (entry) =>
-        entry.show_id === row.show_id &&
-        entry.armband.trim() === row.armband.trim(),
-    );
+    const idx = findImportMatchIndex(next, row);
     if (idx === -1) {
       next.push({ ...row, id: newId() } as T);
       added += 1;

@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   compareRosterEntries,
+  entriesForRosterTab,
   entryMatchesClassFilter,
   rosterEmptyMessage,
   sanitizeRosterClassFilter,
   visibleRosterEntries,
 } from "./roster-view";
+import { showWeekendDays } from "./show-weekend";
 
 const rows = [
   {
@@ -111,6 +113,20 @@ describe("rosterEmptyMessage", () => {
         classFilter: "all",
       }),
     ).toBeNull();
+  });
+});
+
+describe("roster tabs", () => {
+  it("isolates the SE division from conformation days", () => {
+    const weekend = showWeekendDays("2026-09-05");
+    const catalog = [
+      { event_kind: "se" as const, competition_day: weekend.se },
+      { event_kind: "conformation" as const, competition_day: weekend.saturday },
+      { event_kind: "conformation" as const, competition_day: weekend.sunday },
+    ];
+    expect(entriesForRosterTab(catalog, "se", weekend)).toHaveLength(1);
+    expect(entriesForRosterTab(catalog, "saturday", weekend)).toHaveLength(1);
+    expect(entriesForRosterTab(catalog, "sunday", weekend)).toHaveLength(1);
   });
 });
 

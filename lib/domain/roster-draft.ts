@@ -27,5 +27,12 @@ export function blankRosterEntryDraft(
     breeder: "",
     address: "",
     hd_ed_jlpp: "",
+    date_of_birth: "",
+    prefix_titles: "",
+    suffix_titles: "",
+    microchip: "",
+    registration_club: "",
+    co_owner: "",
+    kennel_name: "",
   };
 }

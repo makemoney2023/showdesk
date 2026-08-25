@@ -24,19 +24,28 @@ import {
   type CatalogEventKind,
 } from "@/lib/domain/catalog-competition";
 import {
+  entriesForRosterTab,
   rosterEmptyMessage,
   sanitizeRosterDivisionFilter,
+  seRosterNote,
   visibleRosterEntries,
   type RosterSort,
+  type RosterTab,
 } from "@/lib/domain/roster-view";
 import { DivisionFilterChips } from "@/components/desk/DivisionFilterChips";
+import { showWeekendDays } from "@/lib/domain/show-weekend";
+import { classEligibilityWarning } from "@/lib/domain/class-eligibility";
+import { HEALTH_REGISTRY_OPTIONS } from "@/lib/domain/health-clearances";
+import { emptyHealthClearances } from "@/lib/domain/health-clearances";
+import { CsvImportDialog } from "@/components/roster/CsvImportDialog";
+import { DogDocumentsField } from "@/components/roster/DogDocumentsField";
 import type { RulebookTemplate } from "@/lib/domain/adrk-template";
 import { validateRosterEntry } from "@/lib/domain/roster";
 import { blankRosterEntryDraft } from "@/lib/domain/roster-draft";
 import { blankShowDraft, validateShowCreate } from "@/lib/domain/show-draft";
 import type { ShowCreateInput } from "@/lib/domain/show-draft";
-import { CsvImportDialog } from "@/components/roster/CsvImportDialog";
 import { DogPhotoField } from "@/components/roster/DogPhotoField";
+import { Checkbox } from "@/components/ui/checkbox";
 import { dogPhotoHref } from "@/lib/domain/dog-photo";
 import { JudgeListFields } from "@/components/show/JudgeListFields";
 import {
@@ -65,6 +74,15 @@ export default function AdminEntriesPage() {
   const [search, setSearch] = useState("");
   const [divisionFilter, setDivisionFilter] = useState("all");
   const [sort, setSort] = useState<RosterSort>("class");
+  const [rosterTab, setRosterTab] = useState<RosterTab>("all");
+  const [entryDays, setEntryDays] = useState({
+    se: false,
+    saturday: true,
+    sunday: false,
+  });
+  const [armbandMode, setArmbandMode] = useState<"sequential" | "random">(
+    "sequential",
+  );
   const [entryFormMode, setEntryFormMode] = useState<EntryFormMode | null>(null);
   const [entryDraft, setEntryDraft] = useState<RosterEntryRecord | null>(null);
   const [showFormOpen, setShowFormOpen] = useState(false);
@@ -225,6 +243,8 @@ export default function AdminEntriesPage() {
     }
     setShowFormOpen(false);
     setEntryFormMode("create");
+    setEntryDays({ se: false, saturday: true, sunday: false });
+    setArmbandMode("sequential");
     const showDate = shows.find((show) => show.id === showId)?.date ?? "";
     setEntryDraft(
       blankRosterEntryDraft(
@@ -266,6 +286,19 @@ export default function AdminEntriesPage() {
       return;
     }
 
+    if (entryFormMode === "create" && !entryDraft.microchip?.trim()) {
+      showEntryError("microchip is required");
+      return;
+    }
+    if (
+      entryFormMode === "create" &&
+      !entryDays.se &&
+      !entryDays.saturday &&
+      !entryDays.sunday
+    ) {
+      showEntryError("Select at least one date");
+      return;
+    }
     const validation = validateRosterEntry(entryDraft);
     if (!validation.valid) {
       showEntryError(validation.error);
@@ -289,8 +322,10 @@ export default function AdminEntriesPage() {
               armband: entryDraft.armband,
               dog_name: entryDraft.dog_name,
               zb_number: entryDraft.zb_number,
-              wt: entryDraft.wt,
+              wt: entryDraft.date_of_birth || entryDraft.wt,
+              date_of_birth: entryDraft.date_of_birth || entryDraft.wt,
               owner: entryDraft.owner,
+              co_owner: entryDraft.co_owner ?? "",
               sex: entryDraft.sex,
               class_id: entryDraft.class_id,
               event_kind: entryDraft.event_kind,
@@ -300,9 +335,17 @@ export default function AdminEntriesPage() {
               sire: entryDraft.sire ?? "",
               dam: entryDraft.dam ?? "",
               breeder: entryDraft.breeder ?? "",
+              kennel_name: entryDraft.kennel_name ?? "",
               address: entryDraft.address ?? "",
               hd_ed_jlpp: entryDraft.hd_ed_jlpp ?? "",
+              prefix_titles: entryDraft.prefix_titles ?? "",
+              suffix_titles: entryDraft.suffix_titles ?? "",
+              microchip: entryDraft.microchip ?? "",
+              registration_club: entryDraft.registration_club ?? "",
+              health: entryDraft.health ?? emptyHealthClearances(),
             },
+            days: entryDays,
+            armband_mode: armbandMode,
           }),
         });
         if (!res.ok) {
@@ -378,22 +421,36 @@ export default function AdminEntriesPage() {
     await load();
   }
 
-  const divisions = divisionsWithDogs(entries);
+  const weekend = showWeekendDays(
+    shows.find((show) => show.id === showId)?.date ?? "",
+  );
+  const tabEntries = entriesForRosterTab(entries, rosterTab, weekend);
+  const divisions = divisionsWithDogs(tabEntries);
   const activeDivisionFilter = sanitizeRosterDivisionFilter(
     divisionFilter,
-    entries,
+    tabEntries,
   );
-  const filtered = visibleRosterEntries(entries, {
+  const filtered = visibleRosterEntries(tabEntries, {
     search,
     divisionFilter: activeDivisionFilter,
     sort,
   });
   const emptyMessage = rosterEmptyMessage({
-    entryCount: entries.length,
+    entryCount: tabEntries.length,
     visibleCount: filtered.length,
     search,
     divisionFilter: activeDivisionFilter,
+    tab: rosterTab,
   });
+  const classWarning =
+    entryDraft &&
+    classEligibilityWarning({
+      catalogClass: entryDraft.catalog_class,
+      dateOfBirth: entryDraft.date_of_birth || entryDraft.wt,
+      onDate: weekend.saturday,
+      prefixTitles: entryDraft.prefix_titles,
+      suffixTitles: entryDraft.suffix_titles,
+    });
 
   const selectValue = shows.some((s) => s.id === showId) ? showId! : undefined;
 
@@ -575,6 +632,38 @@ export default function AdminEntriesPage() {
             Select or create a show to enable import.
           </p>
         ) : null}
+        <div
+          className="mb-3 flex flex-wrap gap-2"
+          role="tablist"
+          aria-label="Roster day"
+        >
+          {(
+            [
+              ["all", "All days"],
+              ["se", "SE Division"],
+              ["saturday", `Saturday ${formatDisplayDate(weekend.saturday)}`],
+              ["sunday", `Sunday ${formatDisplayDate(weekend.sunday)}`],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={rosterTab === value}
+              className={`min-h-11 rounded-sss-md px-3 text-sm ${
+                rosterTab === value
+                  ? "bg-sss-ink text-[var(--sss-paper)]"
+                  : "sss-paper text-sss-text-secondary"
+              }`}
+              onClick={() => {
+                setRosterTab(value);
+                setDivisionFilter("all");
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         {divisions.length > 0 ? (
           <div className="mb-3">
             <DivisionFilterChips
@@ -607,9 +696,15 @@ export default function AdminEntriesPage() {
                 <div className="min-w-0">
                   <p className="font-medium">{e.dog_name}</p>
                   <p className="text-xs text-sss-text-muted">
-                    #{e.armband} · {e.owner} ·{" "}
+                    #{e.armband}
+                    {seRosterNote(e, entries, weekend) ? " *" : ""} · {e.owner} ·{" "}
                     {divisionLabel(e)}
                   </p>
+                  {seRosterNote(e, entries, weekend) ? (
+                    <p className="text-xs text-sss-text-muted">
+                      * {seRosterNote(e, entries, weekend)}
+                    </p>
+                  ) : null}
                 </div>
               </div>
               <div className="flex gap-2">
@@ -686,6 +781,7 @@ export default function AdminEntriesPage() {
                 >
                   <td className="p-3 font-[family-name:var(--font-fraunces)] font-semibold">
                     #{e.armband}
+                    {seRosterNote(e, entries, weekend) ? " *" : ""}
                   </td>
                   <td className="p-3">
                     <span className="inline-flex items-center gap-2">
@@ -703,6 +799,11 @@ export default function AdminEntriesPage() {
                   <td className="p-3">{e.owner}</td>
                   <td className="p-3">
                     {divisionLabel(e)}
+                    {seRosterNote(e, entries, weekend) ? (
+                      <span className="block text-xs text-sss-text-muted">
+                        * {seRosterNote(e, entries, weekend)}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="space-x-2 p-3">
                     <Button
@@ -766,6 +867,69 @@ export default function AdminEntriesPage() {
               }
             />
           ) : null}
+          {entryFormMode === "create" ? (
+            <div className="space-y-2 rounded-sss-md border border-sss-border p-3">
+              <Label>Date(s) entered</Label>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={entryDays.se}
+                  onCheckedChange={(checked) =>
+                    setEntryDays((days) => ({ ...days, se: checked === true }))
+                  }
+                />
+                Friday {formatDisplayDate(weekend.se)} — SE only
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={entryDays.saturday}
+                  onCheckedChange={(checked) =>
+                    setEntryDays((days) => ({
+                      ...days,
+                      saturday: checked === true,
+                    }))
+                  }
+                />
+                Saturday {formatDisplayDate(weekend.saturday)}
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={entryDays.sunday}
+                  onCheckedChange={(checked) =>
+                    setEntryDays((days) => ({
+                      ...days,
+                      sunday: checked === true,
+                    }))
+                  }
+                />
+                Sunday {formatDisplayDate(weekend.sunday)}
+              </label>
+              <div className="space-y-1 pt-2">
+                <Label>Armband assignment</Label>
+                <Select
+                  value={armbandMode}
+                  onValueChange={(value) =>
+                    setArmbandMode(value as "sequential" | "random")
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sequential">
+                      Sequential by day and class
+                    </SelectItem>
+                    <SelectItem value="random">
+                      Random in the show range
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-sss-text-muted">
+                  Both conformation days get different numbers. SE reuses the
+                  Saturday number when the dog is also in conformation.
+                </p>
+              </div>
+            </div>
+          ) : null}
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor="armband">Armband</Label>
@@ -775,16 +939,23 @@ export default function AdminEntriesPage() {
                 onChange={(e) =>
                   setEntryDraft({ ...entryDraft, armband: e.target.value })
                 }
+                disabled={entryFormMode === "create"}
               />
+              {entryFormMode === "create" ? (
+                <p className="text-xs text-sss-text-muted">
+                  Assigned on save from the selected dates.
+                </p>
+              ) : null}
             </div>
             <div className="space-y-1">
-              <Label htmlFor="dog_name">Dog name</Label>
+              <Label htmlFor="dog_name">Registered name</Label>
               <Input
                 id="dog_name"
                 value={entryDraft.dog_name}
                 onChange={(e) =>
                   setEntryDraft({ ...entryDraft, dog_name: e.target.value })
                 }
+                placeholder="No titles"
               />
             </div>
             <div className="space-y-1">
@@ -808,7 +979,17 @@ export default function AdminEntriesPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="zb">ZB number</Label>
+              <Label htmlFor="co_owner">Co-owner</Label>
+              <Input
+                id="co_owner"
+                value={entryDraft.co_owner ?? ""}
+                onChange={(e) =>
+                  setEntryDraft({ ...entryDraft, co_owner: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="zb">Registration #</Label>
               <Input
                 id="zb"
                 value={entryDraft.zb_number}
@@ -818,11 +999,84 @@ export default function AdminEntriesPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="wt">WT</Label>
+              <Label htmlFor="registration_club">Registration club</Label>
               <Input
-                id="wt"
-                value={entryDraft.wt}
-                onChange={(e) => setEntryDraft({ ...entryDraft, wt: e.target.value })}
+                id="registration_club"
+                value={entryDraft.registration_club ?? ""}
+                onChange={(e) =>
+                  setEntryDraft({
+                    ...entryDraft,
+                    registration_club: e.target.value,
+                  })
+                }
+                placeholder="AKC, CKC, ADRK…"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="microchip">Microchip # (required)</Label>
+              <Input
+                id="microchip"
+                value={entryDraft.microchip ?? ""}
+                onChange={(e) =>
+                  setEntryDraft({ ...entryDraft, microchip: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="dob">Date of birth</Label>
+              <Input
+                id="dob"
+                type="date"
+                value={entryDraft.date_of_birth || entryDraft.wt}
+                onChange={(e) =>
+                  setEntryDraft({
+                    ...entryDraft,
+                    date_of_birth: e.target.value,
+                    wt: e.target.value,
+                  })
+                }
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="prefix_titles">Prefix titles (conformation)</Label>
+              <Input
+                id="prefix_titles"
+                value={entryDraft.prefix_titles ?? ""}
+                onChange={(e) =>
+                  setEntryDraft({
+                    ...entryDraft,
+                    prefix_titles: e.target.value,
+                  })
+                }
+                placeholder="CH, AM CH, Sieger…"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="suffix_titles">Suffix titles (performance)</Label>
+              <Input
+                id="suffix_titles"
+                value={entryDraft.suffix_titles ?? ""}
+                onChange={(e) =>
+                  setEntryDraft({
+                    ...entryDraft,
+                    suffix_titles: e.target.value,
+                  })
+                }
+                placeholder="IGP1, BH, FH…"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="kennel_name">Breeder / kennel name</Label>
+              <Input
+                id="kennel_name"
+                value={entryDraft.kennel_name || entryDraft.breeder || ""}
+                onChange={(e) =>
+                  setEntryDraft({
+                    ...entryDraft,
+                    kennel_name: e.target.value,
+                    breeder: e.target.value,
+                  })
+                }
               />
             </div>
             <div className="space-y-1">
@@ -941,9 +1195,95 @@ export default function AdminEntriesPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {classWarning ? (
+                  <p className="text-sm text-amber-800">{classWarning}</p>
+                ) : null}
               </div>
             ) : null}
           </div>
+          {entryDays.se || entryDraft.event_kind === "se" ? (
+            <div className="grid gap-3 rounded-sss-md border border-sss-border p-3 sm:grid-cols-2">
+              <p className="text-sm font-medium sm:col-span-2">
+                SE health clearances
+              </p>
+              {(
+                [
+                  ["hd", "HD"],
+                  ["ed", "ED"],
+                  ["eye", "Eye"],
+                  ["heart", "Heart"],
+                  ["jlpp", "JLPP"],
+                  ["nad", "NAD"],
+                ] as const
+              ).map(([key, label]) => (
+                <div key={key} className="space-y-1">
+                  <Label htmlFor={`health_${key}`}>{label}</Label>
+                  <Input
+                    id={`health_${key}`}
+                    value={entryDraft.health?.[key] ?? ""}
+                    onChange={(e) =>
+                      setEntryDraft({
+                        ...entryDraft,
+                        health: {
+                          ...(entryDraft.health ?? emptyHealthClearances()),
+                          [key]: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder="clear / passing"
+                  />
+                </div>
+              ))}
+              <div className="space-y-1">
+                <Label>Registry</Label>
+                <Select
+                  value={entryDraft.health?.registry || undefined}
+                  onValueChange={(value) =>
+                    setEntryDraft({
+                      ...entryDraft,
+                      health: {
+                        ...(entryDraft.health ?? emptyHealthClearances()),
+                        registry: value as (typeof HEALTH_REGISTRY_OPTIONS)[number],
+                      },
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="OFA, ADRK, or Other" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {HEALTH_REGISTRY_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="health_registry_status">Registry status</Label>
+                <Input
+                  id="health_registry_status"
+                  value={entryDraft.health?.registry_status ?? ""}
+                  onChange={(e) =>
+                    setEntryDraft({
+                      ...entryDraft,
+                      health: {
+                        ...(entryDraft.health ?? emptyHealthClearances()),
+                        registry_status: e.target.value,
+                      },
+                    })
+                  }
+                  placeholder="passing"
+                />
+              </div>
+            </div>
+          ) : null}
+          <DogDocumentsField
+            showId={entryDraft.show_id || showId || ""}
+            entryId={entryDraft.id || undefined}
+            dogId={entryDraft.dog_id}
+          />
           <div className="flex gap-2">
             <Button onClick={() => void saveEntryForm()}>
               {entryFormMode === "create" ? "Create entry" : "Save entry"}

@@ -1,5 +1,10 @@
 import type { DraftCritiqueSchema } from "@/lib/domain/adrk-template";
 import type { TnrkSeForm } from "@/lib/domain/tnrk-se-form";
+import {
+  emptyHealthClearances,
+  normalizeHealthClearances,
+  type DogHealthClearances,
+} from "@/lib/domain/health-clearances";
 import type {
   CritiqueRecord,
   PlacementRecord,
@@ -94,6 +99,15 @@ export function toEntryRow(entry: RosterEntryRecord): EntryRow {
     breeder: requiredText(entry.breeder),
     address: requiredText(entry.address),
     hd_ed_jlpp: requiredText(entry.hd_ed_jlpp),
+    dog_id: entry.dog_id ?? null,
+    date_of_birth: requiredText(entry.date_of_birth),
+    prefix_titles: requiredText(entry.prefix_titles),
+    suffix_titles: requiredText(entry.suffix_titles),
+    microchip: requiredText(entry.microchip),
+    registration_club: requiredText(entry.registration_club),
+    co_owner: requiredText(entry.co_owner),
+    kennel_name: requiredText(entry.kennel_name),
+    health: normalizeHealthClearances(entry.health),
   };
 }
 
@@ -120,7 +134,32 @@ export function mapEntryRow(row: EntryRow): RosterEntryRecord {
     ...(row.breeder ? { breeder: row.breeder } : {}),
     ...(row.address ? { address: row.address } : {}),
     ...(row.hd_ed_jlpp ? { hd_ed_jlpp: row.hd_ed_jlpp } : {}),
+    ...(row.dog_id ? { dog_id: row.dog_id } : {}),
+    ...(row.date_of_birth ? { date_of_birth: row.date_of_birth } : {}),
+    ...(row.prefix_titles ? { prefix_titles: row.prefix_titles } : {}),
+    ...(row.suffix_titles ? { suffix_titles: row.suffix_titles } : {}),
+    ...(row.microchip ? { microchip: row.microchip } : {}),
+    ...(row.registration_club
+      ? { registration_club: row.registration_club }
+      : {}),
+    ...(row.co_owner ? { co_owner: row.co_owner } : {}),
+    ...(row.kennel_name ? { kennel_name: row.kennel_name } : {}),
+    ...(healthFromRow(row.health)
+      ? { health: healthFromRow(row.health) }
+      : {}),
   };
+}
+
+function healthFromRow(
+  value: DogHealthClearances | string | null | undefined,
+): DogHealthClearances | undefined {
+  if (!value) return undefined;
+  const parsed =
+    typeof value === "string"
+      ? (parseJsonb<DogHealthClearances>(value) ?? emptyHealthClearances())
+      : value;
+  const health = normalizeHealthClearances(parsed);
+  return Object.values(health).some(Boolean) ? health : undefined;
 }
 
 export function toCritiqueRow(critique: CritiqueRecord): CritiqueRow {

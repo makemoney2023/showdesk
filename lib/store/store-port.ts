@@ -10,6 +10,8 @@ import type {
 } from "@/lib/domain/catalog-competition";
 import type { CritiqueStatus } from "@/lib/domain/critique-status";
 import type { TnrkSeForm } from "@/lib/domain/tnrk-se-form";
+import type { DogHealthClearances } from "@/lib/domain/health-clearances";
+import type { DogDocumentRecord } from "@/lib/domain/dog-document";
 import type { AppStore } from "@/lib/types";
 
 /** Postgres `shows` row. */
@@ -47,6 +49,15 @@ export interface EntryRow {
   breeder?: string | null;
   address?: string | null;
   hd_ed_jlpp?: string | null;
+  dog_id?: string | null;
+  date_of_birth?: string | null;
+  prefix_titles?: string | null;
+  suffix_titles?: string | null;
+  microchip?: string | null;
+  registration_club?: string | null;
+  co_owner?: string | null;
+  kennel_name?: string | null;
+  health?: DogHealthClearances | string | null;
 }
 
 /** Postgres `critiques` row. */
@@ -88,6 +99,9 @@ export interface SeEvaluationRow {
   created_at: string;
   updated_at: string;
 }
+
+/** Postgres `dog_documents` row. */
+export type DogDocumentRow = DogDocumentRecord;
 
 /** Singleton `app_state` row (`id = 1`). */
 export interface AppStateRow {

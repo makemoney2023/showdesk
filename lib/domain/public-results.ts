@@ -16,6 +16,10 @@ import type {
   RosterEntryRecord,
   Show,
 } from "@/lib/types";
+import {
+  publicDogDocumentHref,
+  type DogDocumentRecord,
+} from "./dog-document";
 
 /** Public URL slug: lowercase, hyphenated, no leading/trailing hyphens. */
 export function slugify(value: string): string {
@@ -82,6 +86,12 @@ export interface PublicDogResult {
   judge: string | null;
   photoPath: string | null;
   photoHref: string | null;
+  documents: Array<{
+    id: string;
+    filename: string;
+    href: string;
+    contentType: string;
+  }>;
   href: string;
 }
 
@@ -147,11 +157,31 @@ export function ratingPlacementLabel(
   return `Place ${placement}`;
 }
 
+function documentsForEntry(
+  documents: DogDocumentRecord[],
+  entry: RosterEntryRecord,
+): PublicDogResult["documents"] {
+  const dogId = entry.dog_id?.trim();
+  if (!dogId) return [];
+  return documents
+    .filter(
+      (document) =>
+        document.show_id === entry.show_id && document.dog_id === dogId,
+    )
+    .map((document) => ({
+      id: document.id,
+      filename: document.filename,
+      href: publicDogDocumentHref(entry.show_id, document.id),
+      contentType: document.content_type,
+    }));
+}
+
 function toPublicDog(
   show: Show,
   entry: RosterEntryRecord,
   critique: CritiqueRecord | null,
   placement: PlacementRecord | null,
+  documents: DogDocumentRecord[],
 ): PublicDogResult | null {
   const formwert = critique?.draft.formwert ?? null;
   const rank = placement?.placement ?? critique?.draft.placement ?? null;
@@ -188,6 +218,7 @@ function toPublicDog(
     photoHref: photoPath
       ? publicDogPhotoHref(show.id, entry.id, { cacheBust: photoPath })
       : null,
+    documents: documentsForEntry(documents, entry),
     href: dogResultsPath(show, entry),
   };
 }
@@ -224,6 +255,7 @@ function projectShow(store: AppStore, show: Show): PublicShowResults | null {
         entry,
         approvedCritiqueForEntry(critiques, entry.id),
         placementForEntry(placements, entry.id),
+        store.dog_documents ?? [],
       ),
     )
     .filter((dog): dog is PublicDogResult => Boolean(dog));

@@ -97,6 +97,7 @@ function createMockClient(seed?: {
     se_evaluations: new Map(
       (seed?.se_evaluations ?? []).map((r) => [String(r.id), r]),
     ),
+    dog_documents: new Map(),
   };
   let appState = seed?.app_state ?? { id: 1 as const, active_show_id: null };
   const ops: { op: string; table: string; payload?: unknown }[] = [];

@@ -42,6 +42,18 @@ import {
   type SupabasePhotoClient,
 } from "./supabase-photo";
 import {
+  deleteDogDocumentFile,
+  readDogDocumentFile,
+  writeDogDocumentFile,
+} from "./document-store";
+import {
+  deleteDogDocumentObject,
+  readDogDocumentBytes,
+  writeDogDocumentBytes,
+  type SupabaseDocumentClient,
+} from "./supabase-document";
+import { dogDocumentRelativePath } from "@/lib/domain/dog-document";
+import {
   sbPurgeShowData,
   sbReadStore,
   sbUpdateStore,
@@ -63,7 +75,8 @@ export type StoreBackend = "file" | "supabase";
 
 type StoreClient = SupabaseStoreClient &
   SupabaseAudioClient &
-  SupabasePhotoClient;
+  SupabasePhotoClient &
+  SupabaseDocumentClient;
 
 export function getStoreBackend(): StoreBackend {
   return isDemoMode() ? "file" : "supabase";
@@ -214,6 +227,50 @@ export async function deleteShowPhotos(showId: string, root?: string) {
     return fileDeleteShowPhotos(showId, root);
   }
   return deleteShowPhotoObjects(await requireSupabaseClient(), showId);
+}
+
+export async function writeDogDocument(opts: {
+  showId: string;
+  dogId: string;
+  documentId: string;
+  ext: string;
+  bytes: Buffer;
+  contentType: string;
+  root?: string;
+}): Promise<string> {
+  assertDemoWritesAllowed();
+  if (getStoreBackend() === "file") return writeDogDocumentFile(opts);
+  return writeDogDocumentBytes(await requireSupabaseClient(), {
+    objectPath: dogDocumentRelativePath(
+      opts.showId,
+      opts.dogId,
+      opts.documentId,
+      opts.ext,
+    ),
+    bytes: opts.bytes,
+    contentType: opts.contentType,
+  });
+}
+
+export async function readDogDocument(
+  relativePath: string,
+  root?: string,
+): Promise<Buffer> {
+  if (getStoreBackend() === "file") {
+    return readDogDocumentFile(relativePath, root);
+  }
+  return readDogDocumentBytes(await requireSupabaseClient(), relativePath);
+}
+
+export async function deleteDogDocument(
+  relativePath: string,
+  root?: string,
+): Promise<void> {
+  assertDemoWritesAllowed();
+  if (getStoreBackend() === "file") {
+    return deleteDogDocumentFile(relativePath, root);
+  }
+  return deleteDogDocumentObject(await requireSupabaseClient(), relativePath);
 }
 
 export async function photoExists(

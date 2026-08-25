@@ -7,8 +7,48 @@ import {
   type DivisionFilter,
   type DogSex,
 } from "./class-division";
+import type { CatalogEventKind } from "./catalog-competition";
+import type { ShowWeekend } from "./show-weekend";
+import { weekendDayKind } from "./show-weekend";
+import {
+  conformationDaysForDog,
+  seConformationAsterisk,
+} from "./dog-identity";
 
 export type RosterSort = "class" | "armband";
+export type RosterTab = "se" | "saturday" | "sunday" | "all";
+
+export function rosterTabForEntry(
+  entry: { event_kind?: CatalogEventKind; competition_day?: string },
+  weekend: ShowWeekend,
+): Exclude<RosterTab, "all"> | null {
+  if (entry.event_kind === "se") return "se";
+  const kind = weekendDayKind(weekend, entry.competition_day);
+  if (kind === "saturday" || kind === "sunday") return kind;
+  return entry.event_kind === "conformation" ? "saturday" : null;
+}
+
+export function entriesForRosterTab<
+  T extends { event_kind?: CatalogEventKind; competition_day?: string },
+>(entries: T[], tab: RosterTab, weekend: ShowWeekend): T[] {
+  if (tab === "all") return entries;
+  return entries.filter((entry) => rosterTabForEntry(entry, weekend) === tab);
+}
+
+export function seRosterNote<
+  T extends {
+    id: string;
+    show_id: string;
+    dog_id?: string;
+    event_kind?: CatalogEventKind;
+    competition_day?: string;
+  },
+>(entry: T, entries: T[], weekend: ShowWeekend): string | null {
+  if (entry.event_kind !== "se") return null;
+  return seConformationAsterisk(
+    conformationDaysForDog(entries, entry, weekend),
+  );
+}
 
 /** @deprecated Prefer entryMatchesDivision for competition views. */
 export function entryMatchesClassFilter(
@@ -82,6 +122,7 @@ export function rosterEmptyMessage(input: {
   search: string;
   divisionFilter?: string;
   classFilter?: string;
+  tab?: RosterTab;
 }): string | null {
   if (input.visibleCount > 0) return null;
   if (input.entryCount === 0) return "No dogs on this roster yet.";
@@ -96,6 +137,10 @@ export function rosterEmptyMessage(input: {
   }
   if (searching) return "No dogs match this search.";
   if (filteredClass) return "No dogs in this class.";
+  if (input.tab === "se") return "No dogs in the SE division.";
+  if (input.tab === "saturday" || input.tab === "sunday") {
+    return "No dogs entered on this day.";
+  }
   return "No dogs in this division.";
 }
 

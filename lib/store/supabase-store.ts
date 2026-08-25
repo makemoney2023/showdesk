@@ -2,6 +2,7 @@ import { EMPTY_STORE, type AppStore } from "@/lib/types";
 import type {
   AppStateRow,
   CritiqueRow,
+  DogDocumentRow,
   EntryRow,
   PlacementRow,
   SeEvaluationRow,
@@ -49,9 +50,11 @@ export interface StoreWritePlan {
   upsertCritiques: CritiqueRow[];
   upsertPlacements: PlacementRow[];
   upsertSeEvaluations: SeEvaluationRow[];
+  upsertDogDocuments: DogDocumentRow[];
   deleteCritiqueIds: string[];
   deletePlacementIds: string[];
   deleteSeEvaluationIds: string[];
+  deleteDogDocumentIds: string[];
   deleteEntryIds: string[];
   deleteShowIds: string[];
   /** Null when `active_show_id` is unchanged. */
@@ -68,6 +71,7 @@ export function assembleStore(input: {
   critiques: CritiqueRow[];
   placements: PlacementRow[];
   se_evaluations: SeEvaluationRow[];
+  dog_documents?: DogDocumentRow[];
   active_show_id: string | null;
 }): AppStore {
   return {
@@ -76,6 +80,7 @@ export function assembleStore(input: {
     critiques: input.critiques.map(mapCritiqueRow),
     placements: input.placements.map(mapPlacementRow),
     se_evaluations: input.se_evaluations.map(mapSeEvaluationRow),
+    dog_documents: input.dog_documents ?? [],
     active_show_id: input.active_show_id,
     demo_users: EMPTY_STORE.demo_users,
   };
@@ -128,6 +133,11 @@ export function planStoreWrite(before: AppStore, after: AppStore): StoreWritePla
     after.se_evaluations ?? [],
     toSeEvaluationRow,
   );
+  const documents = diffById(
+    before.dog_documents ?? [],
+    after.dog_documents ?? [],
+    (document) => document,
+  );
 
   return {
     upsertShows: shows.upsert,
@@ -135,9 +145,11 @@ export function planStoreWrite(before: AppStore, after: AppStore): StoreWritePla
     upsertCritiques: critiques.upsert,
     upsertPlacements: placements.upsert,
     upsertSeEvaluations: evaluations.upsert,
+    upsertDogDocuments: documents.upsert,
     deleteCritiqueIds: critiques.deleteIds,
     deletePlacementIds: placements.deleteIds,
     deleteSeEvaluationIds: evaluations.deleteIds,
+    deleteDogDocumentIds: documents.deleteIds,
     deleteEntryIds: entries.deleteIds,
     deleteShowIds: shows.deleteIds,
     appState:
@@ -176,6 +188,9 @@ async function applyPlan(
     plan.deleteSeEvaluationIds.length > 0
       ? client.from("se_evaluations").delete().in("id", plan.deleteSeEvaluationIds)
       : null,
+    plan.deleteDogDocumentIds.length > 0
+      ? client.from("dog_documents").delete().in("id", plan.deleteDogDocumentIds)
+      : null,
   ].filter((job): job is Promise<{ error: QueryError }> => job != null);
 
   if (childDeletes.length > 0) {
@@ -194,6 +209,9 @@ async function applyPlan(
       : null,
     plan.upsertSeEvaluations.length > 0
       ? client.from("se_evaluations").upsert(plan.upsertSeEvaluations)
+      : null,
+    plan.upsertDogDocuments.length > 0
+      ? client.from("dog_documents").upsert(plan.upsertDogDocuments)
       : null,
   ].filter((job): job is Promise<{ error: QueryError }> => job != null);
 
@@ -231,13 +249,14 @@ async function applyPlan(
 export async function sbReadStore(
   client: SupabaseStoreClient,
 ): Promise<AppStore> {
-  const [shows, entries, critiques, placements, evaluations, appState] =
+  const [shows, entries, critiques, placements, evaluations, documents, appState] =
     await Promise.all([
       client.from("shows").select("*"),
       client.from("entries").select("*"),
       client.from("critiques").select("*"),
       client.from("placements").select("*"),
       client.from("se_evaluations").select("*"),
+      client.from("dog_documents").select("*"),
       client.from("app_state").select("active_show_id").eq("id", 1).maybeSingle(),
     ]);
 
@@ -246,6 +265,7 @@ export async function sbReadStore(
   throwIfError(critiques.error, "read critiques");
   throwIfError(placements.error, "read placements");
   throwIfError(evaluations.error, "read se_evaluations");
+  throwIfError(documents.error, "read dog_documents");
   throwIfError(appState.error, "read app_state");
 
   return assembleStore({
@@ -254,6 +274,7 @@ export async function sbReadStore(
     critiques: (critiques.data as CritiqueRow[] | null) ?? [],
     placements: (placements.data as PlacementRow[] | null) ?? [],
     se_evaluations: (evaluations.data as SeEvaluationRow[] | null) ?? [],
+    dog_documents: (documents.data as DogDocumentRow[] | null) ?? [],
     active_show_id:
       (appState.data as AppStateRow | null)?.active_show_id ?? null,
   });
@@ -301,6 +322,9 @@ export async function sbPurgeShowData(
     ),
     se_evaluations: (store.se_evaluations ?? []).filter(
       (evaluation) => evaluation.show_id !== showId,
+    ),
+    dog_documents: (store.dog_documents ?? []).filter(
+      (document) => document.show_id !== showId,
     ),
     shows: store.shows.filter((show) => show.id !== showId),
     active_show_id:

@@ -150,6 +150,7 @@ export function samplePublishedStore(): AppStore {
       },
     ],
     se_evaluations: [],
+    dog_documents: [],
     active_show_id: "sample-show",
     demo_users: [],
   };

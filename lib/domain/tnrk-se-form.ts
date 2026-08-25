@@ -116,6 +116,10 @@ export interface SeEntrySeed {
   breeder?: string;
   address?: string;
   hd_ed_jlpp?: string;
+  date_of_birth?: string;
+  microchip?: string;
+  co_owner?: string;
+  kennel_name?: string;
 }
 
 export function createEmptyTnrkSeForm(): TnrkSeForm {
@@ -176,13 +180,18 @@ export function mergeEntryIntoSeForm(
     ...form,
     dog_name: entry.dog_name || form.dog_name,
     registration_number: entry.zb_number || form.registration_number,
-    date_of_birth: entry.wt || form.date_of_birth,
+    date_of_birth:
+      entry.date_of_birth?.trim() || entry.wt || form.date_of_birth,
+    microchip_nr: entry.microchip?.trim() || form.microchip_nr,
     sex: entry.sex === "R" ? "male" : entry.sex === "H" ? "female" : form.sex,
-    owner_co_owner: entry.owner || form.owner_co_owner,
+    owner_co_owner:
+      [entry.owner, entry.co_owner].filter((part) => part?.trim()).join(" / ") ||
+      form.owner_co_owner,
     email: entry.email || form.email,
     sire: entry.sire?.trim() || form.sire,
     dam: entry.dam?.trim() || form.dam,
-    breeder: entry.breeder?.trim() || form.breeder,
+    breeder:
+      entry.kennel_name?.trim() || entry.breeder?.trim() || form.breeder,
     address: entry.address?.trim() || form.address,
     hd_ed_jlpp_nr: entry.hd_ed_jlpp?.trim() || form.hd_ed_jlpp_nr,
   };

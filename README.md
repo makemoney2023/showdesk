@@ -68,10 +68,12 @@ SQL lives under `supabase/migrations/`. Apply **in order** on project `emiwbvbyt
 6. `supabase/migrations/20260821160000_entry_pedigree_fields.sql` — optional roster pedigree fields (`sire`, `dam`, `breeder`, `address`, `hd_ed_jlpp`) used to seed TNRK SE forms.
 7. `supabase/migrations/20260822020423_placement_sex_divisions.sql` — sex-aware placement divisions, canonical placement trigger, and one rank per class/sex division.
 8. `supabase/migrations/20260822035122_day_aware_placement_constraints.sql` — Friday SE / Saturday / Sunday metadata, exact published classes, and one rank per day/class/sex pool.
+9. `supabase/migrations/20260824180000_show_results_published.sql` — public results publish timestamp.
+10. `supabase/migrations/20260825010000_dog_identity_and_documents.sql` — shared `dog_id`, identity/health fields, and optional public clearance documents.
 
 **Status:** migration status must match the live project before entering placements.
 
-Roster CSV required headers: `armband,dog_name,zb_number,wt,owner,sex,class_id,email`. Optional SE seed columns: `sire,dam,breeder,address,hd_ed_jlpp`.
+Roster CSV required headers: `armband,dog_name,zb_number,wt,owner,sex,class_id,email`. Optional columns: `sire,dam,breeder,address,hd_ed_jlpp,event_kind,competition_day,catalog_class,dog_id,date_of_birth,prefix_titles,suffix_titles,microchip,registration_club,co_owner,kennel_name`. CSV upserts by armband + event + day so SE and conformation can share a number.
 
 Competition placement pools are `(competition_day, catalog_class, sex)`.
 Saturday and Sunday are independent, and Male (`R` / Rüde) and female

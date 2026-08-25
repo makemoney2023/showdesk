@@ -46,6 +46,7 @@ async function readStoreUnlocked(): Promise<AppStore> {
       ...EMPTY_STORE,
       ...parsed,
       se_evaluations: parsed.se_evaluations ?? [],
+      dog_documents: parsed.dog_documents ?? [],
       demo_users: parsed.demo_users ?? EMPTY_STORE.demo_users,
     });
   } catch {
@@ -99,6 +100,9 @@ export async function purgeShowData(showId: string): Promise<AppStore> {
     placements: store.placements.filter((p) => p.show_id !== showId),
     se_evaluations: (store.se_evaluations ?? []).filter(
       (e) => e.show_id !== showId,
+    ),
+    dog_documents: (store.dog_documents ?? []).filter(
+      (document) => document.show_id !== showId,
     ),
     shows: store.shows.filter((s) => s.id !== showId),
     active_show_id:

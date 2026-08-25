@@ -9,6 +9,8 @@ import type {
   CatalogEventKind,
 } from "@/lib/domain/catalog-competition";
 import type { TnrkSeForm } from "@/lib/domain/tnrk-se-form";
+import type { DogHealthClearances } from "@/lib/domain/health-clearances";
+import type { DogDocumentRecord } from "@/lib/domain/dog-document";
 
 export interface Show {
   id: string;
@@ -27,6 +29,8 @@ export interface Show {
 export interface RosterEntryRecord {
   id: string;
   show_id: string;
+  /** Shared identity across SE + Sat/Sun appearances of the same dog. */
+  dog_id?: string;
   armband: string;
   dog_name: string;
   zb_number: string;
@@ -45,6 +49,14 @@ export interface RosterEntryRecord {
   breeder?: string;
   address?: string;
   hd_ed_jlpp?: string;
+  date_of_birth?: string;
+  prefix_titles?: string;
+  suffix_titles?: string;
+  microchip?: string;
+  registration_club?: string;
+  co_owner?: string;
+  kennel_name?: string;
+  health?: DogHealthClearances;
 }
 
 export interface CritiqueRecord {
@@ -99,6 +111,7 @@ export interface AppStore {
   critiques: CritiqueRecord[];
   placements: PlacementRecord[];
   se_evaluations: SeEvaluationRecord[];
+  dog_documents: DogDocumentRecord[];
   active_show_id: string | null;
   demo_users: DemoUser[];
 }
@@ -109,6 +122,7 @@ export const EMPTY_STORE: AppStore = {
   critiques: [],
   placements: [],
   se_evaluations: [],
+  dog_documents: [],
   active_show_id: null,
   demo_users: [
     {

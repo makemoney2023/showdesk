@@ -6,6 +6,7 @@ import {
   mergeSeIntoCritiqueDraft,
   SE_SYNC_NOTE,
   syncSeIntoCritiques,
+  syncSeIntoDogCritiques,
 } from "./se-to-critique";
 import type { CritiqueRecord } from "@/lib/types";
 
@@ -181,5 +182,34 @@ describe("se-to-critique", () => {
     expect(next[0]?.id).toBe("c1");
     expect(next[0]?.draft.narrative).toContain("Approved then recalled");
     expect(next[0]?.draft.narrative).toContain("Updated after recall");
+  });
+
+  it("carries the SE verbal critique onto conformation siblings", () => {
+    const form = createEmptyTnrkSeForm();
+    form.overall_appearance = "Strong working male.";
+    form.final_result = "pass";
+    const next = syncSeIntoDogCritiques(
+      [],
+      [
+        { id: "se-1", show_id: "s1", dog_id: "dog-1", event_kind: "se" },
+        {
+          id: "sat-1",
+          show_id: "s1",
+          dog_id: "dog-1",
+          event_kind: "conformation",
+        },
+      ],
+      "s1",
+      "se-1",
+      form,
+      { force: true, newId: () => `c-${Math.random()}`, now: "t" },
+    );
+    expect(next.map((critique) => critique.entry_id).sort()).toEqual([
+      "sat-1",
+      "se-1",
+    ]);
+    expect(next.every((critique) => critique.draft.narrative.includes("Strong working male"))).toBe(
+      true,
+    );
   });
 });

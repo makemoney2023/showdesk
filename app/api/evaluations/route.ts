@@ -8,7 +8,7 @@ import {
   type TnrkSeForm,
 } from "@/lib/domain/tnrk-se-form";
 import { openCritiqueForEntry } from "@/lib/domain/entry-cascade";
-import { syncSeIntoCritiques } from "@/lib/domain/se-to-critique";
+import { syncSeIntoDogCritiques } from "@/lib/domain/se-to-critique";
 import {
   requireApiSession,
   requireApiWrite,
@@ -130,8 +130,9 @@ export async function PATCH(request: Request) {
           }
         : e,
     );
-    const critiques = syncSeIntoCritiques(
+    const critiques = syncSeIntoDogCritiques(
       s.critiques,
+      s.entries,
       body.show_id,
       evaluation.entry_id,
       nextForm,

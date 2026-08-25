@@ -111,5 +111,28 @@ export function removeEntryAndChildren(
       (evaluation) =>
         !(evaluation.entry_id === entryId && evaluation.show_id === showId),
     ),
+    dog_documents: remainingDocumentsForEntry(store, entryId, showId),
   };
+}
+
+function remainingDocumentsForEntry(
+  store: AppStore,
+  entryId: string,
+  showId: string,
+) {
+  const removed = store.entries.find(
+    (entry) => entry.id === entryId && entry.show_id === showId,
+  );
+  if (!removed?.dog_id) return store.dog_documents ?? [];
+  const stillPresent = store.entries.some(
+    (entry) =>
+      entry.id !== entryId &&
+      entry.show_id === showId &&
+      entry.dog_id === removed.dog_id,
+  );
+  if (stillPresent) return store.dog_documents ?? [];
+  return (store.dog_documents ?? []).filter(
+    (document) =>
+      !(document.dog_id === removed.dog_id && document.show_id === showId),
+  );
 }

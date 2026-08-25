@@ -289,6 +289,28 @@ export function DogResultView({
           Titles: {dog.titles.join(", ")}
         </p>
       ) : null}
+
+      {dog.documents.length > 0 ? (
+        <section className="mt-10">
+          <h2 className="text-xs font-semibold tracking-[0.18em] text-[#c4a35a] uppercase">
+            Clearances and attachments
+          </h2>
+          <ul className="mt-3 space-y-2">
+            {dog.documents.map((document) => (
+              <li key={document.id}>
+                <a
+                  href={document.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-[#c4a35a] hover:underline"
+                >
+                  {document.filename}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </main>
   );
 }
