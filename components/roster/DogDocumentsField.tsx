@@ -9,7 +9,7 @@ import {
   type DogDocumentRecord,
 } from "@/lib/domain/dog-document";
 
-function fileToBase64(file: File): Promise<string> {
+export function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -25,10 +25,16 @@ export function DogDocumentsField({
   showId,
   entryId,
   dogId,
+  required = false,
+  pendingFiles = [],
+  onPendingFilesChange,
 }: {
   showId: string;
   entryId?: string;
   dogId?: string;
+  required?: boolean;
+  pendingFiles?: File[];
+  onPendingFilesChange?: (files: File[]) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [documents, setDocuments] = useState<DogDocumentRecord[]>([]);
@@ -50,7 +56,12 @@ export function DogDocumentsField({
 
   async function upload(file: File) {
     if (!showId || !entryId) {
-      setError("Save the dog first, then attach documents.");
+      if (file.size > DOG_DOCUMENT_MAX_BYTES) {
+        setError("Document must be 10 MB or smaller (PDF, JPEG, PNG, or WebP).");
+        return;
+      }
+      onPendingFilesChange?.([...pendingFiles, file]);
+      setError("");
       return;
     }
     if (file.size > DOG_DOCUMENT_MAX_BYTES) {
@@ -108,10 +119,14 @@ export function DogDocumentsField({
 
   return (
     <div className="space-y-2 sm:col-span-2">
-      <Label>Clearances and attachments (optional)</Label>
+      <Label>
+        {required
+          ? "Clearances and attachments (required PDF for SE)"
+          : "Clearances and attachments (optional)"}
+      </Label>
       <p className="text-xs text-sss-text-muted">
-        HD/ED, eye, heart, OFA/ADRK, JLPP, NAD. Shown on public results if you
-        publish the show.
+        HD/ED, eye, heart, OFA/ADRK, JLPP, NAD. SE create needs at least one
+        PDF. Shown on public results if you publish the show.
       </p>
       <input
         ref={inputRef}
@@ -128,11 +143,35 @@ export function DogDocumentsField({
         type="button"
         variant="outline"
         size="sm"
-        disabled={busy || !entryId}
+        disabled={busy}
         onClick={() => inputRef.current?.click()}
       >
-        {entryId ? "Upload document" : "Save entry first to upload"}
+        {entryId ? "Upload document" : "Attach document"}
       </Button>
+      {pendingFiles.length > 0 ? (
+        <ul className="space-y-1 text-sm">
+          {pendingFiles.map((file, index) => (
+            <li
+              key={`${file.name}-${file.size}-${index}`}
+              className="flex items-center justify-between gap-2"
+            >
+              <span>{file.name}</span>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  onPendingFilesChange?.(
+                    pendingFiles.filter((_, item) => item !== index),
+                  )
+                }
+              >
+                Remove
+              </Button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       {documents.length > 0 ? (
         <ul className="space-y-1 text-sm">
           {documents.map((document) => (

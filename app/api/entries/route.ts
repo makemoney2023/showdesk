@@ -7,6 +7,8 @@ import {
   deleteDogPhoto,
   getStoreBackend,
 } from "@/lib/store";
+import { persistStagedDogDocuments } from "@/lib/store/attach-dog-documents";
+import type { StagedDogDocument } from "@/lib/store/attach-dog-documents";
 import { filterByShow } from "@/lib/domain/show-scope";
 import {
   mergeImportedEntries,
@@ -35,6 +37,7 @@ import {
   syncIdentityToDog,
 } from "@/lib/domain/dog-identity";
 import { showWeekendDays } from "@/lib/domain/show-weekend";
+import { documentsIncludeHealthPdf } from "@/lib/domain/dog-document";
 import type { RosterEntryRecord } from "@/lib/types";
 
 function hostedCatalogMetadataError(
@@ -79,6 +82,7 @@ export async function POST(request: Request) {
         entry: Omit<RosterEntryRecord, "id" | "show_id">;
         days?: Partial<EntryDays>;
         armband_mode?: "sequential" | "random";
+        documents?: StagedDogDocument[];
       }
   >(request);
   if (!body || !body.show_id) {
@@ -161,10 +165,28 @@ export async function POST(request: Request) {
     saturday: Boolean(body.days?.saturday),
     sunday: Boolean(body.days?.sunday),
   };
+  const uploads = body.documents ?? [];
+  const existingDogRows = store.entries.filter(
+    (item) =>
+      item.show_id === body.show_id && sameDogIdentity(item, body.entry),
+  );
+  const existingDogId =
+    existingDogRows.find((row) => row.dog_id)?.dog_id ??
+    (existingDogRows[0] ? dogKey(existingDogRows[0]) : "");
   const createError = createEntryRequirementError({
     microchip: body.entry.microchip,
     se: days.se,
     health: body.entry.health,
+    documentFilenames: uploads.map((upload) => upload.filename ?? ""),
+    documentTypes: uploads.map((upload) => upload.mime ?? ""),
+    hasExistingPdf: Boolean(
+      existingDogId &&
+        documentsIncludeHealthPdf(
+          store.dog_documents ?? [],
+          body.show_id,
+          existingDogId,
+        ),
+    ),
   });
   if (createError) {
     return NextResponse.json({ error: createError }, { status: 400 });
@@ -189,12 +211,7 @@ export async function POST(request: Request) {
 
     // The same animal may already be on the roster (e.g. entered Saturday,
     // now adding SE). Reuse its dog id and conformation armband.
-    const existingDogRows = showEntries.filter((item) =>
-      sameDogIdentity(item, body.entry),
-    );
-    const dogId =
-      existingDogRows.find((row) => row.dog_id)?.dog_id ??
-      (existingDogRows[0] ? dogKey(existingDogRows[0]) : newId("dog"));
+    const dogId = existingDogId || newId("dog");
     const existingSaturday = existingDogRows.find(
       (row) =>
         row.event_kind !== "se" && row.competition_day === weekend.saturday,
@@ -251,6 +268,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: metadataError }, { status: 400 });
     }
     const existingIds = new Set(existingDogRows.map((row) => row.id));
+    const persisted = await persistStagedDogDocuments({
+      showId: body.show_id,
+      dogId,
+      uploads,
+    });
+    if (!persisted.ok) {
+      return NextResponse.json({ error: persisted.error }, { status: 400 });
+    }
     try {
       await updateStore((s) => ({
         ...s,
@@ -262,6 +287,10 @@ export async function POST(request: Request) {
               : item,
           ),
           ...created,
+        ],
+        dog_documents: [
+          ...(s.dog_documents ?? []),
+          ...persisted.documents,
         ],
       }));
     } catch {
@@ -275,11 +304,23 @@ export async function POST(request: Request) {
     ...identity,
     id: newId("entry"),
     show_id: body.show_id,
-    dog_id: body.entry.dog_id ?? newId("dog"),
+    dog_id: body.entry.dog_id ?? existingDogId || newId("dog"),
     photo_path: undefined,
   };
+  const persisted = await persistStagedDogDocuments({
+    showId: body.show_id,
+    dogId: entry.dog_id!,
+    uploads,
+  });
+  if (!persisted.ok) {
+    return NextResponse.json({ error: persisted.error }, { status: 400 });
+  }
   try {
-    await updateStore((s) => ({ ...s, entries: [...s.entries, entry] }));
+    await updateStore((s) => ({
+      ...s,
+      entries: [...s.entries, entry],
+      dog_documents: [...(s.dog_documents ?? []), ...persisted.documents],
+    }));
   } catch {
     return storeWriteFailed("Could not create entry");
   }

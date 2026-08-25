@@ -39,7 +39,11 @@ import { HEALTH_REGISTRY_OPTIONS } from "@/lib/domain/health-clearances";
 import { emptyHealthClearances } from "@/lib/domain/health-clearances";
 import { seHealthRequirementError } from "@/lib/domain/health-clearances";
 import { CsvImportDialog } from "@/components/roster/CsvImportDialog";
-import { DogDocumentsField } from "@/components/roster/DogDocumentsField";
+import {
+  DogDocumentsField,
+  fileToBase64,
+} from "@/components/roster/DogDocumentsField";
+import { TrophyOrderActions } from "@/components/roster/TrophyOrderActions";
 import type { RulebookTemplate } from "@/lib/domain/adrk-template";
 import {
   createEntryRequirementError,
@@ -97,6 +101,7 @@ export default function AdminEntriesPage() {
   const [csvModalOpen, setCsvModalOpen] = useState(false);
   const [showDraft, setShowDraft] = useState<ShowCreateInput>(() => blankShowDraft());
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
+  const [pendingDocuments, setPendingDocuments] = useState<File[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [switching, setSwitching] = useState(false);
 
@@ -251,6 +256,7 @@ export default function AdminEntriesPage() {
     }
     setShowFormOpen(false);
     setEntryFormMode("create");
+    setPendingDocuments([]);
     setEntryDays({ se: false, saturday: true, sunday: false });
     setArmbandMode("sequential");
     const showDate = shows.find((show) => show.id === showId)?.date ?? "";
@@ -267,12 +273,14 @@ export default function AdminEntriesPage() {
     setMessage("");
     setShowFormOpen(false);
     setEntryFormMode("edit");
+    setPendingDocuments([]);
     setEntryDraft({ ...entry });
   }
 
   function closeEntryForm() {
     setEntryFormMode(null);
     setEntryDraft(null);
+    setPendingDocuments([]);
   }
 
   async function readApiError(res: Response, fallback: string) {
@@ -312,6 +320,8 @@ export default function AdminEntriesPage() {
         microchip: draft.microchip,
         se: entryDays.se,
         health: draft.health,
+        documentFilenames: pendingDocuments.map((file) => file.name),
+        documentTypes: pendingDocuments.map((file) => file.type),
       });
       if (createError) {
         showEntryError(createError);
@@ -371,6 +381,13 @@ export default function AdminEntriesPage() {
             },
             days: entryDays,
             armband_mode: armbandMode,
+            documents: await Promise.all(
+              pendingDocuments.map(async (file) => ({
+                file_base64: await fileToBase64(file),
+                filename: file.name,
+                mime: file.type,
+              })),
+            ),
           }),
         });
         if (!res.ok) {
@@ -381,6 +398,7 @@ export default function AdminEntriesPage() {
         setMessage("Entry created — add a photo if you have one");
         pushToast("Entry created — add a photo if you have one");
         if (created.entry) {
+          setPendingDocuments([]);
           setEntryDraft(created.entry);
           setEntryFormMode("edit");
         } else {
@@ -641,6 +659,16 @@ export default function AdminEntriesPage() {
                 </SelectContent>
               </Select>
             </div>
+            <TrophyOrderActions
+              showName={
+                shows.find((show) => show.id === showId)?.name ?? "Show"
+              }
+              displayDate={formatDisplayDate(
+                shows.find((show) => show.id === showId)?.date ?? "",
+              )}
+              tab={rosterTab}
+              entries={filtered}
+            />
             <Button onClick={openCsvImport} disabled={!showId}>
               <Upload className="h-4 w-4" />
               Import CSV
@@ -1334,6 +1362,9 @@ export default function AdminEntriesPage() {
             showId={entryDraft.show_id || showId || ""}
             entryId={entryDraft.id || undefined}
             dogId={entryDraft.dog_id}
+            required={entryDays.se || entryDraft.event_kind === "se"}
+            pendingFiles={pendingDocuments}
+            onPendingFilesChange={setPendingDocuments}
           />
           <div className="flex gap-2">
             <Button onClick={() => void saveEntryForm()}>

@@ -137,6 +137,36 @@ export function validateDogDocumentUpload(input: {
   };
 }
 
+/** SE create requires at least one PDF (typed clearances are a separate check). */
+export function seDocumentRequirementError(input: {
+  hasPdf?: boolean;
+  filenames?: string[];
+  contentTypes?: string[];
+}): string | null {
+  if (input.hasPdf) return null;
+  const hasPdf =
+    (input.contentTypes ?? []).some(
+      (type) => type.toLowerCase() === "application/pdf",
+    ) ||
+    (input.filenames ?? []).some((name) =>
+      name.toLowerCase().endsWith(".pdf"),
+    );
+  return hasPdf ? null : "SE requires a health clearance PDF";
+}
+
+export function documentsIncludeHealthPdf(
+  documents: Array<{ show_id: string; dog_id: string; content_type: string }>,
+  showId: string,
+  dogId: string,
+): boolean {
+  return documents.some(
+    (document) =>
+      document.show_id === showId &&
+      document.dog_id === dogId &&
+      document.content_type === "application/pdf",
+  );
+}
+
 export function sanitizeDocumentFilename(filename: string, ext: string): string {
   const stem = filename
     .replace(/\.[^.]+$/, "")

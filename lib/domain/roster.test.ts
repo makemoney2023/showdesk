@@ -61,6 +61,24 @@ describe("roster", () => {
           nad: "N/N",
         },
       }),
+    ).toMatch(/health clearance PDF/);
+    expect(
+      createEntryRequirementError({
+        microchip: "123",
+        se: true,
+        health: {
+          hd: "clear",
+          ed: "clear",
+          eye: "clear",
+          heart: "clear",
+          registry: "OFA",
+          registry_status: "passing",
+          jlpp: "N/N",
+          nad: "N/N",
+        },
+        documentFilenames: ["clearances.pdf"],
+        documentTypes: ["application/pdf"],
+      }),
     ).toBeNull();
   });
 
