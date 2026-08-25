@@ -11,6 +11,7 @@ import { filterByShow } from "@/lib/domain/show-scope";
 import {
   mergeImportedEntries,
   parseRosterCsv,
+  createEntryRequirementError,
   validateRosterEntry,
   validateRosterEntryUpdate,
 } from "@/lib/domain/roster";
@@ -155,16 +156,24 @@ export async function POST(request: Request) {
   if (!validation.valid) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
   }
-  const metadataError = hostedCatalogMetadataError(body.entry);
-  if (metadataError) {
-    return NextResponse.json({ error: metadataError }, { status: 400 });
-  }
-
   const days: EntryDays = {
     se: Boolean(body.days?.se),
     saturday: Boolean(body.days?.saturday),
     sunday: Boolean(body.days?.sunday),
   };
+  const createError = createEntryRequirementError({
+    microchip: body.entry.microchip,
+    se: days.se,
+    health: body.entry.health,
+  });
+  if (createError) {
+    return NextResponse.json({ error: createError }, { status: 400 });
+  }
+  const metadataError = hostedCatalogMetadataError(body.entry);
+  if (metadataError) {
+    return NextResponse.json({ error: metadataError }, { status: 400 });
+  }
+
   const multiDay = days.se || days.saturday || days.sunday;
   const show = store.shows.find((item) => item.id === body.show_id);
   const identity = identityFromEntry({

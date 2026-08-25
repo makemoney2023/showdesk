@@ -6,6 +6,9 @@ import {
   type CatalogClassId,
   type CatalogEventKind,
 } from "./catalog-competition";
+import { seHealthRequirementError } from "./health-clearances";
+import type { DogHealthClearances } from "./health-clearances";
+import { splitRegisteredName } from "./registered-name";
 
 export interface RosterEntry {
   id: string;
@@ -217,13 +220,19 @@ export function parseRosterCsv(csv: string): RosterParseResult {
         >,
       )),
     };
+    const named = splitRegisteredName({
+      dog_name: entry.dog_name,
+      prefix_titles: entry.prefix_titles,
+      suffix_titles: entry.suffix_titles,
+    });
+    const cleaned = { ...entry, ...named };
 
-    const validation = validateRosterEntry(entry);
+    const validation = validateRosterEntry(cleaned);
     if (!validation.valid) {
       errors.push(`Row ${i + 1}: ${validation.error}`);
       continue;
     }
-    entries.push(entry);
+    entries.push(cleaned);
   }
 
   return { entries, errors };
@@ -271,6 +280,17 @@ export function validateRosterEntry(
     return { valid: false, error: "invalid email" };
   }
   return { valid: true };
+}
+
+/** Create-form / API rules that CSV of older catalogs does not have to meet. */
+export function createEntryRequirementError(input: {
+  microchip?: string;
+  se?: boolean;
+  health?: Partial<DogHealthClearances> | null;
+}): string | null {
+  if (!input.microchip?.trim()) return "microchip is required";
+  if (input.se) return seHealthRequirementError(input.health);
+  return null;
 }
 
 /** Validate a full entry record for PUT updates (includes id + show_id). */

@@ -3,6 +3,7 @@ import { showWeekendDays } from "./show-weekend";
 import {
   buildDogAppearances,
   conformationDaysForDog,
+  identityFromEntry,
   seConformationAsterisk,
   syncIdentityToDog,
 } from "./dog-identity";
@@ -37,6 +38,20 @@ function entry(
 }
 
 describe("dog identity", () => {
+  it("stores the registered name without titles", () => {
+    const identity = identityFromEntry({
+      dog_name: "AM CH Calendar Girl IGP1",
+      zb_number: "AKC-WS81829502",
+      wt: "2024-09-05",
+      owner: "Dianna Contin",
+      email: "",
+      sex: "H",
+    });
+    expect(identity.dog_name).toBe("Calendar Girl");
+    expect(identity.prefix_titles).toBe("AM CH");
+    expect(identity.suffix_titles).toBe("IGP1");
+  });
+
   it("builds SE + Sat appearances that share the conformation armband", () => {
     let n = 0;
     const rows = buildDogAppearances({

@@ -12,6 +12,7 @@ import {
   normalizeHealthClearances,
   type DogHealthClearances,
 } from "./health-clearances";
+import { splitRegisteredName } from "./registered-name";
 import type { RosterEntryRecord } from "@/lib/types";
 
 export interface DogIdentityFields {
@@ -140,8 +141,9 @@ export function identityFromEntry(
 ): DogIdentityFields {
   const dateOfBirth = entry.date_of_birth?.trim() || entry.wt;
   const health = normalizeHealthClearances(entry.health);
+  const named = splitRegisteredName(entry);
   return {
-    dog_name: entry.dog_name,
+    dog_name: named.dog_name,
     zb_number: entry.zb_number,
     wt: dateOfBirth,
     date_of_birth: dateOfBirth,
@@ -154,8 +156,8 @@ export function identityFromEntry(
     breeder: entry.breeder ?? "",
     kennel_name: entry.kennel_name ?? "",
     address: entry.address ?? "",
-    prefix_titles: entry.prefix_titles ?? "",
-    suffix_titles: entry.suffix_titles ?? "",
+    prefix_titles: named.prefix_titles,
+    suffix_titles: named.suffix_titles,
     microchip: entry.microchip ?? "",
     registration_club: entry.registration_club ?? "",
     hd_ed_jlpp: healthClearancesHaveValues(health)

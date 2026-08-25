@@ -4,6 +4,7 @@ import {
   healthClearanceRows,
   mergeHealthClearances,
   normalizeHealthClearances,
+  seHealthRequirementError,
 } from "./health-clearances";
 
 const SAMPLE = {
@@ -31,6 +32,12 @@ describe("health clearances", () => {
       { label: "HD", value: "A" },
       { label: "JLPP", value: "N/N" },
     ]);
+  });
+
+  it("requires every SE clearance field", () => {
+    expect(seHealthRequirementError(SAMPLE)).toBeNull();
+    expect(seHealthRequirementError({ hd: "clear" })).toMatch(/ED/);
+    expect(seHealthRequirementError({})).toMatch(/HD/);
   });
 
   it("merges the first filled value for each clearance", () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createEntryRequirementError,
   mergeImportedEntries,
   parseRosterCsv,
   rosterCsvTemplate,
@@ -22,6 +23,45 @@ describe("roster", () => {
     expect(result.entries[0].breeder).toBe("Breeder Name");
     expect(result.entries[0].address).toBe("123 Main St");
     expect(result.entries[0].hd_ed_jlpp).toBe("Hips: Excellent");
+  });
+
+  it("moves titles out of the CSV dog name", () => {
+    const csv = `armband,dog_name,zb_number,wt,owner,sex,class_id,email
+101,CH Rex vom Test IGP1,,,Owner,R,zwischenklasse,`;
+    const result = parseRosterCsv(csv);
+    expect(result.errors).toHaveLength(0);
+    expect(result.entries[0]?.dog_name).toBe("Rex vom Test");
+    expect(result.entries[0]?.prefix_titles).toBe("CH");
+    expect(result.entries[0]?.suffix_titles).toBe("IGP1");
+  });
+
+  it("requires microchip and SE health on create", () => {
+    expect(createEntryRequirementError({ microchip: "" })).toBe(
+      "microchip is required",
+    );
+    expect(
+      createEntryRequirementError({
+        microchip: "123",
+        se: true,
+        health: { hd: "clear" },
+      }),
+    ).toMatch(/SE requires/);
+    expect(
+      createEntryRequirementError({
+        microchip: "123",
+        se: true,
+        health: {
+          hd: "clear",
+          ed: "clear",
+          eye: "clear",
+          heart: "clear",
+          registry: "OFA",
+          registry_status: "passing",
+          jlpp: "N/N",
+          nad: "N/N",
+        },
+      }),
+    ).toBeNull();
   });
 
   it("rejects missing headers", () => {

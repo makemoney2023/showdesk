@@ -37,10 +37,18 @@ import { showWeekendDays } from "@/lib/domain/show-weekend";
 import { classEligibilityWarning } from "@/lib/domain/class-eligibility";
 import { HEALTH_REGISTRY_OPTIONS } from "@/lib/domain/health-clearances";
 import { emptyHealthClearances } from "@/lib/domain/health-clearances";
+import { seHealthRequirementError } from "@/lib/domain/health-clearances";
 import { CsvImportDialog } from "@/components/roster/CsvImportDialog";
 import { DogDocumentsField } from "@/components/roster/DogDocumentsField";
 import type { RulebookTemplate } from "@/lib/domain/adrk-template";
-import { validateRosterEntry } from "@/lib/domain/roster";
+import {
+  createEntryRequirementError,
+  validateRosterEntry,
+} from "@/lib/domain/roster";
+import {
+  formatTitlesLine,
+  splitRegisteredName,
+} from "@/lib/domain/registered-name";
 import { blankRosterEntryDraft } from "@/lib/domain/roster-draft";
 import { blankShowDraft, validateShowCreate } from "@/lib/domain/show-draft";
 import type { ShowCreateInput } from "@/lib/domain/show-draft";
@@ -286,10 +294,10 @@ export default function AdminEntriesPage() {
       return;
     }
 
-    if (entryFormMode === "create" && !entryDraft.microchip?.trim()) {
-      showEntryError("microchip is required");
-      return;
-    }
+    const named = splitRegisteredName(entryDraft);
+    const draft = { ...entryDraft, ...named };
+    setEntryDraft(draft);
+
     if (
       entryFormMode === "create" &&
       !entryDays.se &&
@@ -299,12 +307,29 @@ export default function AdminEntriesPage() {
       showEntryError("Select at least one date");
       return;
     }
-    const validation = validateRosterEntry(entryDraft);
+    if (entryFormMode === "create") {
+      const createError = createEntryRequirementError({
+        microchip: draft.microchip,
+        se: entryDays.se,
+        health: draft.health,
+      });
+      if (createError) {
+        showEntryError(createError);
+        return;
+      }
+    } else if (draft.event_kind === "se") {
+      const healthError = seHealthRequirementError(draft.health);
+      if (healthError) {
+        showEntryError(healthError);
+        return;
+      }
+    }
+    const validation = validateRosterEntry(draft);
     if (!validation.valid) {
       showEntryError(validation.error);
       return;
     }
-    const catalogError = catalogMetadataError(entryDraft);
+    const catalogError = catalogMetadataError(draft);
     if (catalogError) {
       showEntryError(catalogError);
       return;
@@ -319,30 +344,30 @@ export default function AdminEntriesPage() {
             action: "create",
             show_id: activeShow,
             entry: {
-              armband: entryDraft.armband,
-              dog_name: entryDraft.dog_name,
-              zb_number: entryDraft.zb_number,
-              wt: entryDraft.date_of_birth || entryDraft.wt,
-              date_of_birth: entryDraft.date_of_birth || entryDraft.wt,
-              owner: entryDraft.owner,
-              co_owner: entryDraft.co_owner ?? "",
-              sex: entryDraft.sex,
-              class_id: entryDraft.class_id,
-              event_kind: entryDraft.event_kind,
-              competition_day: entryDraft.competition_day,
-              catalog_class: entryDraft.catalog_class,
-              email: entryDraft.email,
-              sire: entryDraft.sire ?? "",
-              dam: entryDraft.dam ?? "",
-              breeder: entryDraft.breeder ?? "",
-              kennel_name: entryDraft.kennel_name ?? "",
-              address: entryDraft.address ?? "",
-              hd_ed_jlpp: entryDraft.hd_ed_jlpp ?? "",
-              prefix_titles: entryDraft.prefix_titles ?? "",
-              suffix_titles: entryDraft.suffix_titles ?? "",
-              microchip: entryDraft.microchip ?? "",
-              registration_club: entryDraft.registration_club ?? "",
-              health: entryDraft.health ?? emptyHealthClearances(),
+              armband: draft.armband,
+              dog_name: draft.dog_name,
+              zb_number: draft.zb_number,
+              wt: draft.date_of_birth || draft.wt,
+              date_of_birth: draft.date_of_birth || draft.wt,
+              owner: draft.owner,
+              co_owner: draft.co_owner ?? "",
+              sex: draft.sex,
+              class_id: draft.class_id,
+              event_kind: draft.event_kind,
+              competition_day: draft.competition_day,
+              catalog_class: draft.catalog_class,
+              email: draft.email,
+              sire: draft.sire ?? "",
+              dam: draft.dam ?? "",
+              breeder: draft.breeder ?? "",
+              kennel_name: draft.kennel_name ?? "",
+              address: draft.address ?? "",
+              hd_ed_jlpp: draft.hd_ed_jlpp ?? "",
+              prefix_titles: draft.prefix_titles ?? "",
+              suffix_titles: draft.suffix_titles ?? "",
+              microchip: draft.microchip ?? "",
+              registration_club: draft.registration_club ?? "",
+              health: draft.health ?? emptyHealthClearances(),
             },
             days: entryDays,
             armband_mode: armbandMode,
@@ -368,14 +393,14 @@ export default function AdminEntriesPage() {
       return;
     }
 
-    const original = entries.find((entry) => entry.id === entryDraft.id);
+    const original = entries.find((entry) => entry.id === draft.id);
     const divisionChanged = Boolean(
       original &&
-        (original.class_id !== entryDraft.class_id ||
-          original.sex !== entryDraft.sex ||
-          original.event_kind !== entryDraft.event_kind ||
-          original.competition_day !== entryDraft.competition_day ||
-          original.catalog_class !== entryDraft.catalog_class),
+        (original.class_id !== draft.class_id ||
+          original.sex !== draft.sex ||
+          original.event_kind !== draft.event_kind ||
+          original.competition_day !== draft.competition_day ||
+          original.catalog_class !== draft.catalog_class),
     );
     if (
       divisionChanged &&
@@ -390,7 +415,7 @@ export default function AdminEntriesPage() {
       const res = await fetch("/api/entries", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ show_id: activeShow, entry: entryDraft }),
+        body: JSON.stringify({ show_id: activeShow, entry: draft }),
       });
       if (!res.ok) {
         showEntryError(await readApiError(res, "Save failed"));
@@ -695,6 +720,11 @@ export default function AdminEntriesPage() {
                 />
                 <div className="min-w-0">
                   <p className="font-medium">{e.dog_name}</p>
+                  {formatTitlesLine(e) ? (
+                    <p className="text-xs text-sss-text-muted">
+                      {formatTitlesLine(e)}
+                    </p>
+                  ) : null}
                   <p className="text-xs text-sss-text-muted">
                     #{e.armband}
                     {seRosterNote(e, entries, weekend) ? " *" : ""} · {e.owner} ·{" "}
@@ -793,7 +823,14 @@ export default function AdminEntriesPage() {
                             : null
                         }
                       />
-                      {e.dog_name}
+                      <span>
+                        {e.dog_name}
+                        {formatTitlesLine(e) ? (
+                          <span className="block text-xs font-normal text-sss-text-muted">
+                            {formatTitlesLine(e)}
+                          </span>
+                        ) : null}
+                      </span>
                     </span>
                   </td>
                   <td className="p-3">{e.owner}</td>
@@ -916,7 +953,7 @@ export default function AdminEntriesPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="sequential">
-                      Sequential by day and class
+                      Sequential (show-wide, Saturday then Sunday)
                     </SelectItem>
                     <SelectItem value="random">
                       Random in the show range
@@ -955,8 +992,18 @@ export default function AdminEntriesPage() {
                 onChange={(e) =>
                   setEntryDraft({ ...entryDraft, dog_name: e.target.value })
                 }
-                placeholder="No titles"
+                onBlur={() =>
+                  setEntryDraft((current) =>
+                    current
+                      ? { ...current, ...splitRegisteredName(current) }
+                      : current,
+                  )
+                }
+                placeholder="Rex vom Blacksage"
               />
+              <p className="text-xs text-sss-text-muted">
+                Registered name only. Titles belong in Prefix / Suffix.
+              </p>
             </div>
             <div className="space-y-1">
               <Label htmlFor="owner">Owner</Label>
