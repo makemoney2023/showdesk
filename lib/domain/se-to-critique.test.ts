@@ -184,6 +184,37 @@ describe("se-to-critique", () => {
     expect(next[0]?.draft.narrative).toContain("Updated after recall");
   });
 
+  it("carries SE critiques by registration when dog_id is missing", () => {
+    const form = createEmptyTnrkSeForm();
+    form.overall_appearance = "Imported roster dog.";
+    form.final_result = "pass";
+    const next = syncSeIntoDogCritiques(
+      [],
+      [
+        {
+          id: "se-1",
+          show_id: "s1",
+          zb_number: "AKC-1",
+          event_kind: "se",
+        },
+        {
+          id: "sat-1",
+          show_id: "s1",
+          zb_number: "akc-1",
+          event_kind: "conformation",
+        },
+      ],
+      "s1",
+      "se-1",
+      form,
+      { force: true, newId: () => `c-${Math.random()}`, now: "t" },
+    );
+    expect(next.map((critique) => critique.entry_id).sort()).toEqual([
+      "sat-1",
+      "se-1",
+    ]);
+  });
+
   it("carries the SE verbal critique onto conformation siblings", () => {
     const form = createEmptyTnrkSeForm();
     form.overall_appearance = "Strong working male.";

@@ -57,6 +57,18 @@ export function adrkClassForCatalog(
   return CATALOG_TO_ADRK[catalogClass] ?? fallback;
 }
 
+/** Same animal check for rows that predate dog_id (CSV imports, older shows). */
+export function sameDogIdentity(
+  a: { zb_number?: string; microchip?: string },
+  b: { zb_number?: string; microchip?: string },
+): boolean {
+  const norm = (value?: string) => value?.trim().toLowerCase() ?? "";
+  const registration = norm(a.zb_number);
+  if (registration && registration === norm(b.zb_number)) return true;
+  const chip = norm(a.microchip);
+  return Boolean(chip && chip === norm(b.microchip));
+}
+
 export function dogKey(entry: {
   dog_id?: string;
   zb_number?: string;
@@ -71,13 +83,20 @@ export function dogKey(entry: {
   return `entry:${entry.id}`;
 }
 
-export function entriesForDog<T extends { dog_id?: string; id: string; show_id: string }>(
-  entries: T[],
-  entry: T,
-): T[] {
+export function entriesForDog<
+  T extends {
+    dog_id?: string;
+    id: string;
+    show_id: string;
+    zb_number?: string;
+    microchip?: string;
+  },
+>(entries: T[], entry: T): T[] {
   const key = dogKey(entry);
   return entries.filter(
-    (item) => item.show_id === entry.show_id && dogKey(item) === key,
+    (item) =>
+      item.show_id === entry.show_id &&
+      (dogKey(item) === key || sameDogIdentity(item, entry)),
   );
 }
 
@@ -86,6 +105,8 @@ export function conformationDaysForDog<
     dog_id?: string;
     id: string;
     show_id: string;
+    zb_number?: string;
+    microchip?: string;
     event_kind?: CatalogEventKind;
     competition_day?: string;
   },
@@ -141,7 +162,6 @@ export function identityFromEntry(
       ? formatHealthClearances(health)
       : (entry.hd_ed_jlpp ?? ""),
     health,
-    photo_path: entry.photo_path,
   };
 }
 
@@ -153,6 +173,9 @@ export function applyIdentity(
   return {
     ...entry,
     ...next,
+    // Photos are stored per appearance ({show}/{entry_id}.ext); copying a
+    // sibling's path would point at an object this entry cannot serve.
+    photo_path: entry.photo_path,
   };
 }
 
@@ -163,7 +186,8 @@ export function syncIdentityToDog(
   const identity = identityFromEntry(source);
   const key = dogKey(source);
   return entries.map((entry) =>
-    entry.show_id === source.show_id && dogKey(entry) === key
+    entry.show_id === source.show_id &&
+    (dogKey(entry) === key || sameDogIdentity(entry, source))
       ? applyIdentity(entry, identity)
       : entry,
   );

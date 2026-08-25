@@ -3,6 +3,7 @@ import {
   critiquesForEntry,
   openCritiqueForEntry,
 } from "@/lib/domain/entry-cascade";
+import { entriesForDog } from "@/lib/domain/dog-identity";
 import { seFormFormwert, type TnrkSeForm } from "@/lib/domain/tnrk-se-form";
 import type { CritiqueRecord } from "@/lib/types";
 
@@ -125,16 +126,15 @@ export function conformationSiblingIds<
     id: string;
     show_id: string;
     dog_id?: string;
+    zb_number?: string;
+    microchip?: string;
     event_kind?: "se" | "conformation";
   },
 >(entries: T[], seEntry: T): string[] {
-  if (!seEntry.dog_id) return [];
-  return entries
+  return entriesForDog(entries, seEntry)
     .filter(
       (entry) =>
-        entry.show_id === seEntry.show_id &&
-        entry.dog_id === seEntry.dog_id &&
-        entry.event_kind === "conformation",
+        entry.id !== seEntry.id && entry.event_kind === "conformation",
     )
     .map((entry) => entry.id);
 }
@@ -145,6 +145,8 @@ export function syncSeIntoDogCritiques(
     id: string;
     show_id: string;
     dog_id?: string;
+    zb_number?: string;
+    microchip?: string;
     event_kind?: "se" | "conformation";
   }>,
   showId: string,

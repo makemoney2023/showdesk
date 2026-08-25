@@ -20,6 +20,7 @@ import {
   publicDogDocumentHref,
   type DogDocumentRecord,
 } from "./dog-document";
+import { dogKey } from "./dog-identity";
 
 /** Public URL slug: lowercase, hyphenated, no leading/trailing hyphens. */
 export function slugify(value: string): string {
@@ -161,12 +162,13 @@ function documentsForEntry(
   documents: DogDocumentRecord[],
   entry: RosterEntryRecord,
 ): PublicDogResult["documents"] {
-  const dogId = entry.dog_id?.trim();
-  if (!dogId) return [];
+  // Documents store the dog key used at upload; siblings share it via dogKey.
+  const keys = new Set([entry.dog_id?.trim(), dogKey(entry)].filter(Boolean));
+  if (keys.size === 0) return [];
   return documents
     .filter(
       (document) =>
-        document.show_id === entry.show_id && document.dog_id === dogId,
+        document.show_id === entry.show_id && keys.has(document.dog_id),
     )
     .map((document) => ({
       id: document.id,

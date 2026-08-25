@@ -1123,47 +1123,51 @@ export default function AdminEntriesPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
-              <Label>Catalog event</Label>
-              <Select
-                value={entryDraft.event_kind || undefined}
-                onValueChange={(value) => {
-                  const eventKind = value as CatalogEventKind;
-                  setEntryDraft({
-                    ...entryDraft,
-                    event_kind: eventKind,
-                    catalog_class:
-                      eventKind === "se"
-                        ? "standard-evaluation"
-                        : entryDraft.catalog_class === "standard-evaluation"
-                          ? "youth-i"
-                          : entryDraft.catalog_class,
-                  });
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select event" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="se">Standard Evaluation (SE)</SelectItem>
-                  <SelectItem value="conformation">Conformation</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="competition_day">Competition day (required)</Label>
-              <Input
-                id="competition_day"
-                type="date"
-                value={entryDraft.competition_day ?? ""}
-                onChange={(event) =>
-                  setEntryDraft({
-                    ...entryDraft,
-                    competition_day: event.target.value,
-                  })
-                }
-              />
-            </div>
+            {entryFormMode === "edit" ? (
+              <>
+                <div className="space-y-1">
+                  <Label>Catalog event</Label>
+                  <Select
+                    value={entryDraft.event_kind || undefined}
+                    onValueChange={(value) => {
+                      const eventKind = value as CatalogEventKind;
+                      setEntryDraft({
+                        ...entryDraft,
+                        event_kind: eventKind,
+                        catalog_class:
+                          eventKind === "se"
+                            ? "standard-evaluation"
+                            : entryDraft.catalog_class === "standard-evaluation"
+                              ? "youth-i"
+                              : entryDraft.catalog_class,
+                      });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select event" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="se">Standard Evaluation (SE)</SelectItem>
+                      <SelectItem value="conformation">Conformation</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="competition_day">Competition day (required)</Label>
+                  <Input
+                    id="competition_day"
+                    type="date"
+                    value={entryDraft.competition_day ?? ""}
+                    onChange={(event) =>
+                      setEntryDraft({
+                        ...entryDraft,
+                        competition_day: event.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </>
+            ) : null}
             {entryDraft.event_kind !== "se" ? (
               <div className="space-y-1 sm:col-span-2">
                 <Label>Published catalog class</Label>
@@ -1204,7 +1208,7 @@ export default function AdminEntriesPage() {
           {entryDays.se || entryDraft.event_kind === "se" ? (
             <div className="grid gap-3 rounded-sss-md border border-sss-border p-3 sm:grid-cols-2">
               <p className="text-sm font-medium sm:col-span-2">
-                SE health clearances
+                SE health clearances (required for SE)
               </p>
               {(
                 [

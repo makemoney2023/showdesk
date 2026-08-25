@@ -91,6 +91,48 @@ describe("dog identity", () => {
     expect(seConformationAsterisk(["saturday", "sunday"])).toMatch(/both|and/i);
   });
 
+  it("links appearances by registration when dog_id is missing (CSV imports)", () => {
+    const weekend = showWeekendDays("2026-09-05");
+    const entries = [
+      entry({
+        id: "se",
+        event_kind: "se",
+        competition_day: weekend.se,
+      }),
+      entry({
+        id: "sat",
+        event_kind: "conformation",
+        competition_day: weekend.saturday,
+      }),
+    ];
+    expect(conformationDaysForDog(entries, entries[0], weekend)).toEqual([
+      "saturday",
+    ]);
+  });
+
+  it("never copies a sibling's photo path during identity sync", () => {
+    const source = entry({
+      id: "sat",
+      dog_id: "dog-1",
+      photo_path: "show-1/sat.jpg",
+      owner: "New Owner",
+    });
+    const synced = syncIdentityToDog(
+      [
+        source,
+        entry({
+          id: "se",
+          dog_id: "dog-1",
+          event_kind: "se",
+          photo_path: "show-1/se.jpg",
+        }),
+      ],
+      source,
+    );
+    expect(synced[1].photo_path).toBe("show-1/se.jpg");
+    expect(synced[1].owner).toBe("New Owner");
+  });
+
   it("copies identity edits onto every appearance of the dog", () => {
     const source = entry({
       id: "sat",

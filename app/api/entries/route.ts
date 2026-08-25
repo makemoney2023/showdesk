@@ -26,7 +26,13 @@ import {
 import { readJsonBody } from "@/lib/api/read-json";
 import { catalogMetadataError } from "@/lib/domain/catalog-competition";
 import { assignArmbands, type EntryDays } from "@/lib/domain/armband-assignment";
-import { buildDogAppearances, identityFromEntry, syncIdentityToDog } from "@/lib/domain/dog-identity";
+import {
+  buildDogAppearances,
+  dogKey,
+  identityFromEntry,
+  sameDogIdentity,
+  syncIdentityToDog,
+} from "@/lib/domain/dog-identity";
 import { showWeekendDays } from "@/lib/domain/show-weekend";
 import type { RosterEntryRecord } from "@/lib/types";
 
@@ -167,14 +173,53 @@ export async function POST(request: Request) {
   });
 
   if (multiDay) {
-    if (!days.saturday && !days.sunday && !days.se) {
+    const weekend = showWeekendDays(show?.date ?? body.entry.competition_day ?? "");
+    const showEntries = store.entries.filter(
+      (item) => item.show_id === body.show_id,
+    );
+
+    // The same animal may already be on the roster (e.g. entered Saturday,
+    // now adding SE). Reuse its dog id and conformation armband.
+    const existingDogRows = showEntries.filter((item) =>
+      sameDogIdentity(item, body.entry),
+    );
+    const dogId =
+      existingDogRows.find((row) => row.dog_id)?.dog_id ??
+      (existingDogRows[0] ? dogKey(existingDogRows[0]) : newId("dog"));
+    const existingSaturday = existingDogRows.find(
+      (row) =>
+        row.event_kind !== "se" && row.competition_day === weekend.saturday,
+    );
+    const existingSunday = existingDogRows.find(
+      (row) =>
+        row.event_kind !== "se" && row.competition_day === weekend.sunday,
+    );
+    const existingSe = existingDogRows.find((row) => row.event_kind === "se");
+
+    const neededDays: EntryDays = {
+      se: days.se && !existingSe,
+      saturday: days.saturday && !existingSaturday,
+      sunday: days.sunday && !existingSunday,
+    };
+    if (!neededDays.se && !neededDays.saturday && !neededDays.sunday) {
       return NextResponse.json(
-        { error: "Select at least one date" },
-        { status: 400 },
+        { error: "This dog is already entered on the selected date(s)" },
+        { status: 409 },
       );
     }
-    const weekend = showWeekendDays(show?.date ?? body.entry.competition_day ?? "");
-    const dogId = newId("dog");
+
+    const armbands = assignArmbands({
+      existing: showEntries,
+      days: neededDays,
+      mode: body.armband_mode === "random" ? "random" : "sequential",
+    });
+    if (neededDays.se) {
+      armbands.se =
+        existingSaturday?.armband ??
+        existingSunday?.armband ??
+        armbands.se;
+    }
+
     const created = buildDogAppearances({
       dogId,
       showId: body.show_id,
@@ -186,12 +231,8 @@ export async function POST(request: Request) {
           : "open",
       classId: body.entry.class_id,
       weekend,
-      days,
-      armbands: assignArmbands({
-        existing: store.entries.filter((item) => item.show_id === body.show_id),
-        days,
-        mode: body.armband_mode === "random" ? "random" : "sequential",
-      }),
+      days: neededDays,
+      armbands,
       newId: () => newId("entry"),
     });
     const metadataError = created
@@ -200,8 +241,20 @@ export async function POST(request: Request) {
     if (metadataError) {
       return NextResponse.json({ error: metadataError }, { status: 400 });
     }
+    const existingIds = new Set(existingDogRows.map((row) => row.id));
     try {
-      await updateStore((s) => ({ ...s, entries: [...s.entries, ...created] }));
+      await updateStore((s) => ({
+        ...s,
+        entries: [
+          // Backfill dog_id on prior appearances of the same animal.
+          ...s.entries.map((item) =>
+            existingIds.has(item.id) && !item.dog_id
+              ? { ...item, dog_id: dogId }
+              : item,
+          ),
+          ...created,
+        ],
+      }));
     } catch {
       return storeWriteFailed("Could not create entry");
     }
