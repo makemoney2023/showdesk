@@ -33,6 +33,16 @@ export function samplePublishedStore(): AppStore {
         dam: "Gina vom Blacksage",
         breeder: "Blacksage Kennels",
         photo_path: "sample-show/sample-rex.jpg",
+        health: {
+          hd: "clear",
+          ed: "clear",
+          eye: "clear",
+          heart: "clear",
+          registry: "OFA",
+          registry_status: "passing",
+          jlpp: "N/N",
+          nad: "N/N",
+        },
       },
       {
         id: "sample-axel",

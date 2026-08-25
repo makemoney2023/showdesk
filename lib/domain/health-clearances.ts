@@ -26,6 +26,33 @@ export function emptyHealthClearances(): DogHealthClearances {
   };
 }
 
+function firstFilled(
+  current: string,
+  next: string,
+): string {
+  return current || next;
+}
+
+/** Prefer the first non-empty value for each clearance across appearances. */
+export function mergeHealthClearances(
+  values: Array<Partial<DogHealthClearances> | null | undefined>,
+): DogHealthClearances {
+  return values.reduce((merged, value) => {
+    const next = normalizeHealthClearances(value);
+    return {
+      hd: firstFilled(merged.hd, next.hd),
+      ed: firstFilled(merged.ed, next.ed),
+      eye: firstFilled(merged.eye, next.eye),
+      heart: firstFilled(merged.heart, next.heart),
+      registry: (firstFilled(merged.registry, next.registry) ||
+        "") as DogHealthClearances["registry"],
+      registry_status: firstFilled(merged.registry_status, next.registry_status),
+      jlpp: firstFilled(merged.jlpp, next.jlpp),
+      nad: firstFilled(merged.nad, next.nad),
+    };
+  }, emptyHealthClearances());
+}
+
 export function normalizeHealthClearances(
   value: Partial<DogHealthClearances> | null | undefined,
 ): DogHealthClearances {
@@ -62,20 +89,36 @@ export function healthClearancesHaveValues(
   );
 }
 
+export interface HealthClearanceRow {
+  label: string;
+  value: string;
+}
+
+/** Labeled rows for public results and roster display. Empty fields omitted. */
+export function healthClearanceRows(
+  health: DogHealthClearances,
+): HealthClearanceRow[] {
+  const registry = health.registry
+    ? `${health.registry}${health.registry_status ? ` ${health.registry_status}` : ""}`
+    : health.registry_status;
+  return [
+    { label: "HD", value: health.hd },
+    { label: "ED", value: health.ed },
+    { label: "Eye", value: health.eye },
+    { label: "Heart", value: health.heart },
+    { label: "Registry", value: registry },
+    { label: "JLPP", value: health.jlpp },
+    { label: "NAD", value: health.nad },
+  ].filter((row): row is HealthClearanceRow => Boolean(row.value));
+}
+
 /** Compact line used by the SE form / legacy hd_ed_jlpp column. */
 export function formatHealthClearances(
   health: DogHealthClearances,
 ): string {
-  const parts = [
-    health.hd ? `HD: ${health.hd}` : null,
-    health.ed ? `ED: ${health.ed}` : null,
-    health.eye ? `Eye: ${health.eye}` : null,
-    health.heart ? `Heart: ${health.heart}` : null,
-    health.registry
-      ? `${health.registry}${health.registry_status ? ` ${health.registry_status}` : ""}`
-      : health.registry_status || null,
-    health.jlpp ? `JLPP: ${health.jlpp}` : null,
-    health.nad ? `NAD: ${health.nad}` : null,
-  ].filter(Boolean);
-  return parts.join("; ");
+  return healthClearanceRows(health)
+    .map((row) =>
+      row.label === "Registry" ? row.value : `${row.label}: ${row.value}`,
+    )
+    .join("; ");
 }

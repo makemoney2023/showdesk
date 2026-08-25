@@ -112,6 +112,73 @@ describe("projection", () => {
     expect(found?.dog.narrative).toContain("Vorzüglich");
     expect(found?.dog.photoHref).toContain("/api/public/photos/sample-rex");
     expect(found?.dog.photoPath).toBe("sample-show/sample-rex.jpg");
+    expect(found?.dog.health).toEqual([
+      { label: "HD", value: "clear" },
+      { label: "ED", value: "clear" },
+      { label: "Eye", value: "clear" },
+      { label: "Heart", value: "clear" },
+      { label: "Registry", value: "OFA passing" },
+      { label: "JLPP", value: "N/N" },
+      { label: "NAD", value: "N/N" },
+    ]);
+  });
+
+  it("shares SE health clearances onto the conformation page for the same dog", () => {
+    const rex = store.entries[0]!;
+    const withSeSibling = {
+      ...store,
+      entries: [
+        { ...rex, health: undefined },
+        {
+          ...rex,
+          id: "sample-rex-se",
+          event_kind: "se" as const,
+          catalog_class: "standard-evaluation" as const,
+          health: {
+            hd: "A1",
+            ed: "clear",
+            eye: "",
+            heart: "",
+            registry: "ADRK" as const,
+            registry_status: "passing",
+            jlpp: "N/N",
+            nad: "",
+          },
+        },
+        ...store.entries.slice(1),
+      ],
+    };
+    const found = getPublishedDog(
+      withSeSibling,
+      "tnrk-rcc-national-sieger-show-2026-09-04",
+      "101-rex-vom-blacksage",
+    );
+    expect(found?.dog.health).toEqual([
+      { label: "HD", value: "A1" },
+      { label: "ED", value: "clear" },
+      { label: "Registry", value: "ADRK passing" },
+      { label: "JLPP", value: "N/N" },
+    ]);
+    expect(JSON.stringify(found)).not.toMatch(/@|email|audio/i);
+  });
+
+  it("falls back to the legacy clearance line when structured health is empty", () => {
+    const withLegacy = {
+      ...store,
+      entries: store.entries.map((entry, index) =>
+        index === 0
+          ? { ...entry, health: undefined, hd_ed_jlpp: "HD A, ED normal, JLPP N/N" }
+          : entry,
+      ),
+    };
+    const found = getPublishedDog(
+      withLegacy,
+      "tnrk-rcc-national-sieger-show-2026-09-04",
+      "101-rex-vom-blacksage",
+    );
+    expect(found?.dog.health).toEqual([
+      { label: "Clearances", value: "HD A, ED normal, JLPP N/N" },
+    ]);
   });
 
   it("clips critique text on a word boundary for share cards", () => {

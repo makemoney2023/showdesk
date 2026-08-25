@@ -20,7 +20,12 @@ import {
   publicDogDocumentHref,
   type DogDocumentRecord,
 } from "./dog-document";
-import { dogKey } from "./dog-identity";
+import { dogKey, entriesForDog } from "./dog-identity";
+import {
+  healthClearanceRows,
+  mergeHealthClearances,
+  type HealthClearanceRow,
+} from "./health-clearances";
 
 /** Public URL slug: lowercase, hyphenated, no leading/trailing hyphens. */
 export function slugify(value: string): string {
@@ -93,6 +98,7 @@ export interface PublicDogResult {
     href: string;
     contentType: string;
   }>;
+  health: HealthClearanceRow[];
   href: string;
 }
 
@@ -178,12 +184,30 @@ function documentsForEntry(
     }));
 }
 
+function healthForEntry(
+  entries: RosterEntryRecord[],
+  entry: RosterEntryRecord,
+): PublicDogResult["health"] {
+  const siblings = entriesForDog(entries, entry);
+  const merged = mergeHealthClearances(
+    siblings.map((sibling) => sibling.health),
+  );
+  const rows = healthClearanceRows(merged);
+  if (rows.length > 0) return rows;
+
+  const legacy = siblings
+    .map((sibling) => sibling.hd_ed_jlpp?.trim())
+    .find(Boolean);
+  return legacy ? [{ label: "Clearances", value: legacy }] : [];
+}
+
 function toPublicDog(
   show: Show,
   entry: RosterEntryRecord,
   critique: CritiqueRecord | null,
   placement: PlacementRecord | null,
   documents: DogDocumentRecord[],
+  entries: RosterEntryRecord[],
 ): PublicDogResult | null {
   const formwert = critique?.draft.formwert ?? null;
   const rank = placement?.placement ?? critique?.draft.placement ?? null;
@@ -221,6 +245,7 @@ function toPublicDog(
       ? publicDogPhotoHref(show.id, entry.id, { cacheBust: photoPath })
       : null,
     documents: documentsForEntry(documents, entry),
+    health: healthForEntry(entries, entry),
     href: dogResultsPath(show, entry),
   };
 }
@@ -258,6 +283,7 @@ function projectShow(store: AppStore, show: Show): PublicShowResults | null {
         approvedCritiqueForEntry(critiques, entry.id),
         placementForEntry(placements, entry.id),
         store.dog_documents ?? [],
+        entries,
       ),
     )
     .filter((dog): dog is PublicDogResult => Boolean(dog));
