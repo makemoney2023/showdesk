@@ -88,11 +88,17 @@ function assertDemoWritesAllowed() {
   }
 }
 
+/**
+ * Service-role client for desk store and storage I/O.
+ * API routes must call requireApiSession (or stricter guards) first; RLS is
+ * authenticated-wide anyway, and this avoids PostgREST "JWT issued at future"
+ * when a user's device clock is ahead at login.
+ */
 async function requireSupabaseClient(): Promise<StoreClient> {
-  const { createSupabaseServerClient } = await import("@/lib/supabase/server");
-  const client = await createSupabaseServerClient();
+  const { createSupabaseAdminClient } = await import("@/lib/supabase/admin");
+  const client = createSupabaseAdminClient();
   if (!client) {
-    throw new Error("Supabase client unavailable");
+    throw new Error("Supabase service role client unavailable");
   }
   return client as unknown as StoreClient;
 }
