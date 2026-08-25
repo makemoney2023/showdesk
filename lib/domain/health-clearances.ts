@@ -37,7 +37,7 @@ function firstFilled(
 export function mergeHealthClearances(
   values: Array<Partial<DogHealthClearances> | null | undefined>,
 ): DogHealthClearances {
-  return values.reduce((merged, value) => {
+  return values.reduce<DogHealthClearances>((merged, value) => {
     const next = normalizeHealthClearances(value);
     return {
       hd: firstFilled(merged.hd, next.hd),

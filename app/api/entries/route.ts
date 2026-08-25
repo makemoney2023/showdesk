@@ -304,7 +304,7 @@ export async function POST(request: Request) {
     ...identity,
     id: newId("entry"),
     show_id: body.show_id,
-    dog_id: body.entry.dog_id ?? existingDogId || newId("dog"),
+    dog_id: body.entry.dog_id ?? (existingDogId || newId("dog")),
     photo_path: undefined,
   };
   const persisted = await persistStagedDogDocuments({
