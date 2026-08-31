@@ -33,6 +33,12 @@ export function MarketingNav() {
             Results
           </Link>
           <Link
+            href="/#demo"
+            className="hidden text-sm text-[#f7f4ed]/60 transition-colors hover:text-[#f7f4ed] sm:block"
+          >
+            Demo
+          </Link>
+          <Link
             href="/#how-it-works"
             className="hidden text-sm text-[#f7f4ed]/60 transition-colors hover:text-[#f7f4ed] sm:block"
           >
