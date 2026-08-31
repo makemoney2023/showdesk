@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Hero } from "@/components/marketing/hero";
 import { HowItWorks } from "@/components/marketing/how-it-works";
+import { DemoVideosSection } from "@/components/marketing/demo-videos";
 import { FaqSection, FAQ_ITEMS } from "@/components/marketing/faq";
 import {
   ScrollProgress,
@@ -102,6 +103,7 @@ export default function MarketingHomePage() {
         <TermMarquee />
         <ProblemSection />
         <DefinitionSection />
+        <DemoVideosSection />
         <HowItWorks />
         <FeatureGrid />
         <OfflineSection />

@@ -39,6 +39,11 @@ yarn-error.log*
 # generated knowledge graph
 graphify-out/
 
+# promo video tooling (final renders live in public/videos)
+/promo/node_modules/
+/promo/out/
+/promo/public/footage/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
