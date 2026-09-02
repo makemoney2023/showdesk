@@ -414,8 +414,16 @@ test.describe("happy path", () => {
     await page.getByRole("button", { name: /Rex Happy Path/ }).click();
     await expect(page.getByLabel("Narrative (draft)")).toBeVisible();
     await page.getByRole("button", { name: "Approve & release" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Release this critique to the owner?" }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "Confirm" }).click();
-    await expect(page.getByText(/Approved/i)).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.getByRole("heading", { name: "Release this critique to the owner?" }),
+    ).toBeHidden();
+    await expect(page.getByRole("main").getByText(/^Approved/)).toBeVisible({
+      timeout: 10000,
+    });
 
     const critiquesRes = await page.request.get(
       `/api/critiques?show_id=${showData.active_show_id}`,
