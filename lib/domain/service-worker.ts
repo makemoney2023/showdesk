@@ -80,3 +80,14 @@ export function serviceWorkerFetchStrategy(input: {
 export function ringsideNavigationFallbackPath(pathname: string): string | null {
   return isRingsideNavigationPath(pathname) ? "/ringside" : null;
 }
+
+/** Hashed App Router assets referenced by a precached HTML shell. */
+export function nextStaticAssetUrlsFromHtml(html: string): string[] {
+  return [
+    ...new Set(
+      [...html.matchAll(/\b(?:src|href)="(\/_next\/static\/[^"]+)"/g)].map(
+        (match) => match[1],
+      ),
+    ),
+  ];
+}

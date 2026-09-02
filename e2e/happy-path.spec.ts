@@ -225,6 +225,10 @@ test.describe("happy path", () => {
       const registration = await navigator.serviceWorker.getRegistration("/");
       return Boolean(registration?.active || navigator.serviceWorker.controller);
     });
+    // Reload once online so the controlling worker caches the document and
+    // its hashed chunks before we drop the network.
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Dogs" })).toBeVisible();
     await expect
       .poll(async () =>
         page.evaluate(async () => {

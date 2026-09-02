@@ -12,14 +12,46 @@ const RINGSIDE_API_GETS = new Set([
   "/api/placements",
 ]);
 
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(PRECACHE))
-      .catch(() => undefined)
-      .then(() => self.skipWaiting()),
+function nextStaticAssetUrlsFromHtml(html) {
+  return [
+    ...new Set(
+      [...html.matchAll(/\b(?:src|href)="(\/_next\/static\/[^"]+)"/g)].map(
+        (match) => match[1],
+      ),
+    ),
+  ];
+}
+
+async function precacheShells() {
+  const cache = await caches.open(CACHE_NAME);
+  await Promise.all(
+    PRECACHE.map(async (path) => {
+      try {
+        const response = await fetch(path, { credentials: "same-origin" });
+        if (!response.ok) return;
+        await cache.put(path, response.clone());
+        const contentType = response.headers.get("content-type") ?? "";
+        if (!contentType.includes("text/html")) return;
+        const assets = nextStaticAssetUrlsFromHtml(await response.text());
+        await Promise.all(
+          assets.map(async (url) => {
+            try {
+              const asset = await fetch(url);
+              if (asset.ok) await cache.put(url, asset);
+            } catch {
+              /* skip a missing chunk so one 404 does not abort install */
+            }
+          }),
+        );
+      } catch {
+        /* skip a failed shell so login/ringside still install independently */
+      }
+    }),
   );
+}
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(precacheShells().then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (event) => {

@@ -3,6 +3,7 @@ import {
   RINGSIDE_CACHE_NAME,
   RINGSIDE_PRECACHE_PATHS,
   isRingsideNavigationPath,
+  nextStaticAssetUrlsFromHtml,
   ringsideNavigationFallbackPath,
   serviceWorkerFetchStrategy,
 } from "./service-worker";
@@ -78,5 +79,19 @@ describe("service worker cache policy", () => {
       "/ringside",
     );
     expect(ringsideNavigationFallbackPath("/admin/review")).toBeNull();
+  });
+
+  it("collects hashed Next assets from a precached HTML shell", () => {
+    expect(
+      nextStaticAssetUrlsFromHtml(`
+        <link rel="stylesheet" href="/_next/static/css/app.css" />
+        <script src="/_next/static/chunks/main.js"></script>
+        <script src="/_next/static/chunks/main.js"></script>
+        <img src="/pwa-icon/192.png" />
+      `),
+    ).toEqual([
+      "/_next/static/css/app.css",
+      "/_next/static/chunks/main.js",
+    ]);
   });
 });
