@@ -300,15 +300,28 @@ test.describe("happy path", () => {
 
     // Male and female dogs in the same age class have independent places.
     await page.goto("/ringside/placements");
-    await expect(
-      page.getByRole("heading", { name: "Youth I — Male (Rüde)" }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: "Youth I — Female (Hündin)" }),
-    ).toBeVisible();
     const saturdayPlacements = page
       .locator("section")
       .filter({ has: page.getByRole("heading", { name: "Saturday, September 5" }) });
+    const sundayPlacements = page
+      .locator("section")
+      .filter({ has: page.getByRole("heading", { name: "Sunday, September 6" }) });
+    await expect(
+      saturdayPlacements.getByRole("heading", { name: "Youth I — Male (Rüde)" }),
+    ).toBeVisible();
+    await expect(
+      saturdayPlacements.getByRole("heading", {
+        name: "Youth I — Female (Hündin)",
+      }),
+    ).toBeVisible();
+    await expect(
+      sundayPlacements.getByRole("heading", { name: "Youth I — Male (Rüde)" }),
+    ).toBeVisible();
+    await expect(
+      sundayPlacements
+        .getByRole("group", { name: "Placement for Rex Happy Path" })
+        .getByRole("button", { name: "2", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
     await saturdayPlacements
       .getByRole("group", { name: "Placement for Rex Happy Path" })
       .getByRole("button", { name: "1", exact: true })
@@ -331,6 +344,11 @@ test.describe("happy path", () => {
       saturdayPlacements
         .getByRole("group", { name: "Placement for Bella Division Test" })
         .getByRole("button", { name: "1", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      sundayPlacements
+        .getByRole("group", { name: "Placement for Rex Happy Path" })
+        .getByRole("button", { name: "2", exact: true }),
     ).toHaveAttribute("aria-pressed", "true");
     const placementsAfterSaturday = (await (
       await page.request.get(
