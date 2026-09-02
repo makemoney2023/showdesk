@@ -188,6 +188,8 @@ export default function RingsidePage() {
               statusTone={
                 e.event_kind === "se" ? "muted" : critiqueChipTone(status)
               }
+              showCritiqueAction={e.event_kind !== "se"}
+              showSeAction={e.event_kind !== "conformation"}
               photoHref={
                 e.photo_path && activeShowId
                   ? dogPhotoHref(activeShowId, e.id, { cacheBust: e.photo_path })

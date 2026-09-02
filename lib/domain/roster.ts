@@ -338,7 +338,14 @@ function findImportMatchIndex<T extends RosterEntry>(
   const sameEvent = sameShowArmband.filter(
     ({ entry }) => (entry.event_kind ?? "") === (row.event_kind ?? ""),
   );
-  if (sameEvent.length === 1) return sameEvent[0].index;
+  if (sameEvent.length === 1) {
+    const existingDay = sameEvent[0].entry.competition_day ?? "";
+    const incomingDay = row.competition_day ?? "";
+    // Weekend catalogs reuse an armband on Saturday and Sunday. Only fold
+    // into the existing row when a day is missing (legacy CSV / fill-in).
+    if (!existingDay || !incomingDay) return sameEvent[0].index;
+    return -1;
+  }
   if (sameShowArmband.length === 1 && !row.event_kind && !row.competition_day) {
     return sameShowArmband[0].index;
   }
@@ -347,7 +354,8 @@ function findImportMatchIndex<T extends RosterEntry>(
 
 /**
  * Re-importing the same CSV should update existing armbands, not duplicate dogs.
- * SE and conformation may share a number; match event (and day when present).
+ * SE and conformation may share a number; the same armband on different
+ * competition days is a second entry (weekend catalog), not an overwrite.
  */
 export function mergeImportedEntries<T extends RosterEntry>(
   existing: T[],

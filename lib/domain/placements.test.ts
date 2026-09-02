@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   assignClassPlacement,
+  dirtyPlacementPoolKeys,
   formwertSortRank,
+  incompletePlacementScopeError,
   initialPlacementSelections,
   placementEntriesBelongToShow,
+  placementRowsForPools,
   placementsSuggestedFromFormwert,
   resolvePlacementInputs,
   resolveFormwertByEntryId,
@@ -80,13 +83,68 @@ describe("upsertPlacements", () => {
     expect(next.filter((p) => p.show_id === "s1")).toHaveLength(0);
   });
 
-  it("treats rows as a full-show replacement", () => {
+  it("replaces only the submitted division and leaves other days intact", () => {
+    const existing: PlacementRecord[] = [
+      {
+        id: "p-sat",
+        show_id: "s1",
+        class_id: "zwischenklasse",
+        sex: "R",
+        competition_day: "2026-09-05",
+        catalog_class: "youth-i",
+        entry_id: "sat",
+        placement: 1,
+      },
+      {
+        id: "p-sun",
+        show_id: "s1",
+        class_id: "zwischenklasse",
+        sex: "R",
+        competition_day: "2026-09-06",
+        catalog_class: "youth-i",
+        entry_id: "sun",
+        placement: 2,
+      },
+    ];
+    const next = upsertPlacements(
+      existing,
+      "s1",
+      [
+        {
+          entry_id: "sat",
+          class_id: "zwischenklasse",
+          sex: "R",
+          competition_day: "2026-09-05",
+          catalog_class: "youth-i",
+          placement: 3,
+        },
+      ],
+      () => "p-new",
+    );
+    expect(next.find((placement) => placement.entry_id === "sun")?.placement).toBe(
+      2,
+    );
+    expect(next.find((placement) => placement.entry_id === "sat")).toEqual({
+      id: "p-new",
+      show_id: "s1",
+      class_id: "zwischenklasse",
+      sex: "R",
+      competition_day: "2026-09-05",
+      catalog_class: "youth-i",
+      entry_id: "sat",
+      placement: 3,
+    });
+  });
+
+  it("clears other ranks in a submitted pool when they are omitted as null", () => {
     const existing: PlacementRecord[] = [
       {
         id: "p1",
         show_id: "s1",
         class_id: "zwischenklasse",
         sex: "R",
+        competition_day: "",
+        catalog_class: "youth-i",
         entry_id: "e1",
         placement: 1,
       },
@@ -95,6 +153,8 @@ describe("upsertPlacements", () => {
         show_id: "s1",
         class_id: "zwischenklasse",
         sex: "R",
+        competition_day: "",
+        catalog_class: "youth-i",
         entry_id: "e2",
         placement: 2,
       },
@@ -103,6 +163,14 @@ describe("upsertPlacements", () => {
       existing,
       "s1",
       [
+        {
+          entry_id: "e1",
+          class_id: "zwischenklasse",
+          sex: "R",
+          competition_day: "",
+          catalog_class: "youth-i",
+          placement: null,
+        },
         {
           entry_id: "e2",
           class_id: "zwischenklasse",
@@ -126,6 +194,92 @@ describe("upsertPlacements", () => {
         placement: 1,
       },
     ]);
+  });
+});
+
+describe("placement save scope", () => {
+  const saturday = {
+    id: "sat",
+    show_id: "s1",
+    class_id: "zwischenklasse" as const,
+    sex: "R" as const,
+    event_kind: "conformation" as const,
+    competition_day: "2026-09-05",
+    catalog_class: "youth-i" as const,
+  };
+  const sunday = {
+    id: "sun",
+    show_id: "s1",
+    class_id: "zwischenklasse" as const,
+    sex: "R" as const,
+    event_kind: "conformation" as const,
+    competition_day: "2026-09-06",
+    catalog_class: "youth-i" as const,
+  };
+
+  it("detects only the pools the steward actually changed", () => {
+    expect(
+      dirtyPlacementPoolKeys(
+        [saturday, sunday],
+        { sat: 1, sun: 2 },
+        { sat: 1, sun: 1 },
+      ),
+    ).toEqual(["2026-09-06:youth-i:R"]);
+  });
+
+  it("builds a payload for those pools only", () => {
+    expect(
+      placementRowsForPools(
+        [saturday, sunday],
+        { sat: 1, sun: 2 },
+        ["2026-09-06:youth-i:R"],
+      ),
+    ).toEqual([{ entry_id: "sun", placement: 2 }]);
+  });
+
+  it("rejects a scoped save that omits a dog from the submitted pool", () => {
+    const maleA = { ...saturday, id: "m1" };
+    const maleB = { ...saturday, id: "m2" };
+    expect(
+      incompletePlacementScopeError(
+        [
+          {
+            entry_id: "m1",
+            placement: 1,
+            class_id: "zwischenklasse",
+            sex: "R",
+            competition_day: "2026-09-05",
+            catalog_class: "youth-i",
+          },
+        ],
+        [maleA, maleB, sunday],
+        "s1",
+      ),
+    ).toMatch(/every dog in the saved division/);
+    expect(
+      incompletePlacementScopeError(
+        [
+          {
+            entry_id: "m1",
+            placement: 1,
+            class_id: "zwischenklasse",
+            sex: "R",
+            competition_day: "2026-09-05",
+            catalog_class: "youth-i",
+          },
+          {
+            entry_id: "m2",
+            placement: null,
+            class_id: "zwischenklasse",
+            sex: "R",
+            competition_day: "2026-09-05",
+            catalog_class: "youth-i",
+          },
+        ],
+        [maleA, maleB, sunday],
+        "s1",
+      ),
+    ).toBeNull();
   });
 });
 

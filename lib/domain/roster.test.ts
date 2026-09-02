@@ -260,7 +260,7 @@ describe("roster", () => {
     expect(merged.changedDivisionEntryIds).toEqual(["entry-1"]);
   });
 
-  it("reports imported entries that changed day or catalog class", () => {
+  it("reports imported entries that changed catalog class on the same day", () => {
     const existing: RosterEntry[] = [
       {
         id: "entry-1",
@@ -283,13 +283,115 @@ describe("roster", () => {
       [
         {
           ...existing[0],
-          competition_day: "2026-09-06",
           catalog_class: "youth-ii",
         },
       ],
       () => "unused",
     );
+    expect(merged.updated).toBe(1);
+    expect(merged.added).toBe(0);
     expect(merged.changedDivisionEntryIds).toEqual(["entry-1"]);
+  });
+
+  it("fills in a missing competition day on the same event without duplicating", () => {
+    const existing: RosterEntry[] = [
+      {
+        id: "entry-1",
+        show_id: "show-1",
+        armband: "101",
+        dog_name: "Rex",
+        zb_number: "REG-1",
+        wt: "",
+        owner: "Owner",
+        sex: "R",
+        class_id: "zwischenklasse",
+        email: "",
+        event_kind: "conformation",
+      },
+    ];
+    const merged = mergeImportedEntries(
+      existing,
+      [
+        {
+          ...existing[0],
+          competition_day: "2026-09-06",
+          catalog_class: "youth-i",
+        },
+      ],
+      () => "unused",
+    );
+    expect(merged.updated).toBe(1);
+    expect(merged.added).toBe(0);
+    expect(merged.entries).toHaveLength(1);
+    expect(merged.entries[0].competition_day).toBe("2026-09-06");
+    expect(merged.changedDivisionEntryIds).toEqual(["entry-1"]);
+  });
+
+  it("keeps the same armband on Saturday and Sunday as separate entries", () => {
+    const saturday: RosterEntry = {
+      id: "entry-sat",
+      show_id: "show-1",
+      armband: "101",
+      dog_name: "Rex",
+      zb_number: "REG-1",
+      wt: "",
+      owner: "Owner",
+      sex: "R",
+      class_id: "zwischenklasse",
+      email: "",
+      event_kind: "conformation",
+      competition_day: "2026-09-05",
+      catalog_class: "youth-i",
+    };
+    const merged = mergeImportedEntries(
+      [saturday],
+      [
+        {
+          ...saturday,
+          competition_day: "2026-09-06",
+        },
+      ],
+      () => "entry-sun",
+    );
+    expect(merged.added).toBe(1);
+    expect(merged.updated).toBe(0);
+    expect(merged.entries).toHaveLength(2);
+    expect(merged.entries.map((entry) => entry.competition_day)).toEqual([
+      "2026-09-05",
+      "2026-09-06",
+    ]);
+    expect(merged.changedDivisionEntryIds).toEqual([]);
+
+    const incoming = {
+      show_id: saturday.show_id,
+      armband: saturday.armband,
+      dog_name: saturday.dog_name,
+      zb_number: saturday.zb_number,
+      wt: saturday.wt,
+      owner: saturday.owner,
+      sex: saturday.sex,
+      class_id: saturday.class_id,
+      email: saturday.email,
+      event_kind: saturday.event_kind,
+      catalog_class: saturday.catalog_class,
+    };
+    let nextId = 0;
+    const weekendCatalog = mergeImportedEntries(
+      [],
+      [
+        { ...incoming, competition_day: "2026-09-05" },
+        { ...incoming, competition_day: "2026-09-06" },
+        {
+          ...incoming,
+          event_kind: "se" as const,
+          competition_day: "2026-09-04",
+        },
+      ],
+      () => `entry-${nextId++}`,
+    );
+    expect(weekendCatalog.added).toBe(3);
+    expect(weekendCatalog.updated).toBe(0);
+    expect(weekendCatalog.entries).toHaveLength(3);
   });
 
   it("collects row-level errors without aborting", () => {

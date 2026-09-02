@@ -20,15 +20,45 @@ export function blobToBase64(blob: Blob): Promise<string> {
 
 export interface QueueSyncResult {
   synced: number;
+  /** Transient failures (offline, 5xx) — stay queued for the next sync. */
   failed: number;
+  /** Permanent server rejections — removed so the queue can drain. */
+  conflicts: number;
+  /** True when the desk session expired (401) — sign in, then sync again. */
+  unauthorized: boolean;
   remaining: number;
 }
 
-async function syncRecordings(): Promise<{ synced: number; failed: number }> {
+export type SyncOutcome = "synced" | "retry" | "conflict" | "unauthorized";
+
+/**
+ * Ring Wi-Fi drops mid-show, so the queue must drain itself:
+ * - 401: session expired — keep the item, tell the steward to sign in.
+ * - 404/409: the server state supersedes the queued item (entry deleted or
+ *   critique approved elsewhere) — retrying forever poisons the queue.
+ * - Other non-ok (5xx, network): transient — retry on the next sync.
+ */
+export function classifySyncResponse(status: number | null): SyncOutcome {
+  if (status === null) return "retry";
+  if (status >= 200 && status < 300) return "synced";
+  if (status === 401) return "unauthorized";
+  if (status === 404 || status === 409) return "conflict";
+  return "retry";
+}
+
+async function syncRecordings(): Promise<{
+  synced: number;
+  failed: number;
+  conflicts: number;
+  unauthorized: boolean;
+}> {
   const items = await listQueuedRecordings();
   let synced = 0;
   let failed = 0;
+  let conflicts = 0;
+  let unauthorized = false;
   for (const item of items) {
+    let status: number | null = null;
     try {
       const audioBase64 = await blobToBase64(item.blob);
       const res = await fetch("/api/critiques", {
@@ -42,50 +72,98 @@ async function syncRecordings(): Promise<{ synced: number; failed: number }> {
           judge: item.judge,
         }),
       });
-      if (res.ok) {
-        await removeQueuedRecording(item.id);
-        synced += 1;
-      } else {
-        failed += 1;
-      }
+      status = res.status;
     } catch {
+      status = null;
+    }
+    const outcome = classifySyncResponse(status);
+    if (outcome === "synced") {
+      await removeQueuedRecording(item.id);
+      synced += 1;
+    } else if (outcome === "conflict") {
+      await removeQueuedRecording(item.id);
+      conflicts += 1;
+    } else if (outcome === "unauthorized") {
+      unauthorized = true;
+      failed += 1;
+    } else {
       failed += 1;
     }
   }
-  return { synced, failed };
+  return { synced, failed, conflicts, unauthorized };
 }
 
-async function syncSeDrafts(): Promise<{ synced: number; failed: number }> {
+async function patchSeDraft(input: {
+  showId: string;
+  evaluationId: string;
+  form: unknown;
+  markComplete: boolean;
+}): Promise<number | null> {
+  try {
+    const res = await fetch("/api/evaluations", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        show_id: input.showId,
+        evaluation_id: input.evaluationId,
+        form: input.form,
+        mark_complete: input.markComplete,
+      }),
+    });
+    return res.status;
+  } catch {
+    return null;
+  }
+}
+
+async function syncSeDrafts(): Promise<{
+  synced: number;
+  failed: number;
+  conflicts: number;
+  unauthorized: boolean;
+}> {
   const items = await listQueuedSeDrafts();
   let synced = 0;
   let failed = 0;
+  let conflicts = 0;
+  let unauthorized = false;
   for (const item of items) {
-    try {
-      const res = await fetch("/api/evaluations", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          show_id: item.showId,
-          evaluation_id: item.evaluationId,
-          form: item.form,
-          mark_complete: item.markComplete,
-        }),
+    let status = await patchSeDraft({
+      showId: item.showId,
+      evaluationId: item.evaluationId,
+      form: item.form,
+      markComplete: item.markComplete,
+    });
+    // "Mark complete" can fail validation once the server has newer rules.
+    // The steward's field data must still land — save it as a draft instead
+    // of retrying a doomed completion forever.
+    if (status === 400 && item.markComplete) {
+      status = await patchSeDraft({
+        showId: item.showId,
+        evaluationId: item.evaluationId,
+        form: item.form,
+        markComplete: false,
       });
-      if (res.ok) {
-        await removeQueuedSeDraft(item.id);
-        await clearRecoverableSeDraft(item.showId, item.entryId);
-        synced += 1;
-      } else {
-        failed += 1;
-      }
-    } catch {
+    }
+    const outcome = classifySyncResponse(status);
+    if (outcome === "synced") {
+      await removeQueuedSeDraft(item.id);
+      await clearRecoverableSeDraft(item.showId, item.entryId);
+      synced += 1;
+    } else if (outcome === "conflict") {
+      await removeQueuedSeDraft(item.id);
+      conflicts += 1;
+    } else if (outcome === "unauthorized") {
+      unauthorized = true;
+      failed += 1;
+    } else {
       failed += 1;
     }
   }
-  return { synced, failed };
+  return { synced, failed, conflicts, unauthorized };
 }
 
-/** Upload queued recordings and SE drafts; keep failures in IndexedDB. */
+/** Upload queued recordings and SE drafts; keep transient failures in IndexedDB. */
 export async function syncOfflineQueue(): Promise<QueueSyncResult> {
   const recordings = await syncRecordings();
   const seDrafts = await syncSeDrafts();
@@ -94,6 +172,8 @@ export async function syncOfflineQueue(): Promise<QueueSyncResult> {
   return {
     synced: recordings.synced + seDrafts.synced,
     failed: recordings.failed + seDrafts.failed,
+    conflicts: recordings.conflicts + seDrafts.conflicts,
+    unauthorized: recordings.unauthorized || seDrafts.unauthorized,
     remaining,
   };
 }
@@ -102,11 +182,28 @@ export async function syncOfflineQueue(): Promise<QueueSyncResult> {
 export const syncQueuedRecordings = syncOfflineQueue;
 
 export function formatQueueSyncStatus(result: QueueSyncResult): string {
-  if (result.synced === 0 && result.failed === 0) {
+  if (
+    result.synced === 0 &&
+    result.failed === 0 &&
+    result.conflicts === 0
+  ) {
     return "Nothing to sync";
   }
-  if (result.failed === 0) {
-    return `Synced ${result.synced} item${result.synced === 1 ? "" : "s"}`;
+  const parts: string[] = [];
+  if (result.synced > 0) {
+    parts.push(`Synced ${result.synced} item${result.synced === 1 ? "" : "s"}`);
   }
-  return `Synced ${result.synced}, ${result.failed} failed — retry when online`;
+  if (result.conflicts > 0) {
+    parts.push(
+      `${result.conflicts} removed (already approved or entry deleted)`,
+    );
+  }
+  if (result.failed > 0) {
+    parts.push(
+      result.unauthorized
+        ? `${result.failed} waiting — session expired, sign in and sync again`
+        : `${result.failed} failed — retry when online`,
+    );
+  }
+  return parts.join(" · ");
 }

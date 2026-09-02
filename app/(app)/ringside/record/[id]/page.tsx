@@ -439,8 +439,10 @@ export default function RecordPage() {
     }
 
     if (!navigator.onLine) {
-      await queueRecording("Saved to offline queue");
-      router.push(nextRecordingHref());
+      // Navigating offline would request the next dog's page from the server
+      // and strand the steward on a browser error page. Stay here; the queue
+      // count and Sync button keep the flow visible.
+      await queueRecording("Saved to offline queue — sync when back online");
       return;
     }
 

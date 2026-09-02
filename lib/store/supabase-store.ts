@@ -42,6 +42,11 @@ export interface SupabaseStoreClient {
       eq(column: string, value: unknown): Promise<{ error: QueryError }>;
     };
   };
+  /** Optional so older duck-typed clients keep working without the lease lock. */
+  rpc?(
+    fn: string,
+    args: Record<string, unknown>,
+  ): Promise<{ data: unknown; error: QueryError }>;
 }
 
 export interface StoreWritePlan {
@@ -245,6 +250,89 @@ async function applyPlan(
   }
 }
 
+export interface StoreLockOptions {
+  /** Lease lifetime — a crashed writer's lock self-expires after this. */
+  ttlMs?: number;
+  /** Acquisition attempts before giving up with "store is busy". */
+  attempts?: number;
+  /** Base delay between attempts (jittered up to 2x). */
+  retryDelayMs?: number;
+}
+
+export const STORE_BUSY_MESSAGE =
+  "Another desk write is in progress — try again";
+
+const ACQUIRE_STORE_LOCK = "acquire_store_lock";
+const RELEASE_STORE_LOCK = "release_store_lock";
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Serialize read-modify-write cycles across serverless instances with a
+ * self-expiring lease on the app_state singleton. PostgREST cannot hold an
+ * advisory lock across calls, so acquisition is an atomic SQL function.
+ * Degrades to the pre-lock behavior when the migration is not applied yet
+ * (missing function) or the RPC errors — availability over strict ordering.
+ */
+async function withStoreWriteLock<T>(
+  client: SupabaseStoreClient,
+  fn: () => Promise<T>,
+  options?: StoreLockOptions,
+): Promise<T> {
+  const rpc = client.rpc?.bind(client);
+  if (!rpc) return fn();
+
+  const ttlMs = options?.ttlMs ?? 15_000;
+  const attempts = options?.attempts ?? 20;
+  const retryDelayMs = options?.retryDelayMs ?? 150;
+  const owner = `desk-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+  let acquired = false;
+  for (let attempt = 0; attempt < attempts && !acquired; attempt++) {
+    let granted: { data: unknown; error: QueryError };
+    try {
+      granted = await rpc(ACQUIRE_STORE_LOCK, {
+        p_owner: owner,
+        p_ttl_ms: ttlMs,
+      });
+    } catch (error) {
+      granted = {
+        data: null,
+        error: {
+          message: error instanceof Error ? error.message : "rpc failed",
+        },
+      };
+    }
+    if (granted.error) {
+      console.warn(
+        `Store write lock unavailable (${granted.error.message}) — writing without serialization`,
+      );
+      return fn();
+    }
+    if (granted.data === true) {
+      acquired = true;
+      break;
+    }
+    await sleep(retryDelayMs + Math.random() * retryDelayMs);
+  }
+  if (!acquired) {
+    throw new Error(STORE_BUSY_MESSAGE);
+  }
+
+  try {
+    return await fn();
+  } finally {
+    // Best effort — the lease expires on its own if release fails.
+    try {
+      await rpc(RELEASE_STORE_LOCK, { p_owner: owner });
+    } catch {
+      /* lease self-expires */
+    }
+  }
+}
+
 /** Read shows/entries/critiques/placements/se_evaluations + app_state.active_show_id. */
 export async function sbReadStore(
   client: SupabaseStoreClient,
@@ -283,30 +371,44 @@ export async function sbReadStore(
 export async function sbWriteStore(
   client: SupabaseStoreClient,
   store: AppStore,
+  lockOptions?: StoreLockOptions,
 ): Promise<void> {
-  const before = await sbReadStore(client);
-  await applyPlan(client, planStoreWrite(before, store));
+  await withStoreWriteLock(
+    client,
+    async () => {
+      const before = await sbReadStore(client);
+      await applyPlan(client, planStoreWrite(before, store));
+    },
+    lockOptions,
+  );
 }
 
 /**
  * File-store compatible read → mutate-in-memory → persist deltas.
  * Callers inject createSupabaseServerClient() (admin only if A1 is insufficient).
  *
- * Race: this is a non-transactional RMW. Two overlapping updateStore calls can
- * each read the same snapshot, apply different mutators, and last-write-wins
- * (lost updates). Fine for single-flight secretary use; risky on show day if
- * ringside + admin persist at once. File-store serializes this with a mutex.
- * Child deletes still run before child upserts (UNIQUE show_id+entry_id).
+ * The read → mutate → apply cycle runs inside a database lease lock
+ * (acquire_store_lock / release_store_lock) so overlapping updateStore calls
+ * from different serverless instances serialize instead of losing updates —
+ * the Supabase counterpart of the file-store mutex. Child deletes still run
+ * before child upserts (UNIQUE show_id+entry_id).
  */
 export async function sbUpdateStore(
   client: SupabaseStoreClient,
   updater: (store: AppStore) => AppStore | void,
+  lockOptions?: StoreLockOptions,
 ): Promise<AppStore> {
-  const before = structuredClone(await sbReadStore(client));
-  const working = structuredClone(before);
-  const next = updater(working) ?? working;
-  await applyPlan(client, planStoreWrite(before, next));
-  return next;
+  return withStoreWriteLock(
+    client,
+    async () => {
+      const before = structuredClone(await sbReadStore(client));
+      const working = structuredClone(before);
+      const next = updater(working) ?? working;
+      await applyPlan(client, planStoreWrite(before, next));
+      return next;
+    },
+    lockOptions,
+  );
 }
 
 export async function sbPurgeShowData(

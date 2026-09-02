@@ -173,7 +173,10 @@ export default function StewardSeFormPage() {
       }),
     });
     if (!createRes.ok) {
-      setStatus("Could not open SE evaluation");
+      const data = (await createRes.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      setStatus(data?.error ?? "Could not open SE evaluation");
       return;
     }
     const createData = (await createRes.json()) as {
@@ -398,9 +401,21 @@ export default function StewardSeFormPage() {
   }
 
   if (!form || !entry) {
+    const needsHealthPdf = status === "SE requires a health clearance PDF";
     return (
       <div className="space-y-4">
         <p className="text-sm text-sss-text-muted">{status}</p>
+        {needsHealthPdf ? (
+          <p className="text-sm text-sss-text-secondary">
+            Ask the show secretary to attach the dog&apos;s clearance PDF on
+            Roster, then open this form again.
+          </p>
+        ) : null}
+        {needsHealthPdf ? (
+          <Button asChild variant="outline">
+            <Link href="/admin/entries">Open Roster</Link>
+          </Button>
+        ) : null}
         <BackLink href={ringsideHref}>Back to dogs</BackLink>
       </div>
     );
