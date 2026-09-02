@@ -190,6 +190,14 @@ test.describe("happy path", () => {
     expect(entry).toBeTruthy();
     expect(seEntry).toBeTruthy();
 
+    await page.goto(`/ringside/se/${seEntry!.id}`);
+    await expect(
+      page.getByText("SE requires a health clearance PDF", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Open Roster" }),
+    ).toBeVisible();
+
     const documentRes = await page.request.post("/api/documents", {
       data: {
         show_id: showData.active_show_id,
