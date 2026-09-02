@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { EMPTY_STORE } from "@/lib/types";
 import type {
   CritiqueRecord,
@@ -17,6 +17,7 @@ import {
   sbPurgeShowData,
   sbReadStore,
   sbUpdateStore,
+  STORE_BUSY_MESSAGE,
   toAppStateRow,
 } from "./supabase-store";
 
@@ -81,14 +82,24 @@ const seEvaluation: SeEvaluationRecord = {
 
 type Row = Record<string, unknown>;
 
-function createMockClient(seed?: {
-  shows?: Row[];
-  entries?: Row[];
-  critiques?: Row[];
-  placements?: Row[];
-  se_evaluations?: Row[];
-  app_state?: { id: 1; active_show_id: string | null };
-}) {
+function createMockClient(
+  seed?: {
+    shows?: Row[];
+    entries?: Row[];
+    critiques?: Row[];
+    placements?: Row[];
+    se_evaluations?: Row[];
+    app_state?: { id: 1; active_show_id: string | null };
+  },
+  lock?: {
+    /** Successive acquire results; exhausted entries default to granted. */
+    grants?: boolean[];
+    /** Acquire RPC returns this error (e.g. migration not applied). */
+    errorMessage?: string;
+    /** Simulate an older duck-typed client without rpc support. */
+    omitRpc?: boolean;
+  },
+) {
   const tables: Record<string, Map<string, Row>> = {
     shows: new Map((seed?.shows ?? []).map((r) => [String(r.id), r])),
     entries: new Map((seed?.entries ?? []).map((r) => [String(r.id), r])),
@@ -101,9 +112,30 @@ function createMockClient(seed?: {
   };
   let appState = seed?.app_state ?? { id: 1 as const, active_show_id: null };
   const ops: { op: string; table: string; payload?: unknown }[] = [];
+  let acquireCalls = 0;
+
+  const rpc = lock?.omitRpc
+    ? {}
+    : {
+        async rpc(fn: string, args: Record<string, unknown>) {
+          ops.push({ op: "rpc", table: fn, payload: args });
+          if (fn === "acquire_store_lock") {
+            if (lock?.errorMessage) {
+              return { data: null, error: { message: lock.errorMessage } };
+            }
+            const grants = lock?.grants ?? [];
+            const granted =
+              acquireCalls < grants.length ? grants[acquireCalls] : true;
+            acquireCalls += 1;
+            return { data: granted, error: null };
+          }
+          return { data: null, error: null };
+        },
+      };
 
   return {
     ops,
+    ...rpc,
     from(table: string) {
       return {
         select(_cols?: string) {
@@ -362,6 +394,154 @@ describe("sbReadStore / sbUpdateStore / sbPurgeShowData", () => {
       table: "app_state",
       payload: [{ id: 1, active_show_id: "show-1" }],
     });
+  });
+});
+
+describe("sbUpdateStore — store write lease", () => {
+  const fastLock = { attempts: 3, retryDelayMs: 1, ttlMs: 500 };
+
+  it("acquires the lease before writing and releases it after", async () => {
+    const client = createMockClient({
+      shows: [toShowRow(show)],
+      app_state: { id: 1, active_show_id: null },
+    });
+
+    await sbUpdateStore(
+      client,
+      (s) => ({ ...s, active_show_id: "show-1" }),
+      fastLock,
+    );
+
+    const acquireIdx = client.ops.findIndex(
+      (op) => op.op === "rpc" && op.table === "acquire_store_lock",
+    );
+    const upsertIdx = client.ops.findIndex((op) => op.op === "upsert");
+    const releaseIdx = client.ops.findIndex(
+      (op) => op.op === "rpc" && op.table === "release_store_lock",
+    );
+    expect(acquireIdx).toBeGreaterThanOrEqual(0);
+    expect(upsertIdx).toBeGreaterThan(acquireIdx);
+    expect(releaseIdx).toBeGreaterThan(upsertIdx);
+
+    const acquireArgs = client.ops[acquireIdx]?.payload as {
+      p_owner: string;
+      p_ttl_ms: number;
+    };
+    const releaseArgs = client.ops[releaseIdx]?.payload as { p_owner: string };
+    expect(acquireArgs.p_ttl_ms).toBe(500);
+    expect(releaseArgs.p_owner).toBe(acquireArgs.p_owner);
+  });
+
+  it("retries while another writer holds the lease", async () => {
+    const client = createMockClient(
+      {
+        shows: [toShowRow(show)],
+        app_state: { id: 1, active_show_id: null },
+      },
+      { grants: [false, false] },
+    );
+
+    const next = await sbUpdateStore(
+      client,
+      (s) => ({ ...s, active_show_id: "show-1" }),
+      fastLock,
+    );
+
+    expect(next.active_show_id).toBe("show-1");
+    const acquires = client.ops.filter(
+      (op) => op.op === "rpc" && op.table === "acquire_store_lock",
+    );
+    expect(acquires).toHaveLength(3);
+  });
+
+  it("gives up without writing when the lease never frees", async () => {
+    const client = createMockClient(
+      {
+        shows: [toShowRow(show)],
+        app_state: { id: 1, active_show_id: null },
+      },
+      { grants: [false, false, false] },
+    );
+
+    await expect(
+      sbUpdateStore(
+        client,
+        (s) => ({ ...s, active_show_id: "show-1" }),
+        fastLock,
+      ),
+    ).rejects.toThrow(STORE_BUSY_MESSAGE);
+    expect(client.ops.filter((op) => op.op === "upsert")).toHaveLength(0);
+  });
+
+  it("still writes when the lock migration is not applied yet", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const client = createMockClient(
+      {
+        shows: [toShowRow(show)],
+        app_state: { id: 1, active_show_id: null },
+      },
+      {
+        errorMessage:
+          "Could not find the function public.acquire_store_lock in the schema cache",
+      },
+    );
+
+    const next = await sbUpdateStore(
+      client,
+      (s) => ({ ...s, active_show_id: "show-1" }),
+      fastLock,
+    );
+    expect(warn).toHaveBeenCalledOnce();
+    warn.mockRestore();
+
+    expect(next.active_show_id).toBe("show-1");
+    expect(client.ops).toContainEqual({
+      op: "upsert",
+      table: "app_state",
+      payload: [{ id: 1, active_show_id: "show-1" }],
+    });
+  });
+
+  it("writes without the lease on older clients that lack rpc", async () => {
+    const client = createMockClient(
+      {
+        shows: [toShowRow(show)],
+        app_state: { id: 1, active_show_id: null },
+      },
+      { omitRpc: true },
+    );
+
+    const next = await sbUpdateStore(
+      client,
+      (s) => ({ ...s, active_show_id: "show-1" }),
+      fastLock,
+    );
+
+    expect(next.active_show_id).toBe("show-1");
+    expect(client.ops.filter((op) => op.op === "rpc")).toHaveLength(0);
+  });
+
+  it("releases the lease when the mutator throws", async () => {
+    const client = createMockClient({
+      shows: [toShowRow(show)],
+      app_state: { id: 1, active_show_id: null },
+    });
+
+    await expect(
+      sbUpdateStore(
+        client,
+        () => {
+          throw new Error("mutator exploded");
+        },
+        fastLock,
+      ),
+    ).rejects.toThrow("mutator exploded");
+
+    expect(
+      client.ops.some(
+        (op) => op.op === "rpc" && op.table === "release_store_lock",
+      ),
+    ).toBe(true);
   });
 });
 

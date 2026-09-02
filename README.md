@@ -70,6 +70,7 @@ SQL lives under `supabase/migrations/`. Apply **in order** on project `emiwbvbyt
 8. `supabase/migrations/20260822035122_day_aware_placement_constraints.sql` — Friday SE / Saturday / Sunday metadata, exact published classes, and one rank per day/class/sex pool.
 9. `supabase/migrations/20260824180000_show_results_published.sql` — public results publish timestamp.
 10. `supabase/migrations/20260825010000_dog_identity_and_documents.sql` — shared `dog_id`, identity/health fields, and optional public clearance documents.
+11. `supabase/migrations/20260902180000_store_write_lock.sql` — store write lease (`acquire_store_lock` / `release_store_lock`) so concurrent ringside + desk writes serialize instead of losing updates. The app degrades to unserialized writes until this is applied.
 
 **Status:** migration status must match the live project before entering placements.
 
