@@ -305,6 +305,34 @@ test.describe("happy path", () => {
     expect((await critiqueResponse).ok()).toBeTruthy();
     await expect(page).toHaveURL(/\/ringside/);
 
+    // Ring Wi-Fi drop: recording queues locally, the steward stays on the
+    // page instead of navigating into an offline error, then sync drains it.
+    const bella = entryData.entries.find(
+      (item) =>
+        item.dog_name === "Bella Division Test" &&
+        item.event_kind === "conformation",
+    );
+    expect(bella).toBeTruthy();
+    await page.goto(
+      `/ringside/record/${bella!.id}?date=2026-09-05&pool=2026-09-05%3Ayouth-i%3AH`,
+    );
+    await page.getByRole("button", { name: "Start recording" }).click();
+    await expect(
+      page.getByRole("button", { name: "Stop & process" }),
+    ).toBeVisible();
+    await page.context().setOffline(true);
+    await page.getByRole("button", { name: "Stop & process" }).click();
+    await expect(
+      page.getByText("Saved to offline queue — sync when back online"),
+    ).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/ringside/record/${bella!.id}`));
+    await expect(page.getByText("1 recording(s) waiting to sync")).toBeVisible();
+    await page.context().setOffline(false);
+    await page.getByRole("button", { name: "Sync queue" }).click();
+    await expect(page.getByText("Synced 1 item")).toBeVisible({
+      timeout: 15000,
+    });
+
     await page.goto("/admin/review");
     await page.getByLabel("Search review queue").fill("does-not-match");
     await expect(page.getByText(/No review items match/)).toBeVisible();

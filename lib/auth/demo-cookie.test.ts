@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { demoSessionCookieOptions } from "./demo-cookie";
+import {
+  DEMO_SESSION_MAX_AGE_SECONDS,
+  demoSessionCookieOptions,
+} from "./demo-cookie";
 
 const originalNodeEnv = process.env.NODE_ENV;
 
@@ -38,5 +41,13 @@ describe("demoSessionCookieOptions", () => {
     process.env.NODE_ENV = "development";
     const options = demoSessionCookieOptions(requestWithProto("http"));
     expect(options.secure).toBe(false);
+  });
+
+  it("outlives a show weekend instead of dying with the browser session", () => {
+    const options = demoSessionCookieOptions(requestWithProto("https"));
+    expect(options.maxAge).toBe(DEMO_SESSION_MAX_AGE_SECONDS);
+    expect(DEMO_SESSION_MAX_AGE_SECONDS).toBeGreaterThanOrEqual(
+      3 * 24 * 60 * 60,
+    );
   });
 });
