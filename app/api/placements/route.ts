@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readStore, updateStore, newId } from "@/lib/store";
 import { filterByShow } from "@/lib/domain/show-scope";
 import {
+  incompletePlacementScopeError,
   resolvePlacementInputs,
   upsertPlacements,
   type PlacementInput,
@@ -43,18 +44,9 @@ export async function PUT(request: Request) {
   }
 
   const current = await readStore();
-  const showEntryIds = current.entries
-    .filter((entry) => entry.show_id === body.show_id)
-    .map((entry) => entry.id);
-  const submittedIds = new Set(
-    body.placements.map((placement) => placement.entry_id),
-  );
-  if (
-    submittedIds.size !== showEntryIds.length ||
-    showEntryIds.some((entryId) => !submittedIds.has(entryId))
-  ) {
+  if (body.placements.length === 0) {
     return NextResponse.json(
-      { error: "placements must include every entry in the show" },
+      { error: "placements[] must include at least one division" },
       { status: 400 },
     );
   }
@@ -65,6 +57,14 @@ export async function PUT(request: Request) {
   );
   if (!resolved.valid) {
     return NextResponse.json({ error: resolved.error }, { status: 400 });
+  }
+  const scopeError = incompletePlacementScopeError(
+    resolved.rows,
+    current.entries,
+    body.show_id,
+  );
+  if (scopeError) {
+    return NextResponse.json({ error: scopeError }, { status: 400 });
   }
 
   let store: Awaited<ReturnType<typeof updateStore>>;

@@ -151,6 +151,7 @@ test.describe("happy path", () => {
         "armband,dog_name,zb_number,wt,owner,sex,class_id,email,event_kind,competition_day,catalog_class,dog_id",
         "101,Rex Happy Path,DE-1,2024-01-01,Max Mustermann,R,zwischenklasse,owner@example.com,conformation,2026-09-05,youth-i,dog-rex",
         "101,Rex Happy Path,DE-1,2024-01-01,Max Mustermann,R,zwischenklasse,owner@example.com,se,2026-09-04,standard-evaluation,dog-rex",
+        "101,Rex Happy Path,DE-1,2024-01-01,Max Mustermann,R,zwischenklasse,owner@example.com,conformation,2026-09-06,youth-i,dog-rex",
         "102,Bella Division Test,DE-2,2024-02-01,Jane Example,H,zwischenklasse,bella@example.com,conformation,2026-09-05,youth-i,dog-bella",
       ].join("\n"),
     );
@@ -176,12 +177,20 @@ test.describe("happy path", () => {
         id: string;
         dog_name: string;
         event_kind?: "se" | "conformation";
+        competition_day?: string;
       }[];
     };
     const entry = entryData.entries.find(
       (item) =>
         item.dog_name === "Rex Happy Path" &&
-        item.event_kind === "conformation",
+        item.event_kind === "conformation" &&
+        item.competition_day === "2026-09-05",
+    );
+    const sundayEntry = entryData.entries.find(
+      (item) =>
+        item.dog_name === "Rex Happy Path" &&
+        item.event_kind === "conformation" &&
+        item.competition_day === "2026-09-06",
     );
     const seEntry = entryData.entries.find(
       (item) =>
@@ -189,6 +198,7 @@ test.describe("happy path", () => {
     );
     expect(entry).toBeTruthy();
     expect(seEntry).toBeTruthy();
+    expect(sundayEntry).toBeTruthy();
 
     await page.goto(`/ringside/se/${seEntry!.id}`);
     await expect(
@@ -210,6 +220,24 @@ test.describe("happy path", () => {
     expect(documentRes.ok()).toBeTruthy();
 
     await page.goto("/ringside");
+    await expect(page.getByRole("heading", { name: "Dogs" })).toBeVisible();
+    await page.waitForFunction(async () => {
+      const registration = await navigator.serviceWorker.getRegistration("/");
+      return Boolean(registration?.active || navigator.serviceWorker.controller);
+    });
+    await expect
+      .poll(async () =>
+        page.evaluate(async () => {
+          const cache = await caches.open("showdesk-ringside-v1");
+          return Boolean(await cache.match("/ringside"));
+        }),
+      )
+      .toBeTruthy();
+    await page.context().setOffline(true);
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Dogs" })).toBeVisible();
+    await page.context().setOffline(false);
+
     await page.getByLabel("Judge").selectOption("Test Judge");
     await page
       .getByRole("button", { name: /Friday, September 4/ })
@@ -257,6 +285,15 @@ test.describe("happy path", () => {
     await expect(page.getByText(/No dogs match/)).toBeVisible();
     await page.getByRole("button", { name: "Clear search" }).click();
 
+    // Another steward already placed Sunday. Saving Saturday must not wipe it.
+    const sundayPlaceRes = await page.request.put("/api/placements", {
+      data: {
+        show_id: showData.active_show_id,
+        placements: [{ entry_id: sundayEntry!.id, placement: 2 }],
+      },
+    });
+    expect(sundayPlaceRes.ok()).toBeTruthy();
+
     // Male and female dogs in the same age class have independent places.
     await page.goto("/ringside/placements");
     await expect(
@@ -265,11 +302,14 @@ test.describe("happy path", () => {
     await expect(
       page.getByRole("heading", { name: "Youth I — Female (Hündin)" }),
     ).toBeVisible();
-    await page
+    const saturdayPlacements = page
+      .locator("section")
+      .filter({ has: page.getByRole("heading", { name: "Saturday, September 5" }) });
+    await saturdayPlacements
       .getByRole("group", { name: "Placement for Rex Happy Path" })
       .getByRole("button", { name: "1", exact: true })
       .click();
-    await page
+    await saturdayPlacements
       .getByRole("group", { name: "Placement for Bella Division Test" })
       .getByRole("button", { name: "1", exact: true })
       .click();
@@ -279,15 +319,27 @@ test.describe("happy path", () => {
     ).toBeVisible();
     await page.reload();
     await expect(
-      page
+      saturdayPlacements
         .getByRole("group", { name: "Placement for Rex Happy Path" })
         .getByRole("button", { name: "1", exact: true }),
     ).toHaveAttribute("aria-pressed", "true");
     await expect(
-      page
+      saturdayPlacements
         .getByRole("group", { name: "Placement for Bella Division Test" })
         .getByRole("button", { name: "1", exact: true }),
     ).toHaveAttribute("aria-pressed", "true");
+    const placementsAfterSaturday = (await (
+      await page.request.get(
+        `/api/placements?show_id=${showData.active_show_id}`,
+      )
+    ).json()) as {
+      placements: { entry_id: string; placement: number }[];
+    };
+    expect(
+      placementsAfterSaturday.placements.find(
+        (placement) => placement.entry_id === sundayEntry!.id,
+      )?.placement,
+    ).toBe(2);
 
     await page.goto(
       `/ringside/record/${entry!.id}?date=2026-09-05&pool=2026-09-05%3Ayouth-i%3AR`,
@@ -402,7 +454,7 @@ test.describe("happy path", () => {
       }),
     ).toBeVisible();
     await expect(
-      publicPage.getByRole("link", { name: /Rex Happy Path/ }),
+      publicPage.getByRole("link", { name: /Rex Happy Path/ }).first(),
     ).toBeVisible();
     await expect(
       publicPage.getByRole("link", { name: /Bella Division Test/ }),

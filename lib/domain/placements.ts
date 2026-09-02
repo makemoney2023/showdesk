@@ -97,8 +97,8 @@ export function resolvePlacementInputs(
     }
     const catalogClass =
       resolvedCatalogClass(entry) ??
-      // Null-placement SE rows are accepted in a full-show replacement and
-      // skipped by upsertPlacements.
+      // Null-placement SE rows are accepted in a payload and skipped by
+      // upsertPlacements. They do not enlarge the saved pool set.
       "open";
     resolved.push({
       ...row,
@@ -137,13 +137,79 @@ export function placementEntriesBelongToShow(
   return resolved.valid ? { valid: true } : resolved;
 }
 
+function resolvedPoolKey(
+  row: Pick<
+    ResolvedPlacementInput,
+    "class_id" | "sex" | "competition_day" | "catalog_class"
+  >,
+): string | null {
+  return competitionPoolKey({
+    class_id: row.class_id,
+    sex: row.sex,
+    competition_day: row.competition_day,
+    catalog_class: row.catalog_class,
+    event_kind: "conformation",
+  });
+}
+
+/** Pools the client is saving. Null-placement SE rows contribute no pool. */
+export function submittedPlacementPoolKeys(
+  rows: ResolvedPlacementInput[],
+): Set<string> {
+  return new Set(
+    rows
+      .map((row) => resolvedPoolKey(row))
+      .filter((key): key is string => Boolean(key)),
+  );
+}
+
+/**
+ * A scoped save must include every dog in each submitted pool so a rank
+ * cannot be left behind in that division. Other days/classes stay untouched.
+ */
+export function incompletePlacementScopeError(
+  rows: ResolvedPlacementInput[],
+  entries: Array<
+    {
+      id: string;
+      show_id: string;
+      class_id: AdrkClassId;
+      sex: DogSex;
+    } & CatalogEntryMetadata
+  >,
+  showId: string,
+): string | null {
+  const submittedIds = new Set(rows.map((row) => row.entry_id));
+  const pools = submittedPlacementPoolKeys(rows);
+  if (pools.size === 0) return null;
+  for (const entry of entries) {
+    if (entry.show_id !== showId) continue;
+    const key = competitionPoolKey(entry);
+    if (key && pools.has(key) && !submittedIds.has(entry.id)) {
+      return "placements must include every dog in the saved division(s)";
+    }
+  }
+  return null;
+}
+
 export function upsertPlacements(
   existing: PlacementRecord[],
   showId: string,
   rows: ResolvedPlacementInput[],
   newId: () => string,
 ): PlacementRecord[] {
-  const otherShows = existing.filter((p) => p.show_id !== showId);
+  const affectedPools = submittedPlacementPoolKeys(rows);
+  const kept = existing.filter((placement) => {
+    if (placement.show_id !== showId) return true;
+    const key = competitionPoolKey({
+      class_id: placement.class_id,
+      sex: placement.sex,
+      competition_day: placement.competition_day,
+      catalog_class: placement.catalog_class,
+      event_kind: "conformation",
+    });
+    return !key || !affectedPools.has(key);
+  });
   const added: PlacementRecord[] = [];
   for (const row of rows) {
     if (row.placement === null) continue;
@@ -159,9 +225,55 @@ export function upsertPlacements(
       placement: row.placement,
     });
   }
-  // PUT is a full-show replacement. Omitted rows are cleared, never silently
-  // preserved into a duplicate class/sex placement slot.
-  return [...otherShows, ...added];
+  return [...kept, ...added];
+}
+
+/** Pools whose current ranks differ from the last server snapshot. */
+export function dirtyPlacementPoolKeys<
+  T extends { id: string } & CatalogEntryMetadata & {
+    class_id: AdrkClassId;
+    sex: DogSex;
+  },
+>(
+  entries: T[],
+  current: Record<string, number | "">,
+  saved: Record<string, number | "">,
+): string[] {
+  const dirty = new Set<string>();
+  for (const entry of entries) {
+    const key = competitionPoolKey(entry);
+    if (!key) continue;
+    if ((current[entry.id] ?? "") !== (saved[entry.id] ?? "")) {
+      dirty.add(key);
+    }
+  }
+  return [...dirty];
+}
+
+/** Placement payload for one or more competition pools (null clears a rank). */
+export function placementRowsForPools<
+  T extends { id: string } & CatalogEntryMetadata & {
+    class_id: AdrkClassId;
+    sex: DogSex;
+  },
+>(
+  entries: T[],
+  selections: Record<string, number | "">,
+  poolKeys: Iterable<string>,
+): PlacementInput[] {
+  const wanted = new Set(poolKeys);
+  return entries
+    .filter((entry) => {
+      const key = competitionPoolKey(entry);
+      return Boolean(key && wanted.has(key));
+    })
+    .map((entry) => ({
+      entry_id: entry.id,
+      placement:
+        selections[entry.id] === "" || selections[entry.id] == null
+          ? null
+          : (Number(selections[entry.id]) as 1 | 2 | 3 | 4),
+    }));
 }
 
 /** Lower rank = better Formwert. Unrated / unknown sort last. */

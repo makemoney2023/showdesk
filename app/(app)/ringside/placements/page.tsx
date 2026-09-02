@@ -10,7 +10,9 @@ import {
 } from "@/lib/domain/catalog-competition";
 import {
   assignClassPlacement,
+  dirtyPlacementPoolKeys,
   initialPlacementSelections,
+  placementRowsForPools,
   placementsSuggestedFromFormwert,
   resolveFormwertByEntryId,
   sortDogsForPlacement,
@@ -30,6 +32,9 @@ export default function PlacementsPage() {
   const [critiques, setCritiques] = useState<CritiqueRecord[]>([]);
   const [evaluations, setEvaluations] = useState<SeEvaluationRecord[]>([]);
   const [placements, setPlacements] = useState<Record<string, number | "">>({});
+  const [savedPlacements, setSavedPlacements] = useState<
+    Record<string, number | "">
+  >({});
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -85,6 +90,7 @@ export default function PlacementsPage() {
       resolveFormwertByEntryId(nextCritiques, nextEvaluations),
     );
     setPlacements(suggested);
+    setSavedPlacements(suggested);
     const filledFromRatings =
       placeData.placements.length === 0 &&
       Object.values(suggested).some((place) => place !== "");
@@ -125,11 +131,13 @@ export default function PlacementsPage() {
 
   function applySortByRating() {
     const suggested = placementsSuggestedFromFormwert(entries, formwertByEntry);
-    const next: Record<string, number | ""> = {};
-    for (const row of suggested) {
-      next[row.entry_id] = row.placement ?? "";
-    }
-    setPlacements(next);
+    setPlacements((current) => {
+      const next = { ...current };
+      for (const row of suggested) {
+        next[row.entry_id] = row.placement ?? "";
+      }
+      return next;
+    });
     setStatus("Sorted by rating — review, then Save placements");
     pushToast("Placements filled within each day, class, and sex division");
   }
@@ -140,16 +148,18 @@ export default function PlacementsPage() {
       setStatus("No active show — create one on Roster.");
       return;
     }
+    const dirtyPools = dirtyPlacementPoolKeys(
+      entries,
+      placements,
+      savedPlacements,
+    );
+    const payload = placementRowsForPools(entries, placements, dirtyPools);
+    if (payload.length === 0) {
+      setStatus("No placement changes to save");
+      pushToast("No placement changes to save");
+      return;
+    }
     setBusy(true);
-    const payload = entries.map((e) => ({
-      entry_id: e.id,
-      placement:
-        !isConformationEntry(e) ||
-        placements[e.id] === "" ||
-        placements[e.id] == null
-          ? null
-          : (Number(placements[e.id]) as 1 | 2 | 3 | 4),
-    }));
     const res = await fetch("/api/placements", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
