@@ -14,6 +14,8 @@ export function DogTile({
   statusLabel,
   statusTone,
   photoHref,
+  showCritiqueAction = true,
+  showSeAction = true,
 }: {
   entryId: string;
   armband: string;
@@ -23,6 +25,8 @@ export function DogTile({
   statusLabel: string;
   statusTone: ChipTone;
   photoHref?: string;
+  showCritiqueAction?: boolean;
+  showSeAction?: boolean;
 }) {
   const query = contextQuery ? `?${contextQuery}` : "";
   return (
@@ -42,26 +46,32 @@ export function DogTile({
           <StatusChip label={statusLabel} tone={statusTone} />
         </div>
       </div>
-      <div className="space-y-2 border-t border-sss-border px-4 py-3">
-        <Button asChild className="w-full">
-          <Link
-            href={`/ringside/record/${entryId}${query}`}
-            aria-label={`Record critique for ${dogName}`}
-          >
-            <Mic className="h-3.5 w-3.5" />
-            Record critique
-          </Link>
-        </Button>
-        <Button asChild variant="outline" className="w-full">
-          <Link
-            href={`/ringside/se/${entryId}${query}`}
-            aria-label={`Open SE form for ${dogName}`}
-          >
-            <ClipboardList className="h-3.5 w-3.5" />
-            SE form
-          </Link>
-        </Button>
-      </div>
+      {showCritiqueAction || showSeAction ? (
+        <div className="space-y-2 border-t border-sss-border px-4 py-3">
+          {showCritiqueAction ? (
+            <Button asChild className="w-full">
+              <Link
+                href={`/ringside/record/${entryId}${query}`}
+                aria-label={`Record critique for ${dogName}`}
+              >
+                <Mic className="h-3.5 w-3.5" />
+                Record critique
+              </Link>
+            </Button>
+          ) : null}
+          {showSeAction ? (
+            <Button asChild variant="outline" className="w-full">
+              <Link
+                href={`/ringside/se/${entryId}${query}`}
+                aria-label={`Open SE form for ${dogName}`}
+              >
+                <ClipboardList className="h-3.5 w-3.5" />
+                SE form
+              </Link>
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
     </li>
   );
 }
