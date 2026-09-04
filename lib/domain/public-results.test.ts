@@ -96,6 +96,22 @@ describe("projection", () => {
     expect(JSON.stringify(rex)).not.toContain("secret@kennel.test");
   });
 
+  it("omits a missing class place from the share description", () => {
+    const found = getPublishedDog(
+      store,
+      "tnrk-rcc-national-sieger-show-2026-09-04",
+      "101-rex-vom-blacksage",
+    );
+    const description = dogResultDescription({
+      ...found!.dog,
+      ratingPlacement: "V",
+      formwertLabel: "Excellent",
+      placement: null,
+    });
+    expect(description).toContain("earned V (Excellent)");
+    expect(description).not.toMatch(/place\s*null/i);
+  });
+
   it("resolves a dog page and writes AEO-friendly copy", () => {
     const found = getPublishedDog(
       store,

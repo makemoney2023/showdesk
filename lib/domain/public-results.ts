@@ -439,10 +439,17 @@ export function dogResultHeadline(
 }
 
 export function dogResultDescription(dog: PublicDogResult): string {
+  const rating = dog.ratingPlacement ?? dog.formwertLabel ?? dog.formwert;
+  const detail = [
+    dog.formwertLabel,
+    dog.placement != null ? `place ${dog.placement}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const bits = [
-    dog.ratingPlacement
-      ? `${dog.dogName} earned ${dog.ratingPlacement} (${dog.formwertLabel ?? "rating"} and place ${dog.placement})`
-      : `${dog.dogName} was judged in ${dog.classLabel}`,
+    rating
+      ? `${dog.dogName} earned ${rating}${detail ? ` (${detail})` : ""}`
+      : `${dog.dogName} was judged`,
     `in ${dog.classLabel} — ${dog.sexLabel}`,
     dog.judge ? `under ${dog.judge}` : null,
   ].filter(Boolean);

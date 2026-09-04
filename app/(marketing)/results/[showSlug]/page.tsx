@@ -8,6 +8,7 @@ import {
   getPublishedShow,
   listPublishedShows,
 } from "@/lib/domain/public-results";
+import { resultShareMetadata } from "@/lib/domain/result-share-metadata";
 import { facebookGroupUrl } from "@/lib/social/facebook-results";
 import { siteUrl } from "@/lib/site-url";
 import { readPublicResultsStore } from "@/lib/store/public-results";
@@ -30,18 +31,11 @@ export async function generateMetadata({
   const show = getPublishedShow(store, showSlug);
   if (!show) return { title: "Show results not found" };
   const title = `${show.name} results — ${show.displayDate}`;
-  return {
+  return resultShareMetadata({
     title,
     description: show.definition,
-    alternates: { canonical: show.href },
-    openGraph: {
-      title,
-      description: show.definition,
-      url: show.href,
-      type: "article",
-      siteName: "Show Desk",
-    },
-  };
+    path: show.href,
+  });
 }
 
 export default async function ShowResultsPage({

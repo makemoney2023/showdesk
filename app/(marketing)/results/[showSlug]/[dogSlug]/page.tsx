@@ -10,6 +10,7 @@ import {
   getPublishedDog,
   publicDogPaths,
 } from "@/lib/domain/public-results";
+import { resultShareMetadata } from "@/lib/domain/result-share-metadata";
 import { facebookGroupUrl } from "@/lib/social/facebook-results";
 import { siteUrl } from "@/lib/site-url";
 import { readPublicResultsStore } from "@/lib/store/public-results";
@@ -36,18 +37,11 @@ export async function generateMetadata({
   if (!found) return { title: "Result not found" };
   const title = dogResultHeadline(found.dog, found.show);
   const description = dogResultDescription(found.dog);
-  return {
+  return resultShareMetadata({
     title,
     description,
-    alternates: { canonical: found.dog.href },
-    openGraph: {
-      title,
-      description,
-      url: found.dog.href,
-      type: "article",
-      siteName: "Show Desk",
-    },
-  };
+    path: found.dog.href,
+  });
 }
 
 export default async function DogResultPage({
