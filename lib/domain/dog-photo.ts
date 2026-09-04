@@ -1,4 +1,27 @@
 export const DOG_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+/** Phone camera originals before we shrink them for the desk. */
+export const DOG_PHOTO_MAX_SOURCE_BYTES = 20 * 1024 * 1024;
+/** Stay under Vercel’s ~4.5 MB request body after multipart encoding. */
+export const DOG_PHOTO_WIRE_MAX_BYTES = 2 * 1024 * 1024;
+export const DOG_PHOTO_MAX_EDGE = 1600;
+export const DOG_PHOTO_JPEG_QUALITY = 0.82;
+
+/** Scale a photo so the long edge fits on the official sheet preview. */
+export function scaledDogPhotoSize(
+  width: number,
+  height: number,
+  maxEdge = DOG_PHOTO_MAX_EDGE,
+): { width: number; height: number } {
+  const longest = Math.max(width, height);
+  if (longest <= maxEdge || longest <= 0) {
+    return { width: Math.max(1, width), height: Math.max(1, height) };
+  }
+  const scale = maxEdge / longest;
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+}
 
 export const DOG_PHOTO_MIME_TO_EXT = {
   "image/jpeg": "jpg",

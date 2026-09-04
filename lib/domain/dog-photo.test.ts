@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   DOG_PHOTO_MAX_BYTES,
+  DOG_PHOTO_MAX_EDGE,
+  scaledDogPhotoSize,
   dogPhotoContentType,
   dogPhotoDownloadFilename,
   dogPhotoHref,
@@ -20,6 +22,17 @@ function pngBytes(): Uint8Array {
 }
 
 describe("dog-photo", () => {
+  it("scales phone photos down to the desk edge", () => {
+    expect(scaledDogPhotoSize(4032, 3024, DOG_PHOTO_MAX_EDGE)).toEqual({
+      width: 1600,
+      height: 1200,
+    });
+    expect(scaledDogPhotoSize(800, 600, DOG_PHOTO_MAX_EDGE)).toEqual({
+      width: 800,
+      height: 600,
+    });
+  });
+
   it("builds a scoped photo URL", () => {
     expect(dogPhotoHref("show-1", "entry-9")).toBe(
       "/api/photos/entry-9?show_id=show-1",

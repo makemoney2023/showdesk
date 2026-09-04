@@ -4,20 +4,9 @@ import { useRef, useState } from "react";
 import { Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { DOG_PHOTO_MAX_BYTES, dogPhotoHref } from "@/lib/domain/dog-photo";
+import { dogPhotoHref } from "@/lib/domain/dog-photo";
+import { prepareDogPhotoFile } from "@/lib/client/prepare-dog-photo";
 import { cn } from "@/lib/utils";
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      resolve(result.split(",")[1] ?? "");
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
 
 export function DogPhotoField({
   showId,
@@ -50,35 +39,23 @@ export function DogPhotoField({
       setError("Save the dog profile first, then add a photo.");
       return;
     }
-    if (file.size > DOG_PHOTO_MAX_BYTES) {
-      setError("Photo must be 5 MB or smaller (JPEG, PNG, or WebP).");
-      return;
-    }
-    const claimed = file.type.toLowerCase();
-    if (
-      claimed &&
-      claimed !== "image/jpeg" &&
-      claimed !== "image/jpg" &&
-      claimed !== "image/png" &&
-      claimed !== "image/webp"
-    ) {
-      setError("Use JPEG, PNG, or WebP. iPhone HEIC photos need to be saved as JPEG.");
-      return;
-    }
     setBusy(true);
     setError("");
     try {
-      const photo_base64 = await fileToBase64(file);
+      const prepared = await prepareDogPhotoFile(file);
+      const body = new FormData();
+      body.set("show_id", showId);
+      body.set("entry_id", entryId);
+      body.set("photo", prepared, prepared.name);
+      body.set("mime", prepared.type);
       const res = await fetch("/api/photos", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          show_id: showId,
-          entry_id: entryId,
-          photo_base64,
-          mime: file.type,
-        }),
+        body,
       });
+      if (res.status === 413) {
+        setError("Photo is too large for the desk — try a smaller JPEG.");
+        return;
+      }
       const data = (await res.json()) as { photo_path?: string; error?: string };
       if (!res.ok || !data.photo_path) {
         setError(data.error ?? "Could not upload photo");
@@ -86,8 +63,12 @@ export function DogPhotoField({
       }
       setBust(Date.now());
       onChanged(data.photo_path);
-    } catch {
-      setError("Could not upload photo");
+    } catch (error) {
+      setError(
+        error instanceof Error && error.message
+          ? error.message
+          : "Could not upload photo",
+      );
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -179,7 +160,7 @@ export function DogPhotoField({
                   : "Drop a photo or click to upload"}
           </span>
           <span className="block text-xs text-sss-text-muted">
-            JPEG, PNG, or WebP · 5 MB max
+            JPEG, PNG, or WebP · phone photos are resized automatically
           </span>
         </span>
       </button>
