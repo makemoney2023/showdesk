@@ -45,7 +45,7 @@ import { StickyDeskBar } from "@/components/desk/StickyDeskBar";
 import { StatusChip } from "@/components/status/StatusChip";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
-import { dogPhotoHref } from "@/lib/domain/dog-photo";
+import { dogPhotoHrefForEntry } from "@/lib/domain/dog-photo";
 import type {
   CritiqueRecord,
   RosterEntryRecord,
@@ -474,11 +474,7 @@ export default function AdminReviewPage() {
                         <DogAvatar
                           size="sm"
                           src={
-                            e?.photo_path && showId
-                              ? dogPhotoHref(showId, e.id, {
-                                  cacheBust: e.photo_path,
-                                })
-                              : null
+                            dogPhotoHrefForEntry(showId, entries, e) ?? null
                           }
                         />
                         <div>

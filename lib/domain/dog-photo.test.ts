@@ -6,6 +6,7 @@ import {
   dogPhotoContentType,
   dogPhotoDownloadFilename,
   dogPhotoHref,
+  dogPhotoHrefForEntry,
   publicDogPhotoHref,
   dogPhotoRelativePath,
   isOwnedDogPhotoPath,
@@ -50,6 +51,27 @@ describe("dog-photo", () => {
     expect(publicDogPhotoHref("show-1", "entry-9", { cacheBust: "v2" })).toBe(
       "/api/public/photos/entry-9?show_id=show-1&v=v2",
     );
+  });
+
+  it("points the desk URL at this appearance even when the file is a sibling", () => {
+    const se = {
+      id: "se",
+      show_id: "show-1",
+      dog_id: "dog-1",
+    };
+    const sat = {
+      id: "sat",
+      show_id: "show-1",
+      dog_id: "dog-1",
+      photo_path: "show-1/sat.jpg",
+    };
+    expect(dogPhotoHrefForEntry("show-1", [se, sat], se)).toBe(
+      "/api/photos/se?show_id=show-1&v=show-1%2Fsat.jpg",
+    );
+    expect(dogPhotoHrefForEntry("show-1", [se, sat], sat)).toBe(
+      "/api/photos/sat?show_id=show-1&v=show-1%2Fsat.jpg",
+    );
+    expect(dogPhotoHrefForEntry("show-1", [se], se)).toBeUndefined();
   });
 
   it("sniffs JPEG, PNG, and WebP magic bytes", () => {

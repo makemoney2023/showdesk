@@ -47,7 +47,8 @@ import { SeStepper } from "@/components/ringside/SeStepper";
 import { BackLink } from "@/components/layout/BackLink";
 import { EmptyDesk } from "@/components/desk/EmptyDesk";
 import { DogPhotoField } from "@/components/roster/DogPhotoField";
-import { dogPhotoHref } from "@/lib/domain/dog-photo";
+import { dogPhotoHrefForEntry } from "@/lib/domain/dog-photo";
+import { photoSourceForDog } from "@/lib/domain/dog-identity";
 import { tnrkSePdfHref } from "@/lib/domain/review-queue-layout";
 import {
   clearRecoverableSeDraft,
@@ -123,6 +124,7 @@ function StewardSeForm({
 }) {
   const ringsideJudge = useRingsideJudge();
   const [entry, setEntry] = useState<RosterEntryRecord | null>(null);
+  const [roster, setRoster] = useState<RosterEntryRecord[]>([]);
   const [showId, setShowId] = useState<string | null>(null);
   const [judgePick, setJudgePick] = useState<string | null>(null);
   const [judges, setJudges] = useState<string[]>([]);
@@ -142,6 +144,7 @@ function StewardSeForm({
   const load = useCallback(async () => {
     const generation = ++loadGenerationRef.current;
     setEntry(null);
+    setRoster([]);
     setEvaluation(null);
     setForm(null);
     setRecoveryReady(false);
@@ -188,6 +191,7 @@ function StewardSeForm({
     };
     if (generation !== loadGenerationRef.current) return;
     const found = entriesData.entries.find((e) => e.id === entryId) ?? null;
+    setRoster(entriesData.entries);
     setEntry(found);
     if (!found) {
       setStatus("Entry not found");
@@ -479,6 +483,7 @@ function StewardSeForm({
     judgePick && !form.judge.trim() ? { ...form, judge: judgePick } : form;
   const gaps = seCompletionGaps(formForComplete);
   const sections = seSectionProgress(form);
+  const photoHref = dogPhotoHrefForEntry(showId, roster, entry);
 
   return (
     <form
@@ -489,10 +494,10 @@ function StewardSeForm({
       <BackLink href={ringsideHref}>Back to dogs</BackLink>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-wrap items-start gap-3">
-          {showId && entry.photo_path ? (
+          {photoHref ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={dogPhotoHref(showId, entry.id, { cacheBust: entry.photo_path })}
+              src={photoHref}
               alt=""
               className="h-16 w-16 rounded-md border border-sss-border object-cover"
             />
@@ -540,10 +545,16 @@ function StewardSeForm({
             showId={showId}
             entryId={entry.id}
             photoPath={entry.photo_path}
+            previewPath={photoSourceForDog(roster, entry)?.photo_path}
             preferCamera
-            onChanged={(photo_path) =>
-              setEntry({ ...entry, photo_path })
-            }
+            onChanged={(photo_path) => {
+              setEntry({ ...entry, photo_path });
+              setRoster((rows) =>
+                rows.map((row) =>
+                  row.id === entry.id ? { ...row, photo_path } : row,
+                ),
+              );
+            }}
           />
         ) : null}
         <div className="grid gap-3 sm:grid-cols-2">

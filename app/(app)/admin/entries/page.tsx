@@ -59,7 +59,8 @@ import { blankShowDraft, validateShowCreate } from "@/lib/domain/show-draft";
 import type { ShowCreateInput } from "@/lib/domain/show-draft";
 import { DogPhotoField } from "@/components/roster/DogPhotoField";
 import { Checkbox } from "@/components/ui/checkbox";
-import { dogPhotoHref } from "@/lib/domain/dog-photo";
+import { dogPhotoHrefForEntry } from "@/lib/domain/dog-photo";
+import { photoSourceForDog } from "@/lib/domain/dog-identity";
 import { JudgeListFields } from "@/components/show/JudgeListFields";
 import {
   Dialog,
@@ -735,11 +736,7 @@ export default function AdminEntriesPage() {
               <div className="flex items-start gap-3">
                 <DogAvatar
                   size="sm"
-                  src={
-                    e.photo_path && showId
-                      ? dogPhotoHref(showId, e.id, { cacheBust: e.photo_path })
-                      : null
-                  }
+                  src={dogPhotoHrefForEntry(showId, entries, e) ?? null}
                 />
                 <div className="min-w-0">
                   <p className="font-medium">{e.dog_name}</p>
@@ -840,11 +837,7 @@ export default function AdminEntriesPage() {
                     <span className="inline-flex items-center gap-2">
                       <DogAvatar
                         size="sm"
-                        src={
-                          e.photo_path && showId
-                            ? dogPhotoHref(showId, e.id, { cacheBust: e.photo_path })
-                            : null
-                        }
+                        src={dogPhotoHrefForEntry(showId, entries, e) ?? null}
                       />
                       <span>
                         {e.dog_name}
@@ -922,6 +915,9 @@ export default function AdminEntriesPage() {
               showId={entryDraft.show_id || showId}
               entryId={entryDraft.id || undefined}
               photoPath={entryDraft.photo_path}
+              previewPath={
+                photoSourceForDog(entries, entryDraft)?.photo_path
+              }
               onChanged={(photo_path) =>
                 setEntryDraft({ ...entryDraft, photo_path })
               }

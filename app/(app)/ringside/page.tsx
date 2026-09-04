@@ -23,7 +23,7 @@ import {
 } from "@/lib/domain/status-labels";
 import { DogSearchField } from "@/components/desk/DogSearchField";
 import { DogTile } from "@/components/desk/DogTile";
-import { dogPhotoHref } from "@/lib/domain/dog-photo";
+import { dogPhotoHrefForEntry } from "@/lib/domain/dog-photo";
 import { EmptyDesk } from "@/components/desk/EmptyDesk";
 import type { CritiqueRecord, RosterEntryRecord } from "@/lib/types";
 
@@ -190,11 +190,7 @@ export default function RingsidePage() {
               }
               showCritiqueAction={e.event_kind !== "se"}
               showSeAction={e.event_kind !== "conformation"}
-              photoHref={
-                e.photo_path && activeShowId
-                  ? dogPhotoHref(activeShowId, e.id, { cacheBust: e.photo_path })
-                  : undefined
-              }
+              photoHref={dogPhotoHrefForEntry(activeShowId, entries, e)}
             />
           );
         })}

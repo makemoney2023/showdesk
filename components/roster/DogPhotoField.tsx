@@ -12,6 +12,7 @@ export function DogPhotoField({
   showId,
   entryId,
   photoPath,
+  previewPath,
   disabled,
   preferCamera,
   onChanged,
@@ -19,6 +20,8 @@ export function DogPhotoField({
   showId: string;
   entryId?: string;
   photoPath?: string;
+  /** Sibling appearance photo when this row has none. */
+  previewPath?: string;
   disabled?: boolean;
   preferCamera?: boolean;
   onChanged: (photoPath: string | undefined) => void;
@@ -29,9 +32,10 @@ export function DogPhotoField({
   const [bust, setBust] = useState(0);
   const [dragOver, setDragOver] = useState(false);
   const canUpload = Boolean(showId && entryId && !disabled);
+  const displayPath = photoPath || previewPath;
   const src =
-    showId && entryId && photoPath
-      ? dogPhotoHref(showId, entryId, { cacheBust: bust || photoPath })
+    showId && entryId && displayPath
+      ? dogPhotoHref(showId, entryId, { cacheBust: bust || displayPath })
       : "";
 
   async function upload(file: File) {

@@ -4,8 +4,8 @@ import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
 import {
   dogPhotoContentType,
   dogPhotoDownloadFilename,
-  isOwnedDogPhotoPath,
 } from "@/lib/domain/dog-photo";
+import { deskEntryForPhoto } from "@/lib/store/desk-photo";
 
 export async function GET(
   request: Request,
@@ -22,13 +22,8 @@ export async function GET(
   }
 
   const store = await readStore();
-  const entry = store.entries.find(
-    (e) => e.id === entryId && e.show_id === showId,
-  );
+  const entry = deskEntryForPhoto(store, showId, entryId);
   if (!entry?.photo_path) {
-    return NextResponse.json({ error: "Photo not found" }, { status: 404 });
-  }
-  if (!isOwnedDogPhotoPath(entry.photo_path, showId, entryId)) {
     return NextResponse.json({ error: "Photo not found" }, { status: 404 });
   }
   if (!(await photoExists(entry.photo_path))) {

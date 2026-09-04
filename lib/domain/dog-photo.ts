@@ -1,3 +1,5 @@
+import { photoSourceForDog } from "./dog-identity";
+
 export const DOG_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 /** Phone camera originals before we shrink them for the desk. */
 export const DOG_PHOTO_MAX_SOURCE_BYTES = 20 * 1024 * 1024;
@@ -55,6 +57,29 @@ export function publicDogPhotoHref(
     params.set("v", String(opts.cacheBust));
   }
   return `/api/public/photos/${encodeURIComponent(entryId)}?${params.toString()}`;
+}
+
+type PhotoEntry = {
+  dog_id?: string;
+  id: string;
+  show_id: string;
+  zb_number?: string;
+  microchip?: string;
+  photo_path?: string;
+};
+
+/** Desk URL for this appearance, falling back to a sibling of the same dog. */
+export function dogPhotoHrefForEntry(
+  showId: string | null | undefined,
+  entries: PhotoEntry[],
+  entry: PhotoEntry | null | undefined,
+  opts?: { download?: boolean },
+): string | undefined {
+  if (!showId || !entry) return undefined;
+  const source = photoSourceForDog(entries, entry);
+  const path = source?.photo_path?.trim();
+  if (!path) return undefined;
+  return dogPhotoHref(showId, entry.id, { ...opts, cacheBust: path });
 }
 
 export function dogPhotoDownloadFilename(

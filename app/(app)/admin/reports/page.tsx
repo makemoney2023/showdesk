@@ -11,7 +11,8 @@ import { DivisionFilterChips } from "@/components/desk/DivisionFilterChips";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { StatusChip } from "@/components/status/StatusChip";
-import { dogPhotoHref } from "@/lib/domain/dog-photo";
+import { dogPhotoHrefForEntry } from "@/lib/domain/dog-photo";
+import { photoSourceForDog } from "@/lib/domain/dog-identity";
 import {
   buildReportDocumentsForDog,
   reportDocumentDownloadHref,
@@ -152,7 +153,7 @@ export default function AdminReportsPage() {
           seEvaluationId: se?.id ?? null,
           hasAudio: Boolean(critique?.audio_path),
           hasPlacement: Boolean(placement),
-          hasPhoto: Boolean(entry.photo_path),
+          hasPhoto: Boolean(photoSourceForDog(entries, entry)?.photo_path),
           critiqueStatus: critique?.status,
           seStatus: se?.status,
         });
@@ -332,11 +333,7 @@ export default function AdminReportsPage() {
                     ) : null}
                     <DogAvatar
                       src={
-                        entry.photo_path && showId
-                          ? dogPhotoHref(showId, entry.id, {
-                              cacheBust: entry.photo_path,
-                            })
-                          : null
+                        dogPhotoHrefForEntry(showId, entries, entry) ?? null
                       }
                     />
                     <div>
