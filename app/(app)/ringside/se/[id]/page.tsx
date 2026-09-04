@@ -517,7 +517,6 @@ function StewardSeForm({
             <Button
               type="button"
               variant="outline"
-              disabled={saving}
               onClick={() => void previewPdf()}
             >
               Preview PDF

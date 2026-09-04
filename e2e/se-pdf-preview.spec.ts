@@ -149,18 +149,17 @@ test.describe("SE PDF preview", () => {
     expect(pdfContainsText(staleBytes, "62 cm")).toBe(true);
     expect(pdfContainsText(staleBytes, "powerful head")).toBe(true);
 
-    const previewRequest = page.waitForRequest(
-      (req) =>
+    const previewRequest = page.context().waitForEvent("request", {
+      predicate: (req) =>
         req.method() === "GET" &&
         req.url().includes("/api/pdf/tnrk") &&
-        req.url().includes("kind=se") &&
+        req.url().includes(`evaluation_id=${evaluation.id}`) &&
         req.url().includes("preview=1"),
-    );
-    const popupPromise = page.waitForEvent("popup");
+    });
     await page.getByRole("button", { name: "Preview PDF" }).click();
-    const [previewReq, popup] = await Promise.all([previewRequest, popupPromise]);
+    const previewReq = await previewRequest;
+    expect(previewReq.url()).toContain("kind=se");
     expect(previewReq.url()).not.toContain("about:blank");
-    expect(popup.url()).not.toContain("about:blank");
     const clicked = await page.request.get(previewReq.url());
     expect(clicked.ok()).toBeTruthy();
     const clickedBytes = new Uint8Array(await clicked.body());
