@@ -1,8 +1,18 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { readStore, updateStore, writeDogPhoto, deleteDogPhoto } from "@/lib/store";
 import { requireApiWrite, isApiUnauthorized } from "@/lib/auth/api-guard";
 import { parseDogPhotoUpload } from "@/lib/api/parse-photo-upload";
 import { validateDogPhotoUpload } from "@/lib/domain/dog-photo";
+import { showResultsSlug } from "@/lib/domain/public-results";
+import type { Show } from "@/lib/types";
+
+function revalidatePublishedResults(show: Show | undefined) {
+  revalidatePath("/results", "layout");
+  if (show) {
+    revalidatePath(`/results/${showResultsSlug(show)}`, "layout");
+  }
+}
 
 export async function POST(request: Request) {
   const auth = await requireApiWrite();
@@ -52,6 +62,9 @@ export async function POST(request: Request) {
     await deleteDogPhoto(previous).catch(() => undefined);
   }
 
+  revalidatePublishedResults(
+    store.shows.find((item) => item.id === body.show_id),
+  );
   return NextResponse.json({ ok: true, photo_path: photoPath });
 }
 
@@ -92,5 +105,8 @@ export async function DELETE(request: Request) {
     ),
   }));
   await deleteDogPhoto(photoPath).catch(() => undefined);
+  revalidatePublishedResults(
+    store.shows.find((item) => item.id === showId),
+  );
   return NextResponse.json({ ok: true });
 }

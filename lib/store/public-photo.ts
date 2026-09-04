@@ -4,6 +4,7 @@ import {
   dogPhotoContentType,
   isOwnedDogPhotoPath,
 } from "@/lib/domain/dog-photo";
+import { entriesForDog, photoSourceForDog } from "@/lib/domain/dog-identity";
 import {
   getPublishedShow,
   isShowResultsPublished,
@@ -42,15 +43,23 @@ export function publishedEntryForPhoto(
   const show = publishedShowForId(store, showId);
   if (!show) return null;
   const published = getPublishedShow(store, showResultsSlug(show));
-  const listed = published?.divisions
-    .flatMap((division) => division.dogs)
-    .some((dog) => dog.entryId === entryId);
-  if (!listed) return null;
-  const entry = store.entries.find(
+  const listedIds = new Set(
+    published?.divisions.flatMap((division) =>
+      division.dogs.map((dog) => dog.entryId),
+    ) ?? [],
+  );
+  const requested = store.entries.find(
     (item) => item.id === entryId && item.show_id === showId,
   );
+  if (!requested) return null;
+  const siblings = entriesForDog(
+    store.entries.filter((item) => item.show_id === showId),
+    requested,
+  );
+  if (!siblings.some((item) => listedIds.has(item.id))) return null;
+  const entry = photoSourceForDog(siblings, requested);
   if (!entry?.photo_path) return null;
-  if (!isOwnedDogPhotoPath(entry.photo_path, showId, entryId)) return null;
+  if (!isOwnedDogPhotoPath(entry.photo_path, showId, entry.id)) return null;
   return { show, entry };
 }
 

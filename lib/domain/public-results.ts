@@ -20,7 +20,7 @@ import {
   publicDogDocumentHref,
   type DogDocumentRecord,
 } from "./dog-document";
-import { dogKey, entriesForDog } from "./dog-identity";
+import { dogKey, entriesForDog, photoSourceForDog } from "./dog-identity";
 import {
   healthClearanceRows,
   mergeHealthClearances,
@@ -215,7 +215,8 @@ function toPublicDog(
   const hasResult = Boolean(formwert || rank || narrative);
   if (!hasResult) return null;
 
-  const photoPath = optionalPublicText(entry.photo_path);
+  const photoSource = photoSourceForDog(entries, entry);
+  const photoPath = optionalPublicText(photoSource?.photo_path);
 
   return {
     slug: dogResultsSlug(entry),
@@ -241,8 +242,8 @@ function toPublicDog(
     narrative,
     judge: optionalPublicText(critique?.judge) ?? optionalPublicText(show.judge),
     photoPath,
-    photoHref: photoPath
-      ? publicDogPhotoHref(show.id, entry.id, { cacheBust: photoPath })
+    photoHref: photoPath && photoSource
+      ? publicDogPhotoHref(show.id, photoSource.id, { cacheBust: photoPath })
       : null,
     documents: documentsForEntry(documents, entry),
     health: healthForEntry(entries, entry),
