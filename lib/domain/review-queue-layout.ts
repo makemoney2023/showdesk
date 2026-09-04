@@ -99,7 +99,10 @@ export function tnrkSePdfHref(
     show_id: showId,
     evaluation_id: evaluationId,
   });
-  if (opts?.preview) params.set("preview", "1");
+  if (opts?.preview) {
+    params.set("preview", "1");
+    params.set("overlay", "3");
+  }
   if (opts?.cacheBust) params.set("v", opts.cacheBust);
   return `/api/pdf/tnrk?${params.toString()}`;
 }

@@ -34,6 +34,8 @@ import {
   GUNFIRE_OPTIONS,
   HEAD_SHAPE_OPTIONS,
   formatSeMissingFields,
+  mergeSeFormPreferFilled,
+  normalizeTnrkSeForm,
   seCompletionGaps,
   type TnrkSeForm,
 } from "@/lib/domain/tnrk-se-form";
@@ -214,7 +216,7 @@ function StewardSeForm({
     };
     if (generation !== loadGenerationRef.current) return;
     setEvaluation(createData.evaluation);
-    const nextForm = createData.evaluation.form;
+    const nextForm = normalizeTnrkSeForm(createData.evaluation.form);
     const serverForm =
       pick && !nextForm.judge.trim()
         ? { ...nextForm, judge: pick }
@@ -232,7 +234,7 @@ function StewardSeForm({
       recoverable &&
       shouldRestoreSeDraft(recoverable, createData.evaluation)
     ) {
-      setForm(recoverable.form);
+      setForm(mergeSeFormPreferFilled(serverForm, recoverable.form));
       setStatus("Recovered unsaved changes");
       setAutosaveStatus("Recovered from this device");
     } else {
@@ -455,6 +457,7 @@ function StewardSeForm({
         body: JSON.stringify({
           kind: "se",
           show_id: showId,
+          evaluation_id: evaluation?.id,
           form: nextForm,
           preview: true,
         }),
@@ -726,7 +729,7 @@ function StewardSeForm({
           ).map(([key, label]) => (
             <Field key={key} entryId={entryId} label={label}>
               <Input
-                value={form.measurements[key]}
+                value={form.measurements?.[key] ?? ""}
                 onChange={(e) => patchMeasurement(key, e.target.value)}
               />
             </Field>

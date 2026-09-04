@@ -172,6 +172,68 @@ export function createEmptyTnrkSeForm(): TnrkSeForm {
   };
 }
 
+function asTrimmedText(value: unknown): string {
+  if (value == null) return "";
+  return String(value).trim();
+}
+
+function measurementsFilled(measurements: TnrkSeMeasurements): boolean {
+  return Object.values(measurements).some((value) => asTrimmedText(value) !== "");
+}
+
+/** Coerce a stored/partial SE row into a complete form (legacy JSON included). */
+export function normalizeTnrkSeForm(input: unknown): TnrkSeForm {
+  const empty = createEmptyTnrkSeForm();
+  const raw =
+    input && typeof input === "object"
+      ? (input as Record<string, unknown>)
+      : {};
+  const rawMeas =
+    raw.measurements && typeof raw.measurements === "object"
+      ? (raw.measurements as Record<string, unknown>)
+      : {};
+  const measurements: TnrkSeMeasurements = { ...empty.measurements };
+  for (const key of Object.keys(empty.measurements) as (keyof TnrkSeMeasurements)[]) {
+    measurements[key] = asTrimmedText(rawMeas[key] ?? raw[key]);
+  }
+  const appearance = asTrimmedText(
+    raw.overall_appearance ??
+      raw.overallAppearance ??
+      raw.appearance ??
+      raw.narrative ??
+      raw.critique,
+  );
+  return {
+    ...empty,
+    ...(raw as Partial<TnrkSeForm>),
+    measurements,
+    overall_appearance: appearance,
+    comments: asTrimmedText(raw.comments),
+  };
+}
+
+/**
+ * Keep filled measurements / appearance from the stored form when the
+ * incoming client copy is blank (stale IndexedDB draft or unsaved preview).
+ */
+export function mergeSeFormPreferFilled(
+  stored: TnrkSeForm | null | undefined,
+  incoming: TnrkSeForm | null | undefined,
+): TnrkSeForm {
+  const base = normalizeTnrkSeForm(stored);
+  const next = normalizeTnrkSeForm(incoming);
+  const measurements = measurementsFilled(next.measurements)
+    ? next.measurements
+    : base.measurements;
+  return {
+    ...base,
+    ...next,
+    measurements,
+    overall_appearance: next.overall_appearance || base.overall_appearance,
+    comments: next.comments || base.comments,
+  };
+}
+
 export function mergeEntryIntoSeForm(
   form: TnrkSeForm,
   entry: SeEntrySeed,

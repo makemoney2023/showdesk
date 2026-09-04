@@ -1,5 +1,8 @@
 import type { DraftCritiqueSchema } from "@/lib/domain/adrk-template";
-import type { TnrkSeForm } from "@/lib/domain/tnrk-se-form";
+import {
+  normalizeTnrkSeForm,
+  type TnrkSeForm,
+} from "@/lib/domain/tnrk-se-form";
 import {
   emptyHealthClearances,
   normalizeHealthClearances,
@@ -243,7 +246,7 @@ export function mapSeEvaluationRow(row: SeEvaluationRow): SeEvaluationRecord {
     id: row.id,
     show_id: row.show_id,
     entry_id: row.entry_id,
-    form: parseJsonb<TnrkSeForm>(row.form),
+    form: normalizeTnrkSeForm(parseJsonb<TnrkSeForm>(row.form)),
     status: row.status,
     created_at: row.created_at,
     updated_at: row.updated_at,

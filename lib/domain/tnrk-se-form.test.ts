@@ -8,6 +8,8 @@ import {
   GUNFIRE_OPTIONS,
   validateTnrkSeFormForPass,
   mergeEntryIntoSeForm,
+  mergeSeFormPreferFilled,
+  normalizeTnrkSeForm,
   formatSeMissingFields,
   seCompletionGaps,
   seFormFormwert,
@@ -34,6 +36,63 @@ describe("tnrk-se-form", () => {
     expect(BONE_STRENGTH_OPTIONS).toContain("strong");
     expect(BEHAVIOR_OPTIONS).toContain("self_confident");
     expect(GUNFIRE_OPTIONS).toEqual(["no_reaction", "sensitive", "shy"]);
+  });
+
+  it("normalizes legacy rows that stored measurements as numbers or flat keys", () => {
+    const form = normalizeTnrkSeForm({
+      dog_name: "Ason",
+      height: 67,
+      measurements: { weight: 53, chest_depth: "36cm" },
+      narrative: "Very large male, strong bones.",
+    });
+    expect(form.measurements.height).toBe("67");
+    expect(form.measurements.weight).toBe("53");
+    expect(form.measurements.chest_depth).toBe("36cm");
+    expect(form.overall_appearance).toBe("Very large male, strong bones.");
+  });
+
+  it("keeps saved measurements and appearance when the client form is blank", () => {
+    const stored = {
+      ...createEmptyTnrkSeForm(),
+      measurements: {
+        ...createEmptyTnrkSeForm().measurements,
+        height: "67cm",
+        weight: "53kg",
+      },
+      overall_appearance: "Very large male, strong bones.",
+    };
+    const incoming = {
+      ...createEmptyTnrkSeForm(),
+      dog_name: "Ason Von Haus Wilkerson",
+      judge: "Sandra Reck (ADRK)",
+    };
+    const merged = mergeSeFormPreferFilled(stored, incoming);
+    expect(merged.dog_name).toBe("Ason Von Haus Wilkerson");
+    expect(merged.measurements.height).toBe("67cm");
+    expect(merged.measurements.weight).toBe("53kg");
+    expect(merged.overall_appearance).toBe("Very large male, strong bones.");
+  });
+
+  it("lets a filled client form replace stored measurements", () => {
+    const stored = {
+      ...createEmptyTnrkSeForm(),
+      measurements: {
+        ...createEmptyTnrkSeForm().measurements,
+        height: "67cm",
+      },
+      overall_appearance: "Old note",
+    };
+    const incoming = {
+      ...createEmptyTnrkSeForm(),
+      measurements: {
+        ...createEmptyTnrkSeForm().measurements,
+        height: "68cm",
+      },
+      overall_appearance: "Updated critique",
+    };
+    const merged = mergeSeFormPreferFilled(stored, incoming);
+    expect(merged.measurements.height).toBe("68cm");
+    expect(merged.overall_appearance).toBe("Updated critique");
   });
 
   it("merges roster entry identity into SE header fields", () => {

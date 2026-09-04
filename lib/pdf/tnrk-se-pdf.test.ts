@@ -176,6 +176,21 @@ describe("buildTnrkSePdf", () => {
     expect(bytes.byteLength).toBeGreaterThan(1000);
   });
 
+  it("overlays a legacy stored form that used narrative and numeric measurements", async () => {
+    const bytes = await buildTnrkSePdf(
+      {
+        dog_name: "Ason Von Haus Wilkerson",
+        height: 67,
+        measurements: { weight: "53kg" },
+        narrative:
+          "Very large male, strong bones, very good substance.",
+      } as unknown as TnrkSeForm,
+    );
+    expect(pdfContainsText(bytes, "67")).toBe(true);
+    expect(pdfContainsText(bytes, "53kg")).toBe(true);
+    expect(pdfContainsText(bytes, "Very large male")).toBe(true);
+  });
+
   it("draws a partial measurements object", async () => {
     const form = {
       ...createEmptyTnrkSeForm(),

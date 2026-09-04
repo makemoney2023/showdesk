@@ -112,6 +112,7 @@ test.describe("SE PDF preview", () => {
       data: {
         kind: "se",
         show_id: showData.active_show_id,
+        evaluation_id: evaluation.id,
         preview: true,
         form: {
           ...evaluation.form,
@@ -129,5 +130,23 @@ test.describe("SE PDF preview", () => {
     expect(pdfContainsText(liveBytes, "Live critique on the unsaved form")).toBe(
       true,
     );
+
+    const staleClient = await page.request.post("/api/pdf/tnrk", {
+      data: {
+        kind: "se",
+        show_id: showData.active_show_id,
+        evaluation_id: evaluation.id,
+        preview: true,
+        form: {
+          dog_name: "Rex Pdf",
+          measurements: {},
+          overall_appearance: "",
+        },
+      },
+    });
+    expect(staleClient.ok()).toBeTruthy();
+    const staleBytes = new Uint8Array(await staleClient.body());
+    expect(pdfContainsText(staleBytes, "62 cm")).toBe(true);
+    expect(pdfContainsText(staleBytes, "powerful head")).toBe(true);
   });
 });
