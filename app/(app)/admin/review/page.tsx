@@ -8,7 +8,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { formatAdrkFormwert } from "@/lib/domain/adrk-template";
 import {
-  divisionLabel,
   divisionsWithDogs,
   entryMatchesDivision,
 } from "@/lib/domain/class-division";
@@ -28,6 +27,11 @@ import {
   reviewQueueMatchesSearch,
 } from "@/lib/domain/review-queue-layout";
 import { isReviewDraftDirty } from "@/lib/domain/review-dirty";
+import { catalogCompetitionLabel } from "@/lib/domain/catalog-competition";
+import {
+  seEvaluationForEntry,
+  visibleReviewCritiques,
+} from "@/lib/domain/se-to-critique";
 import { seFormFormwert } from "@/lib/domain/tnrk-se-form";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { pushToast } from "@/components/feedback/toast";
@@ -121,9 +125,7 @@ export default function AdminReviewPage() {
   const entry = selected
     ? entries.find((e) => e.id === selected.entry_id)
     : undefined;
-  const seForSelected = selected
-    ? evaluations.find((e) => e.entry_id === selected.entry_id)
-    : undefined;
+  const seForSelected = seEvaluationForEntry(evaluations, entries, entry);
   const seRating = seFormFormwert(seForSelected?.form);
   const dirty = Boolean(
     selected &&
@@ -142,7 +144,8 @@ export default function AdminReviewPage() {
       setDraft(null);
       return;
     }
-    const se = evaluations.find((e) => e.entry_id === selected.entry_id);
+    const selectedEntry = entries.find((e) => e.id === selected.entry_id);
+    const se = seEvaluationForEntry(evaluations, entries, selectedEntry);
     const seeded = {
       ...(selected.draft.narrative.trim()
         ? selected.draft
@@ -153,7 +156,7 @@ export default function AdminReviewPage() {
       formwert: selected.draft.formwert ?? seFormFormwert(se?.form),
     };
     setDraft(seeded);
-  }, [evaluations, selected]);
+  }, [entries, evaluations, selected]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -315,9 +318,12 @@ export default function AdminReviewPage() {
     if (ok) await load();
   }
 
-  const attentionCount = deskAttentionCount(critiques.map((c) => c.status));
-  const attention = critiques.filter((c) => needsDeskAttention(c.status));
-  const visible = pendingOnly ? attention : critiques;
+  const reviewCritiques = visibleReviewCritiques(critiques, entries);
+  const attentionCount = deskAttentionCount(
+    reviewCritiques.map((c) => c.status),
+  );
+  const attention = reviewCritiques.filter((c) => needsDeskAttention(c.status));
+  const visible = pendingOnly ? attention : reviewCritiques;
   const divisions = divisionsWithDogs(entries);
   const activeDivisionFilter = sanitizeRosterDivisionFilter(
     divisionFilter,
@@ -391,7 +397,7 @@ export default function AdminReviewPage() {
           <h2 className="font-medium">
             {pendingOnly
               ? `Needs attention (${attentionCount})`
-              : `All (${critiques.length})`}
+              : `All (${reviewCritiques.length})`}
           </h2>
           <div className="flex gap-2">
             <Button
@@ -447,7 +453,7 @@ export default function AdminReviewPage() {
           <ul className="space-y-2 lg:max-h-[70vh] lg:overflow-y-auto">
             {queue.map((c) => {
               const e = entries.find((en) => en.id === c.entry_id);
-              const se = evaluations.find((ev) => ev.entry_id === c.entry_id);
+              const se = seEvaluationForEntry(evaluations, entries, e);
               const fromSe =
                 Boolean(c.draft.draftAssist?.se_sync) ||
                 c.draft.draftAssist?.note?.includes("SE form") ||
@@ -482,7 +488,7 @@ export default function AdminReviewPage() {
                           <div className="text-xs text-sss-text-muted">
                             {e ? `#${e.armband}` : ""}
                             {e
-                              ? ` · ${divisionLabel(e)}`
+                              ? ` · ${catalogCompetitionLabel(e)}`
                               : ""}
                             {` · ${fromSe ? "SE form" : "Audio"}`}
                             {se

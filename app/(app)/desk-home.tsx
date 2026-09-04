@@ -15,6 +15,7 @@ import {
   deskSecondaryActions,
 } from "@/lib/domain/desk-next-action";
 import { deskAttentionCount } from "@/lib/domain/critique-status";
+import { visibleReviewCritiques } from "@/lib/domain/se-to-critique";
 import { recentDeskActivity } from "@/lib/domain/desk-activity";
 import { formatDisplayDate } from "@/lib/domain/show-day";
 import { formatShowJudges, syncShowJudges } from "@/lib/domain/show-judges";
@@ -58,9 +59,10 @@ export function DeskHome() {
       ? ((await critRes.json()) as { critiques: CritiqueRecord[] }).critiques
       : [];
     setEntries(entries);
-    setCritiques(critiques);
+    const reviewCritiques = visibleReviewCritiques(critiques, entries);
+    setCritiques(reviewCritiques);
     setEntryCount(entries.length);
-    setPendingCount(deskAttentionCount(critiques.map((c) => c.status)));
+    setPendingCount(deskAttentionCount(reviewCritiques.map((c) => c.status)));
     const critByEntry = new Set(critiques.map((c) => c.entry_id));
     setGapCount(entries.filter((e) => !critByEntry.has(e.id)).length);
   }, []);
