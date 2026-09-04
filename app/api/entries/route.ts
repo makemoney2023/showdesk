@@ -37,7 +37,6 @@ import {
   syncIdentityToDog,
 } from "@/lib/domain/dog-identity";
 import { showWeekendDays } from "@/lib/domain/show-weekend";
-import { documentsIncludeHealthPdf } from "@/lib/domain/dog-document";
 import type { RosterEntryRecord } from "@/lib/types";
 
 function hostedCatalogMetadataError(
@@ -179,14 +178,6 @@ export async function POST(request: Request) {
     health: body.entry.health,
     documentFilenames: uploads.map((upload) => upload.filename ?? ""),
     documentTypes: uploads.map((upload) => upload.mime ?? ""),
-    hasExistingPdf: Boolean(
-      existingDogId &&
-        documentsIncludeHealthPdf(
-          store.dog_documents ?? [],
-          body.show_id,
-          existingDogId,
-        ),
-    ),
   });
   if (createError) {
     return NextResponse.json({ error: createError }, { status: 400 });

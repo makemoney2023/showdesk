@@ -35,7 +35,7 @@ describe("roster", () => {
     expect(result.entries[0]?.suffix_titles).toBe("IGP1");
   });
 
-  it("requires microchip and SE health on create", () => {
+  it("requires microchip on create but treats SE health as optional", () => {
     expect(createEntryRequirementError({ microchip: "" })).toBe(
       "microchip is required",
     );
@@ -45,23 +45,14 @@ describe("roster", () => {
         se: true,
         health: { hd: "clear" },
       }),
-    ).toMatch(/SE requires/);
+    ).toBeNull();
     expect(
       createEntryRequirementError({
         microchip: "123",
         se: true,
-        health: {
-          hd: "clear",
-          ed: "clear",
-          eye: "clear",
-          heart: "clear",
-          registry: "OFA",
-          registry_status: "passing",
-          jlpp: "N/N",
-          nad: "N/N",
-        },
+        health: {},
       }),
-    ).toMatch(/health clearance PDF/);
+    ).toBeNull();
     expect(
       createEntryRequirementError({
         microchip: "123",
