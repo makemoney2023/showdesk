@@ -18,10 +18,8 @@ describe("dog documents", () => {
     ).toBe(false);
   });
 
-  it("requires a PDF for SE attachments", () => {
-    expect(seDocumentRequirementError({ filenames: ["hips.jpg"] })).toMatch(
-      /health clearance PDF/,
-    );
+  it("treats SE health PDFs as optional", () => {
+    expect(seDocumentRequirementError({ filenames: ["hips.jpg"] })).toBeNull();
     expect(
       seDocumentRequirementError({
         filenames: ["clearances.pdf"],

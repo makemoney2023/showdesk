@@ -202,22 +202,11 @@ test.describe("happy path", () => {
 
     await page.goto(`/ringside/se/${seEntry!.id}`);
     await expect(
-      page.getByText("SE requires a health clearance PDF", { exact: true }),
+      page.getByRole("heading", { name: "Rex Happy Path" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("link", { name: "Open Roster" }),
-    ).toBeVisible();
-
-    const documentRes = await page.request.post("/api/documents", {
-      data: {
-        show_id: showData.active_show_id,
-        entry_id: seEntry!.id,
-        file_base64: Buffer.from("%PDF-1.4\n%%EOF").toString("base64"),
-        filename: "health-clearance.pdf",
-        mime: "application/pdf",
-      },
-    });
-    expect(documentRes.ok()).toBeTruthy();
+      page.getByText("SE requires a health clearance PDF", { exact: true }),
+    ).toHaveCount(0);
 
     await page.goto("/ringside");
     await expect(page.getByRole("heading", { name: "Dogs" })).toBeVisible();
@@ -225,8 +214,8 @@ test.describe("happy path", () => {
       const registration = await navigator.serviceWorker.getRegistration("/");
       return Boolean(registration?.active || navigator.serviceWorker.controller);
     });
-    // Reload once online so the controlling worker caches the document and
-    // its hashed chunks before we drop the network.
+    // Reload once online so the controlling worker caches ringside before
+    // we drop the network.
     await page.reload();
     await expect(page.getByRole("heading", { name: "Dogs" })).toBeVisible();
     await expect

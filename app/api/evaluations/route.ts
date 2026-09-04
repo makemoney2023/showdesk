@@ -9,8 +9,6 @@ import {
 } from "@/lib/domain/tnrk-se-form";
 import { openCritiqueForEntry } from "@/lib/domain/entry-cascade";
 import { syncSeIntoDogCritiques } from "@/lib/domain/se-to-critique";
-import { documentsIncludeHealthPdf } from "@/lib/domain/dog-document";
-import { dogKey } from "@/lib/domain/dog-identity";
 import {
   requireApiSession,
   requireApiWrite,
@@ -58,19 +56,6 @@ export async function POST(request: Request) {
   );
   if (existing) {
     return NextResponse.json({ evaluation: existing });
-  }
-  const dogId = entry.dog_id || dogKey(entry);
-  if (
-    !documentsIncludeHealthPdf(
-      store.dog_documents ?? [],
-      body.show_id,
-      dogId,
-    )
-  ) {
-    return NextResponse.json(
-      { error: "SE requires a health clearance PDF" },
-      { status: 400 },
-    );
   }
 
   const show = store.shows.find((s) => s.id === body.show_id);

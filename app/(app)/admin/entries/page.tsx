@@ -35,9 +35,10 @@ import {
 import { DivisionFilterChips } from "@/components/desk/DivisionFilterChips";
 import { showWeekendDays } from "@/lib/domain/show-weekend";
 import { classEligibilityWarning } from "@/lib/domain/class-eligibility";
-import { HEALTH_REGISTRY_OPTIONS } from "@/lib/domain/health-clearances";
-import { emptyHealthClearances } from "@/lib/domain/health-clearances";
-import { seHealthRequirementError } from "@/lib/domain/health-clearances";
+import {
+  emptyHealthClearances,
+  HEALTH_REGISTRY_OPTIONS,
+} from "@/lib/domain/health-clearances";
 import { CsvImportDialog } from "@/components/roster/CsvImportDialog";
 import {
   DogDocumentsField,
@@ -325,12 +326,6 @@ export default function AdminEntriesPage() {
       });
       if (createError) {
         showEntryError(createError);
-        return;
-      }
-    } else if (draft.event_kind === "se") {
-      const healthError = seHealthRequirementError(draft.health);
-      if (healthError) {
-        showEntryError(healthError);
         return;
       }
     }
@@ -1283,7 +1278,7 @@ export default function AdminEntriesPage() {
           {entryDays.se || entryDraft.event_kind === "se" ? (
             <div className="grid gap-3 rounded-sss-md border border-sss-border p-3 sm:grid-cols-2">
               <p className="text-sm font-medium sm:col-span-2">
-                SE health clearances (required for SE)
+                SE health clearances (optional)
               </p>
               {(
                 [
@@ -1362,7 +1357,6 @@ export default function AdminEntriesPage() {
             showId={entryDraft.show_id || showId || ""}
             entryId={entryDraft.id || undefined}
             dogId={entryDraft.dog_id}
-            required={entryDays.se || entryDraft.event_kind === "se"}
             pendingFiles={pendingDocuments}
             onPendingFilesChange={setPendingDocuments}
           />

@@ -34,10 +34,10 @@ describe("health clearances", () => {
     ]);
   });
 
-  it("requires every SE clearance field", () => {
+  it("treats SE clearance fields as optional", () => {
     expect(seHealthRequirementError(SAMPLE)).toBeNull();
-    expect(seHealthRequirementError({ hd: "clear" })).toMatch(/ED/);
-    expect(seHealthRequirementError({})).toMatch(/HD/);
+    expect(seHealthRequirementError({ hd: "clear" })).toBeNull();
+    expect(seHealthRequirementError({})).toBeNull();
   });
 
   it("merges the first filled value for each clearance", () => {

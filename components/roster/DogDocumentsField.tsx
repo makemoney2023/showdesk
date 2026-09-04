@@ -25,14 +25,12 @@ export function DogDocumentsField({
   showId,
   entryId,
   dogId,
-  required = false,
   pendingFiles = [],
   onPendingFilesChange,
 }: {
   showId: string;
   entryId?: string;
   dogId?: string;
-  required?: boolean;
   pendingFiles?: File[];
   onPendingFilesChange?: (files: File[]) => void;
 }) {
@@ -120,13 +118,12 @@ export function DogDocumentsField({
   return (
     <div className="space-y-2 sm:col-span-2">
       <Label>
-        {required
-          ? "Clearances and attachments (required PDF for SE)"
-          : "Clearances and attachments (optional)"}
+        Clearances and attachments (optional)
       </Label>
       <p className="text-xs text-sss-text-muted">
-        HD/ED, eye, heart, OFA/ADRK, JLPP, NAD. SE create needs at least one
-        PDF. Shown on public results if you publish the show.
+        HD/ED, eye, heart, OFA/ADRK, JLPP, NAD. Attach a PDF when you have
+        one — SE create and completion do not require it. Shown on public
+        results if you publish the show.
       </p>
       <input
         ref={inputRef}

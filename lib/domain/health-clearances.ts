@@ -74,23 +74,11 @@ export function normalizeHealthClearances(
   };
 }
 
-/** SE create requires every clearance field, including registry + status. */
+/** SE health clearances are optional for create and form completion. */
 export function seHealthRequirementError(
-  health: Partial<DogHealthClearances> | null | undefined,
+  _health: Partial<DogHealthClearances> | null | undefined,
 ): string | null {
-  const normalized = normalizeHealthClearances(health);
-  const missing = [
-    !normalized.hd ? "HD" : null,
-    !normalized.ed ? "ED" : null,
-    !normalized.eye ? "Eye" : null,
-    !normalized.heart ? "Heart" : null,
-    !normalized.registry ? "registry (OFA, ADRK, or Other)" : null,
-    !normalized.registry_status ? "registry status" : null,
-    !normalized.jlpp ? "JLPP" : null,
-    !normalized.nad ? "NAD" : null,
-  ].filter(Boolean);
-  if (missing.length === 0) return null;
-  return `SE requires ${missing.join(", ")}`;
+  return null;
 }
 
 export function healthClearancesHaveValues(
