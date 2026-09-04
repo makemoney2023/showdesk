@@ -1,7 +1,11 @@
 import fs from "fs/promises";
 import path from "path";
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
-import type { TnrkSeForm } from "@/lib/domain/tnrk-se-form";
+import {
+  createEmptyTnrkSeForm,
+  type TnrkSeForm,
+  type TnrkSeMeasurements,
+} from "@/lib/domain/tnrk-se-form";
 
 const TEMPLATE = path.join(
   process.cwd(),
@@ -20,7 +24,10 @@ const TEMPLATE = path.join(
  * Row map (fromTop bottoms):
  *  144.5 DATE/CLUB/JUDGE · 168.5 DOG/SEX/REG · 192.5 DOB/CHIP/TATTOO
  *  216.5 SIRE · 235.5 DAM · 254 BREEDER · 278 OWNER · 297 ADDRESS · 315.5 HANDLER
- *  357.5 / 381.5 / 405.5 measurements · 432 bite · ratings/gunfire/final below
+ *  Measurements value cells (label | value per column):
+ *   38.7 | 102.3 | 215.0 | 287.0 | 390.9 | 462.3 | 572.4
+ *   row bottoms 357.4 / 381.1 / 405.8
+ *  Appearance box 449.5–539.0 · comments value cell x≥185.7
  */
 export const TNRK_SE_HEADER_VALUE = {
   left: { x: 110, maxX: 206 },
@@ -47,6 +54,34 @@ export const TNRK_SE_PEDIGREE_VALUE = {
  */
 export const TNRK_SE_DEFAULT_INSET = 11;
 export const TNRK_SE_ROW2_INSET = 7;
+
+/**
+ * Measurement grid from page-02 rule lines. Each cell is label | value;
+ * values are left-aligned in the right-hand box and vertically centered.
+ */
+export const TNRK_SE_MEASUREMENT_VALUE = {
+  col1: { x: 108, maxX: 210 },
+  col2: { x: 292, maxX: 386 },
+  col3: { x: 468, maxX: 568 },
+  /** Baselines (fromTop) for the three measurement rows. */
+  rowsFromTop: [349.0, 372.5, 396.5],
+} as const;
+
+/** Overall appearance / critique box on page-02. */
+export const TNRK_SE_APPEARANCE = {
+  x: 48,
+  maxX: 568,
+  firstFromTop: 458,
+  lineHeight: 10,
+  maxLines: 8,
+} as const;
+
+/** Comments / Bemerkungen value cell (right of the label). */
+export const TNRK_SE_COMMENTS = {
+  x: 192,
+  maxX: 568,
+  fromTop: 681,
+} as const;
 
 /** Shrink, then ellipsize, so overlay text stays inside a template cell. */
 export function fitOverlayText(
@@ -77,6 +112,51 @@ export function fitOverlayText(
     return { text: "", size: used };
   }
   return { text: `${clipped}${ellipsis}`, size: used };
+}
+
+/** Word-wrap overlay text to a cell width using the same font metrics as draw(). */
+export function wrapOverlayText(
+  text: string,
+  font: PDFFont,
+  size: number,
+  maxWidth: number,
+): string[] {
+  if (!text.trim() || maxWidth <= 0) return [];
+  const words = text.trim().split(/\s+/);
+  const lines: string[] = [];
+  let cur = "";
+  for (const word of words) {
+    const next = cur ? `${cur} ${word}` : word;
+    if (font.widthOfTextAtSize(next, size) <= maxWidth) {
+      cur = next;
+      continue;
+    }
+    if (cur) lines.push(cur);
+    if (font.widthOfTextAtSize(word, size) <= maxWidth) {
+      cur = word;
+      continue;
+    }
+    let chunk = "";
+    for (const ch of word) {
+      const trial = chunk + ch;
+      if (chunk && font.widthOfTextAtSize(trial, size) > maxWidth) {
+        lines.push(chunk);
+        chunk = ch;
+      } else {
+        chunk = trial;
+      }
+    }
+    cur = chunk;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+function seMeasurements(form: TnrkSeForm): TnrkSeMeasurements {
+  return {
+    ...createEmptyTnrkSeForm().measurements,
+    ...(form.measurements ?? {}),
+  };
 }
 
 export async function buildTnrkSePdf(form: TnrkSeForm): Promise<Uint8Array> {
@@ -196,32 +276,41 @@ export async function buildTnrkSePdf(form: TnrkSeForm): Promise<Uint8Array> {
   draw(form.handler, pedL.x, yHand, 8, pedL.maxX);
   draw(form.phone, pedR.x, yHand, 8, pedR.maxX);
 
-  // Measurements
-  const m = form.measurements;
-  const yM1 = baseline(357.5);
-  draw(m.height, 110, yM1, 8, 210);
-  draw(m.chest_depth, 295, yM1, 8, 386);
-  draw(m.weight, 470, yM1, 8, 568);
-
-  const yM2 = baseline(381.5);
-  draw(m.body_length, 110, yM2, 8, 210);
-  draw(m.chest_circumference, 295, yM2, 8, 386);
-  draw(m.eye_color, 470, yM2, 8, 568);
-
-  const yM3 = baseline(405.5);
-  draw(m.muzzle_length, 110, yM3, 8, 210);
-  draw(m.skull, 295, yM3, 8, 386);
-  draw(m.legible_tattoo, 470, yM3, 8, 568);
+  // Measurements — values sit in the right-hand box of each 3×3 cell
+  const m = seMeasurements(form);
+  const meas = TNRK_SE_MEASUREMENT_VALUE;
+  const [yM1, yM2, yM3] = meas.rowsFromTop.map((fromTop) => yFromTop(fromTop));
+  draw(m.height, meas.col1.x, yM1, 8, meas.col1.maxX);
+  draw(m.chest_depth, meas.col2.x, yM1, 8, meas.col2.maxX);
+  draw(m.weight, meas.col3.x, yM1, 8, meas.col3.maxX);
+  draw(m.body_length, meas.col1.x, yM2, 8, meas.col1.maxX);
+  draw(m.chest_circumference, meas.col2.x, yM2, 8, meas.col2.maxX);
+  draw(m.eye_color, meas.col3.x, yM2, 8, meas.col3.maxX);
+  draw(m.muzzle_length, meas.col1.x, yM3, 8, meas.col1.maxX);
+  draw(m.skull, meas.col2.x, yM3, 8, meas.col2.maxX);
+  draw(m.legible_tattoo, meas.col3.x, yM3, 8, meas.col3.maxX);
 
   // Bite
   mark(form.bite === "correct_scissor", 158, yFromTop(421));
   mark(form.bite === "other", 370, yFromTop(421));
   draw(form.bite_other, 455, yFromTop(422), 8, 569);
 
-  // Appearance
-  const appearanceLines = wrap(form.overall_appearance, 90);
-  appearanceLines.slice(0, 6).forEach((line, i) => {
-    draw(line, 48, yFromTop(462 + i * 11), 8, 569);
+  // Critique — overall appearance box
+  const appearance = TNRK_SE_APPEARANCE;
+  const appearanceLines = wrapOverlayText(
+    form.overall_appearance ?? "",
+    font,
+    8,
+    appearance.maxX - appearance.x,
+  );
+  appearanceLines.slice(0, appearance.maxLines).forEach((line, i) => {
+    draw(
+      line,
+      appearance.x,
+      yFromTop(appearance.firstFromTop + i * appearance.lineHeight),
+      8,
+      appearance.maxX,
+    );
   });
 
   // Ratings — optionText.xMin − ~3 (pdftotext -bbox)
@@ -277,7 +366,13 @@ export async function buildTnrkSePdf(form: TnrkSeForm): Promise<Uint8Array> {
   mark(form.gunfire === "sensitive", 352, yFromTop(657));
   mark(form.gunfire === "shy", 492, yFromTop(657));
 
-  draw(form.comments, 200, yFromTop(678), 8, 569);
+  draw(
+    form.comments,
+    TNRK_SE_COMMENTS.x,
+    yFromTop(TNRK_SE_COMMENTS.fromTop),
+    8,
+    TNRK_SE_COMMENTS.maxX,
+  );
 
   mark(form.final_result === "pass", 200, yFromTop(699));
   mark(form.final_result === "fail", 246, yFromTop(699));
@@ -287,22 +382,4 @@ export async function buildTnrkSePdf(form: TnrkSeForm): Promise<Uint8Array> {
   draw(form.signature_date || form.date, 520, yFromTop(765), 9, 569);
 
   return pdf.save();
-}
-
-function wrap(text: string, max: number): string[] {
-  if (!text.trim()) return [];
-  const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let cur = "";
-  for (const w of words) {
-    const next = cur ? `${cur} ${w}` : w;
-    if (next.length > max) {
-      if (cur) lines.push(cur);
-      cur = w;
-    } else {
-      cur = next;
-    }
-  }
-  if (cur) lines.push(cur);
-  return lines;
 }

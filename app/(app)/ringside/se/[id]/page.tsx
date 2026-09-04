@@ -434,6 +434,53 @@ function StewardSeForm({
     }
   }
 
+  async function previewPdf() {
+    if (!showId || !form) {
+      setActionError(true);
+      setActionMsg("Form is still loading — wait a moment and try again");
+      return;
+    }
+    const nextForm =
+      judgePick && !form.judge.trim()
+        ? { ...form, judge: judgePick }
+        : form;
+    const previewWin = window.open("about:blank", "_blank");
+    setActionError(false);
+    setActionMsg("Building PDF preview…");
+    void save(false);
+    try {
+      const res = await fetch("/api/pdf/tnrk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: "se",
+          show_id: showId,
+          form: nextForm,
+          preview: true,
+        }),
+      });
+      if (!res.ok) {
+        previewWin?.close();
+        setActionError(true);
+        setActionMsg("PDF preview failed");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (previewWin && !previewWin.closed) {
+        previewWin.location.href = url;
+      } else {
+        window.open(url, "_blank", "noopener");
+      }
+      setActionError(false);
+      setActionMsg("PDF preview ready");
+    } catch {
+      previewWin?.close();
+      setActionError(true);
+      setActionMsg("PDF preview failed");
+    }
+  }
+
   if (!form || !entry) {
     return (
       <div className="space-y-4">
@@ -482,14 +529,13 @@ function StewardSeForm({
             <Link href={ringsideHref}>Ringside</Link>
           </Button>
           {showId && evaluation ? (
-            <Button asChild variant="outline">
-              <a
-                href={`/api/pdf/tnrk?kind=se&show_id=${showId}&evaluation_id=${evaluation.id}&preview=1`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Preview PDF
-              </a>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saving}
+              onClick={() => void previewPdf()}
+            >
+              Preview PDF
             </Button>
           ) : null}
         </div>
