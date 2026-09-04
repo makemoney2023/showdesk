@@ -80,7 +80,7 @@ test.describe("SE form isolation", () => {
     await page.getByLabel("Height / Widerrist").fill("64 cm");
     await page.getByLabel("Correct scissor bite").click();
     await page.getByRole("button", { name: "Save draft" }).click();
-    await expect(page.getByText("Draft saved")).toBeVisible();
+    await expect(page.getByText("Draft saved", { exact: true })).toBeVisible();
 
     await page.goto(`/ringside/se/${bella!.id}`);
     await expect(
