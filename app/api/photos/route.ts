@@ -1,30 +1,16 @@
 import { NextResponse } from "next/server";
 import { readStore, updateStore, writeDogPhoto, deleteDogPhoto } from "@/lib/store";
 import { requireApiWrite, isApiUnauthorized } from "@/lib/auth/api-guard";
-import { readJsonBody } from "@/lib/api/read-json";
-import {
-  DOG_PHOTO_MAX_BASE64_CHARS,
-  validateDogPhotoUpload,
-} from "@/lib/domain/dog-photo";
+import { parseDogPhotoUpload } from "@/lib/api/parse-photo-upload";
+import { validateDogPhotoUpload } from "@/lib/domain/dog-photo";
 
 export async function POST(request: Request) {
   const auth = await requireApiWrite();
   if (isApiUnauthorized(auth)) return auth;
 
-  const body = await readJsonBody<{
-    show_id: string;
-    entry_id: string;
-    photo_base64: string;
-    mime?: string;
-  }>(request);
-  if (!body?.show_id || !body.entry_id || !body.photo_base64) {
-    return NextResponse.json(
-      { error: "show_id, entry_id, and photo_base64 required" },
-      { status: 400 },
-    );
-  }
-  if (body.photo_base64.length > DOG_PHOTO_MAX_BASE64_CHARS) {
-    return NextResponse.json({ error: "Photo must be 5 MB or smaller" }, { status: 400 });
+  const body = await parseDogPhotoUpload(request);
+  if (!body.ok) {
+    return NextResponse.json({ error: body.error }, { status: body.status });
   }
 
   const store = await readStore();
@@ -35,13 +21,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Entry not found" }, { status: 404 });
   }
 
-  let bytes: Buffer;
-  try {
-    bytes = Buffer.from(body.photo_base64, "base64");
-  } catch {
-    return NextResponse.json({ error: "Invalid photo data" }, { status: 400 });
-  }
-
+  const { bytes } = body;
   const validation = validateDogPhotoUpload({
     bytes,
     claimedMime: body.mime,
