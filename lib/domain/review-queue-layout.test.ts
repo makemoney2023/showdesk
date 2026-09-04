@@ -84,6 +84,14 @@ describe("SE PDF preview affordance", () => {
     expect(tnrkSePdfHref("show-1", "eval-3")).toBe(
       "/api/pdf/tnrk?kind=se&show_id=show-1&evaluation_id=eval-3",
     );
+    expect(
+      tnrkSePdfHref("show-1", "eval-3", {
+        preview: true,
+        cacheBust: "2026-09-04T12:00:00.000Z",
+      }),
+    ).toBe(
+      "/api/pdf/tnrk?kind=se&show_id=show-1&evaluation_id=eval-3&preview=1&v=2026-09-04T12%3A00%3A00.000Z",
+    );
   });
 
   it("includes SE preview in review actions when an SE form exists", () => {

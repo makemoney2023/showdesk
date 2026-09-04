@@ -635,6 +635,7 @@ export default function AdminReviewPage() {
                       showId,
                       critiqueId: selectedId,
                       seEvaluationId: seForSelected?.id ?? null,
+                      seUpdatedAt: seForSelected?.updated_at,
                     }).map((action) => (
                       <Button key={action.kind} asChild>
                         <a

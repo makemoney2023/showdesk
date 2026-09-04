@@ -5,6 +5,7 @@ import { buildTnrkAwardPdf } from "@/lib/pdf/tnrk-award-pdf";
 import { buildTnrkCritiquePdfForRecords } from "@/lib/pdf/tnrk-critique-from-records";
 import { mergePdfDocuments } from "@/lib/pdf/merge-pdfs";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
+import type { TnrkSeForm } from "@/lib/domain/tnrk-se-form";
 import { resolvePdfJudge } from "@/lib/domain/show-judges";
 import {
   DRAFT_PDF_PREVIEW_REQUIRED,
@@ -96,12 +97,7 @@ export async function GET(request: Request) {
     const pdfBytes = await mergePdfDocuments(parts);
     const filename =
       parsed.doc === "se" ? "tnrk-se-batch.pdf" : "tnrk-certificates-batch.pdf";
-    return new NextResponse(Buffer.from(pdfBytes), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${filename}"`,
-      },
-    });
+    return pdfResponse(pdfBytes, filename);
   }
 
   if (kind === "se") {
@@ -129,12 +125,11 @@ export async function GET(request: Request) {
       );
     }
     const pdfBytes = await buildTnrkSePdf(evaluation.form);
-    return new NextResponse(Buffer.from(pdfBytes), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `${disposition}; filename="tnrk-se-${evaluation.entry_id}.pdf"`,
-      },
-    });
+    return pdfResponse(
+      pdfBytes,
+      `tnrk-se-${evaluation.entry_id}.pdf`,
+      disposition,
+    );
   }
 
   if (kind === "critique") {
@@ -171,12 +166,11 @@ export async function GET(request: Request) {
       se,
     });
 
-    return new NextResponse(Buffer.from(pdfBytes), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `${disposition}; filename="tnrk-critique-${entry.armband}.pdf"`,
-      },
-    });
+    return pdfResponse(
+      pdfBytes,
+      `tnrk-critique-${entry.armband}.pdf`,
+      disposition,
+    );
   }
 
   if (kind === "award") {
@@ -218,16 +212,70 @@ export async function GET(request: Request) {
       }),
       show_secretary: "Show Secretary",
     });
-    return new NextResponse(Buffer.from(pdfBytes), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `${disposition}; filename="tnrk-award-${entry.armband}.pdf"`,
-      },
-    });
+    return pdfResponse(
+      pdfBytes,
+      `tnrk-award-${entry.armband}.pdf`,
+      disposition,
+    );
   }
 
   return NextResponse.json(
     { error: "kind must be se, critique, award, or bundle" },
     { status: 400 },
   );
+}
+
+/** Preview the on-screen SE form without waiting for a prior GET cache. */
+export async function POST(request: Request) {
+  const auth = await requireApiSession();
+  if (isApiUnauthorized(auth)) return auth;
+
+  const body = (await request.json()) as {
+    kind?: string;
+    show_id?: string;
+    form?: TnrkSeForm;
+    preview?: boolean;
+  };
+
+  if (body.kind !== "se") {
+    return NextResponse.json(
+      { error: "POST preview is only available for kind=se" },
+      { status: 400 },
+    );
+  }
+  if (!body.show_id) {
+    return NextResponse.json({ error: "show_id required" }, { status: 400 });
+  }
+  if (!body.form) {
+    return NextResponse.json({ error: "form required" }, { status: 400 });
+  }
+  if (!body.preview) {
+    return NextResponse.json(
+      { error: DRAFT_PDF_PREVIEW_REQUIRED },
+      { status: 403 },
+    );
+  }
+
+  const store = await readStore();
+  const show = store.shows.find((s) => s.id === body.show_id);
+  if (!show) {
+    return NextResponse.json({ error: "Show not found" }, { status: 404 });
+  }
+
+  const pdfBytes = await buildTnrkSePdf(body.form);
+  return pdfResponse(pdfBytes, "tnrk-se-preview.pdf");
+}
+
+function pdfResponse(
+  pdfBytes: Uint8Array,
+  filename: string,
+  disposition: "inline" | "attachment" = "inline",
+) {
+  return new NextResponse(Buffer.from(pdfBytes), {
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `${disposition}; filename="${filename}"`,
+      "Cache-Control": "private, no-store",
+    },
+  });
 }

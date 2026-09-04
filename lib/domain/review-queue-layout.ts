@@ -92,7 +92,7 @@ export function tnrkSePdfLabel(): string {
 export function tnrkSePdfHref(
   showId: string,
   evaluationId: string,
-  opts?: { preview?: boolean },
+  opts?: { preview?: boolean; cacheBust?: string },
 ): string {
   const params = new URLSearchParams({
     kind: "se",
@@ -100,6 +100,7 @@ export function tnrkSePdfHref(
     evaluation_id: evaluationId,
   });
   if (opts?.preview) params.set("preview", "1");
+  if (opts?.cacheBust) params.set("v", opts.cacheBust);
   return `/api/pdf/tnrk?${params.toString()}`;
 }
 
@@ -114,6 +115,7 @@ export function reviewPdfPreviewActions(input: {
   showId: string;
   critiqueId: string;
   seEvaluationId: string | null;
+  seUpdatedAt?: string | null;
 }): ReviewPdfPreviewAction[] {
   const actions: ReviewPdfPreviewAction[] = [
     {
@@ -130,6 +132,7 @@ export function reviewPdfPreviewActions(input: {
       label: tnrkSePdfLabel(),
       href: tnrkSePdfHref(input.showId, input.seEvaluationId, {
         preview: true,
+        cacheBust: input.seUpdatedAt ?? undefined,
       }),
     });
   }
