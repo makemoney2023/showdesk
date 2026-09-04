@@ -5,7 +5,11 @@ import { buildTnrkAwardPdf } from "@/lib/pdf/tnrk-award-pdf";
 import { buildTnrkCritiquePdfForRecords } from "@/lib/pdf/tnrk-critique-from-records";
 import { mergePdfDocuments } from "@/lib/pdf/merge-pdfs";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
-import type { TnrkSeForm } from "@/lib/domain/tnrk-se-form";
+import {
+  mergeSeFormPreferFilled,
+  normalizeTnrkSeForm,
+  type TnrkSeForm,
+} from "@/lib/domain/tnrk-se-form";
 import { resolvePdfJudge } from "@/lib/domain/show-judges";
 import {
   DRAFT_PDF_PREVIEW_REQUIRED,
@@ -65,7 +69,7 @@ export async function GET(request: Request) {
           (item) => item.entry_id === entry.id && item.show_id === showId,
         );
         if (!evaluation || !canPrintSe(evaluation.status)) continue;
-        parts.push(await buildTnrkSePdf(evaluation.form));
+        parts.push(await buildTnrkSePdf(normalizeTnrkSeForm(evaluation.form)));
       } else {
         const critique = primaryCritiqueForEntry(
           store.critiques,
@@ -124,7 +128,7 @@ export async function GET(request: Request) {
         { status: 403 },
       );
     }
-    const pdfBytes = await buildTnrkSePdf(evaluation.form);
+    const pdfBytes = await buildTnrkSePdf(normalizeTnrkSeForm(evaluation.form));
     return pdfResponse(
       pdfBytes,
       `tnrk-se-${evaluation.entry_id}.pdf`,
@@ -233,6 +237,7 @@ export async function POST(request: Request) {
   const body = (await request.json()) as {
     kind?: string;
     show_id?: string;
+    evaluation_id?: string;
     form?: TnrkSeForm;
     preview?: boolean;
   };
@@ -262,7 +267,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Show not found" }, { status: 404 });
   }
 
-  const pdfBytes = await buildTnrkSePdf(body.form);
+  const stored = body.evaluation_id
+    ? (store.se_evaluations ?? []).find(
+        (item) => item.id === body.evaluation_id && item.show_id === body.show_id,
+      )
+    : undefined;
+  const pdfBytes = await buildTnrkSePdf(
+    mergeSeFormPreferFilled(stored?.form, body.form),
+  );
   return pdfResponse(pdfBytes, "tnrk-se-preview.pdf");
 }
 

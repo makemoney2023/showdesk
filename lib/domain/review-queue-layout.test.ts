@@ -90,7 +90,7 @@ describe("SE PDF preview affordance", () => {
         cacheBust: "2026-09-04T12:00:00.000Z",
       }),
     ).toBe(
-      "/api/pdf/tnrk?kind=se&show_id=show-1&evaluation_id=eval-3&preview=1&v=2026-09-04T12%3A00%3A00.000Z",
+      "/api/pdf/tnrk?kind=se&show_id=show-1&evaluation_id=eval-3&preview=1&overlay=3&v=2026-09-04T12%3A00%3A00.000Z",
     );
   });
 
@@ -110,7 +110,7 @@ describe("SE PDF preview affordance", () => {
       {
         kind: "se",
         label: "SE PDF Preview",
-        href: "/api/pdf/tnrk?kind=se&show_id=show-1&evaluation_id=eval-3&preview=1",
+        href: "/api/pdf/tnrk?kind=se&show_id=show-1&evaluation_id=eval-3&preview=1&overlay=3",
       },
     ]);
   });

@@ -2,7 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import {
-  createEmptyTnrkSeForm,
+  normalizeTnrkSeForm,
   type TnrkSeForm,
   type TnrkSeMeasurements,
 } from "@/lib/domain/tnrk-se-form";
@@ -153,13 +153,11 @@ export function wrapOverlayText(
 }
 
 function seMeasurements(form: TnrkSeForm): TnrkSeMeasurements {
-  return {
-    ...createEmptyTnrkSeForm().measurements,
-    ...(form.measurements ?? {}),
-  };
+  return normalizeTnrkSeForm(form).measurements;
 }
 
 export async function buildTnrkSePdf(form: TnrkSeForm): Promise<Uint8Array> {
+  form = normalizeTnrkSeForm(form);
   const bytes = await fs.readFile(TEMPLATE);
   const pdf = await PDFDocument.load(bytes);
   const page = pdf.getPages()[0];

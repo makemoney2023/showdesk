@@ -4,6 +4,7 @@ import { filterByShow } from "@/lib/domain/show-scope";
 import {
   createEmptyTnrkSeForm,
   mergeEntryIntoSeForm,
+  mergeSeFormPreferFilled,
   validateTnrkSeFormForPass,
   type TnrkSeForm,
 } from "@/lib/domain/tnrk-se-form";
@@ -106,7 +107,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Evaluation not found" }, { status: 404 });
   }
 
-  const nextForm = body.form ?? evaluation.form;
+  const nextForm = mergeSeFormPreferFilled(evaluation.form, body.form);
   let nextStatus = evaluation.status;
   if (body.mark_complete) {
     const check = validateTnrkSeFormForPass(nextForm);
