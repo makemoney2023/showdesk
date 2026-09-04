@@ -5,8 +5,10 @@ import {
   critiqueDraftFromSeForm,
   mergeSeIntoCritiqueDraft,
   SE_SYNC_NOTE,
+  seEvaluationForEntry,
   syncSeIntoCritiques,
   syncSeIntoDogCritiques,
+  visibleReviewCritiques,
 } from "./se-to-critique";
 import type { CritiqueRecord } from "@/lib/types";
 
@@ -184,7 +186,7 @@ describe("se-to-critique", () => {
     expect(next[0]?.draft.narrative).toContain("Updated after recall");
   });
 
-  it("carries SE critiques by registration when dog_id is missing", () => {
+  it("creates one review draft for the SE appearance, not conformation clones", () => {
     const form = createEmptyTnrkSeForm();
     form.overall_appearance = "Imported roster dog.";
     form.final_result = "pass";
@@ -203,24 +205,39 @@ describe("se-to-critique", () => {
           zb_number: "akc-1",
           event_kind: "conformation",
         },
+        {
+          id: "sun-1",
+          show_id: "s1",
+          zb_number: "akc-1",
+          event_kind: "conformation",
+        },
       ],
       "s1",
       "se-1",
       form,
       { force: true, newId: () => `c-${Math.random()}`, now: "t" },
     );
-    expect(next.map((critique) => critique.entry_id).sort()).toEqual([
-      "sat-1",
-      "se-1",
-    ]);
+    expect(next.map((critique) => critique.entry_id)).toEqual(["se-1"]);
   });
 
-  it("carries the SE verbal critique onto conformation siblings", () => {
+  it("merges SE notes into an existing conformation critique only", () => {
     const form = createEmptyTnrkSeForm();
     form.overall_appearance = "Strong working male.";
     form.final_result = "pass";
+    const saturday = baseCritique({
+      id: "c-sat",
+      entry_id: "sat-1",
+      transcript: "Judge audio narrative",
+      draft: {
+        narrative: "Judge audio narrative",
+        formwert: "V",
+        placement: null,
+        titles: [],
+        draftAssist: { note: "Draft assist only" },
+      },
+    });
     const next = syncSeIntoDogCritiques(
-      [],
+      [saturday],
       [
         { id: "se-1", show_id: "s1", dog_id: "dog-1", event_kind: "se" },
         {
@@ -233,14 +250,108 @@ describe("se-to-critique", () => {
       "s1",
       "se-1",
       form,
-      { force: true, newId: () => `c-${Math.random()}`, now: "t" },
+      { force: true, newId: () => "c-se", now: "t" },
     );
     expect(next.map((critique) => critique.entry_id).sort()).toEqual([
       "sat-1",
       "se-1",
     ]);
-    expect(next.every((critique) => critique.draft.narrative.includes("Strong working male"))).toBe(
-      true,
+    const sat = next.find((critique) => critique.entry_id === "sat-1");
+    expect(sat?.draft.narrative).toContain("Judge audio narrative");
+    expect(sat?.draft.narrative).toContain("Strong working male");
+  });
+
+  it("drops unused Saturday/Sunday SE clones on the next SE save", () => {
+    const form = createEmptyTnrkSeForm();
+    form.comments = "Keep one review row.";
+    form.final_result = "pass";
+    const clone = baseCritique({
+      id: "c-sat-clone",
+      entry_id: "sat-1",
+      transcript: "Ringside SE form",
+      draft: {
+        narrative: "Old clone",
+        formwert: "V",
+        placement: null,
+        titles: [],
+        draftAssist: { note: SE_SYNC_NOTE },
+      },
+    });
+    const next = syncSeIntoDogCritiques(
+      [clone],
+      [
+        { id: "se-1", show_id: "s1", dog_id: "dog-1", event_kind: "se" },
+        {
+          id: "sat-1",
+          show_id: "s1",
+          dog_id: "dog-1",
+          event_kind: "conformation",
+        },
+      ],
+      "s1",
+      "se-1",
+      form,
+      { force: true, newId: () => "c-se", now: "t" },
     );
+    expect(next.map((critique) => critique.entry_id)).toEqual(["se-1"]);
+  });
+
+  it("hides unused SE clones from the review queue when the SE row exists", () => {
+    const se = baseCritique({
+      id: "c-se",
+      entry_id: "se-1",
+      transcript: "Ringside SE form",
+      draft: {
+        narrative: "SE notes",
+        formwert: "V",
+        placement: null,
+        titles: [],
+        draftAssist: { note: SE_SYNC_NOTE },
+      },
+    });
+    const clone = baseCritique({
+      id: "c-sat",
+      entry_id: "sat-1",
+      transcript: "Ringside SE form",
+      draft: se.draft,
+    });
+    const audio = baseCritique({
+      id: "c-sun",
+      entry_id: "sun-1",
+      transcript: "Judge audio",
+      audio_path: "show/c-sun.webm",
+    });
+    const entries = [
+      { id: "se-1", show_id: "s1", dog_id: "dog-1", event_kind: "se" as const },
+      {
+        id: "sat-1",
+        show_id: "s1",
+        dog_id: "dog-1",
+        event_kind: "conformation" as const,
+      },
+      {
+        id: "sun-1",
+        show_id: "s1",
+        dog_id: "dog-1",
+        event_kind: "conformation" as const,
+      },
+    ];
+    expect(
+      visibleReviewCritiques([se, clone, audio], entries).map((item) => item.id),
+    ).toEqual(["c-se", "c-sun"]);
+  });
+
+  it("finds the SE evaluation from a conformation sibling", () => {
+    const entries = [
+      { id: "se-1", show_id: "s1", dog_id: "dog-1" },
+      { id: "sat-1", show_id: "s1", dog_id: "dog-1" },
+    ];
+    expect(
+      seEvaluationForEntry(
+        [{ entry_id: "se-1", status: "complete" as const }],
+        entries,
+        entries[1],
+      )?.entry_id,
+    ).toBe("se-1");
   });
 });

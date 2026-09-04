@@ -115,12 +115,74 @@ export function canSyncSeIntoCritique(
   return true;
 }
 
+export function isUnusedSeCloneCritique(
+  critique: Pick<
+    CritiqueRecord,
+    "audio_path" | "status" | "transcript" | "draft"
+  >,
+): boolean {
+  if (critique.audio_path) return false;
+  if (critique.status === "APPROVED") return false;
+  if (!critique.transcript.startsWith("Ringside SE")) return false;
+  const note = critique.draft.draftAssist?.note ?? "";
+  return note.includes("SE form") || Boolean(critique.draft.draftAssist?.se_sync);
+}
+
+/**
+ * Review / desk counts hide unused SE clones on Saturday/Sunday when the
+ * same dog already has an SE-entry critique. Real audio critiques stay.
+ */
+export function seEvaluationForEntry<
+  TEvaluation extends { entry_id: string },
+  TEntry extends {
+    id: string;
+    show_id: string;
+    dog_id?: string;
+    zb_number?: string;
+    microchip?: string;
+  },
+>(
+  evaluations: TEvaluation[],
+  entries: TEntry[],
+  entry: TEntry | undefined,
+): TEvaluation | undefined {
+  if (!entry) return undefined;
+  const ids = new Set(entriesForDog(entries, entry).map((item) => item.id));
+  return evaluations.find((evaluation) => ids.has(evaluation.entry_id));
+}
+
+export function visibleReviewCritiques<
+  TCritique extends Pick<
+    CritiqueRecord,
+    "id" | "show_id" | "entry_id" | "audio_path" | "status" | "transcript" | "draft"
+  >,
+  TEntry extends {
+    id: string;
+    show_id: string;
+    dog_id?: string;
+    zb_number?: string;
+    microchip?: string;
+    event_kind?: "se" | "conformation";
+  },
+>(critiques: TCritique[], entries: TEntry[]): TCritique[] {
+  return critiques.filter((critique) => {
+    const entry = entries.find((item) => item.id === critique.entry_id);
+    if (!entry || entry.event_kind === "se") return true;
+    if (!isUnusedSeCloneCritique(critique)) return true;
+    const seEntry = entriesForDog(entries, entry).find(
+      (item) => item.event_kind === "se",
+    );
+    if (!seEntry) return true;
+    return !critiques.some((other) => other.entry_id === seEntry.id);
+  });
+}
+
 /**
  * Copy ringside SE fields into the dog's open critique.
  * Never creates a second queue item after a certificate is approved —
  * recall first if the SE form should update that draft.
  */
-/** Copy SE narrative onto this appearance and every conformation sibling. */
+/** Copy SE notes onto existing conformation critiques; never spawn extras. */
 export function conformationSiblingIds<
   T extends {
     id: string;
@@ -156,19 +218,27 @@ export function syncSeIntoDogCritiques(
     force: boolean;
     newId: () => string;
     now?: string;
+    createIfMissing?: boolean;
   },
 ): CritiqueRecord[] {
   const seEntry = entries.find(
     (entry) => entry.id === seEntryId && entry.show_id === showId,
   );
-  const targets = [
-    seEntryId,
-    ...(seEntry ? conformationSiblingIds(entries, seEntry) : []),
-  ];
+  const siblingIds = seEntry
+    ? conformationSiblingIds(entries, seEntry)
+    : [];
+  const withoutUnusedClones = critiques.filter((critique) => {
+    if (!siblingIds.includes(critique.entry_id)) return true;
+    return !isUnusedSeCloneCritique(critique);
+  });
+  const targets = [seEntryId, ...siblingIds];
   return targets.reduce(
     (next, entryId) =>
-      syncSeIntoCritiques(next, showId, entryId, form, options),
-    critiques,
+      syncSeIntoCritiques(next, showId, entryId, form, {
+        ...options,
+        createIfMissing: entryId === seEntryId,
+      }),
+    withoutUnusedClones,
   );
 }
 
@@ -181,6 +251,7 @@ export function syncSeIntoCritiques(
     force: boolean;
     newId: () => string;
     now?: string;
+    createIfMissing?: boolean;
   },
 ): CritiqueRecord[] {
   const existing = openCritiqueForEntry(critiques, entryId, showId);
@@ -202,6 +273,7 @@ export function syncSeIntoCritiques(
 
   const now = options.now ?? new Date().toISOString();
   if (!existing) {
+    if (options.createIfMissing === false) return critiques;
     const created: CritiqueRecord = {
       id: options.newId(),
       show_id: showId,

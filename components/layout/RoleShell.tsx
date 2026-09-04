@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Mic } from "lucide-react";
 import { deskAttentionCount } from "@/lib/domain/critique-status";
+import { visibleReviewCritiques } from "@/lib/domain/se-to-critique";
 import { RingsideJudgeProvider, useRingsideJudge } from "@/components/ringside/RingsideJudgeContext";
 import { ToastHost } from "@/components/feedback/toast";
 import {
@@ -69,15 +70,17 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
       fetch(`/api/critiques?show_id=${active.id}`),
       fetch(`/api/entries?show_id=${active.id}`),
     ]);
-    if (entryRes.ok) {
-      const entryData = (await entryRes.json()) as {
-        entries: RosterEntryRecord[];
-      };
-      setEntries(entryData.entries);
-    }
+    const roster = entryRes.ok
+      ? ((await entryRes.json()) as { entries: RosterEntryRecord[] }).entries
+      : [];
+    setEntries(roster);
     if (!critRes.ok) return;
     const critData = (await critRes.json()) as { critiques: CritiqueRecord[] };
-    setPendingCount(deskAttentionCount(critData.critiques.map((c) => c.status)));
+    setPendingCount(
+      deskAttentionCount(
+        visibleReviewCritiques(critData.critiques, roster).map((c) => c.status),
+      ),
+    );
   }, []);
 
   const refreshQueue = useCallback(async () => {
