@@ -379,5 +379,5 @@ export async function buildTnrkSePdf(form: TnrkSeForm): Promise<Uint8Array> {
   draw(form.event_secretary, 48, yFromTop(752), 9, 400);
   draw(form.signature_date || form.date, 520, yFromTop(765), 9, 569);
 
-  return pdf.save();
+  return pdf.save({ useObjectStreams: false });
 }

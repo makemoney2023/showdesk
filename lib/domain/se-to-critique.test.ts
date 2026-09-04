@@ -354,4 +354,37 @@ describe("se-to-critique", () => {
       )?.entry_id,
     ).toBe("se-1");
   });
+
+  it("prefers a filled SE-entry form over an empty conformation sibling", () => {
+    const empty = createEmptyTnrkSeForm();
+    const filled = {
+      ...createEmptyTnrkSeForm(),
+      measurements: { ...empty.measurements, height: "67cm", weight: "53kg" },
+      overall_appearance: "Very large male, strong bones.",
+    };
+    const entries = [
+      { id: "entry-016", show_id: "s1", dog_id: "dog-1", event_kind: "conformation" as const },
+      { id: "entry-038-se", show_id: "s1", dog_id: "dog-1", event_kind: "se" as const },
+    ];
+    const evaluations = [
+      {
+        entry_id: "entry-016",
+        form: empty,
+        status: "draft" as const,
+        updated_at: "2026-08-21T00:00:00.000Z",
+      },
+      {
+        entry_id: "entry-038-se",
+        form: filled,
+        status: "draft" as const,
+        updated_at: "2026-09-04T20:27:00.000Z",
+      },
+    ];
+    expect(
+      seEvaluationForEntry(evaluations, entries, entries[0])?.entry_id,
+    ).toBe("entry-038-se");
+    expect(
+      seEvaluationForEntry(evaluations, entries, entries[1])?.entry_id,
+    ).toBe("entry-038-se");
+  });
 });
