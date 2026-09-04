@@ -26,6 +26,7 @@ import {
   formatAdrkFormwert,
   type AdrkFormwertCode,
 } from "@/lib/domain/adrk-template";
+import { seFieldId, seRadioName } from "@/lib/domain/se-form-fields";
 import {
   BEHAVIOR_OPTIONS,
   BONE_STRENGTH_OPTIONS,
@@ -101,6 +102,22 @@ export default function StewardSeFormPage() {
   const ringsideHref = searchParams.toString()
     ? `/ringside?${searchParams.toString()}`
     : "/ringside";
+  return (
+    <StewardSeForm
+      key={entryId}
+      entryId={entryId}
+      ringsideHref={ringsideHref}
+    />
+  );
+}
+
+function StewardSeForm({
+  entryId,
+  ringsideHref,
+}: {
+  entryId: string;
+  ringsideHref: string;
+}) {
   const ringsideJudge = useRingsideJudge();
   const [entry, setEntry] = useState<RosterEntryRecord | null>(null);
   const [showId, setShowId] = useState<string | null>(null);
@@ -117,11 +134,19 @@ export default function StewardSeFormPage() {
   const serverFingerprintRef = useRef("");
   const serverUpdatedAtRef = useRef("");
   const latestFormRef = useRef<TnrkSeForm | null>(null);
+  const loadGenerationRef = useRef(0);
 
   const load = useCallback(async () => {
+    const generation = ++loadGenerationRef.current;
+    setEntry(null);
+    setEvaluation(null);
+    setForm(null);
     setRecoveryReady(false);
     setAutosaveStatus("");
+    setActionMsg("");
+    setActionError(false);
     const showRes = await fetch("/api/shows");
+    if (generation !== loadGenerationRef.current) return;
     if (!showRes.ok) {
       setStatus(
         showRes.status === 401
@@ -134,6 +159,7 @@ export default function StewardSeFormPage() {
       shows: Show[];
       active_show_id: string | null;
     };
+    if (generation !== loadGenerationRef.current) return;
     if (!showData.active_show_id) {
       setStatus("No active show");
       return;
@@ -149,6 +175,7 @@ export default function StewardSeFormPage() {
     const entriesRes = await fetch(
       `/api/entries?show_id=${showData.active_show_id}`,
     );
+    if (generation !== loadGenerationRef.current) return;
     if (!entriesRes.ok) {
       setStatus("Could not load entry");
       return;
@@ -156,6 +183,7 @@ export default function StewardSeFormPage() {
     const entriesData = (await entriesRes.json()) as {
       entries: RosterEntryRecord[];
     };
+    if (generation !== loadGenerationRef.current) return;
     const found = entriesData.entries.find((e) => e.id === entryId) ?? null;
     setEntry(found);
     if (!found) {
@@ -172,16 +200,19 @@ export default function StewardSeFormPage() {
         judge: pick ?? undefined,
       }),
     });
+    if (generation !== loadGenerationRef.current) return;
     if (!createRes.ok) {
       const data = (await createRes.json().catch(() => null)) as {
         error?: string;
       } | null;
+      if (generation !== loadGenerationRef.current) return;
       setStatus(data?.error ?? "Could not open SE evaluation");
       return;
     }
     const createData = (await createRes.json()) as {
       evaluation: SeEvaluationRecord;
     };
+    if (generation !== loadGenerationRef.current) return;
     setEvaluation(createData.evaluation);
     const nextForm = createData.evaluation.form;
     const serverForm =
@@ -195,6 +226,7 @@ export default function StewardSeFormPage() {
       showData.active_show_id,
       entryId,
     );
+    if (generation !== loadGenerationRef.current) return;
     if (
       createData.evaluation.status === "draft" &&
       recoverable &&
@@ -210,8 +242,10 @@ export default function StewardSeFormPage() {
       );
       if (recoverable) {
         await clearRecoverableSeDraft(showData.active_show_id, entryId);
+        if (generation !== loadGenerationRef.current) return;
       }
     }
+    if (generation !== loadGenerationRef.current) return;
     setRecoveryReady(true);
   }, [entryId]);
 
@@ -415,7 +449,11 @@ export default function StewardSeFormPage() {
   const sections = seSectionProgress(form);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 pb-40">
+    <form
+      className="mx-auto max-w-3xl space-y-8 pb-40"
+      autoComplete="off"
+      onSubmit={(event) => event.preventDefault()}
+    >
       <BackLink href={ringsideHref}>Back to dogs</BackLink>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-wrap items-start gap-3">
@@ -479,32 +517,32 @@ export default function StewardSeFormPage() {
           />
         ) : null}
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Date">
+          <Field entryId={entryId} label="Date">
             <Input
               type="date"
               value={form.date}
               onChange={(e) => patchForm("date", e.target.value)}
             />
           </Field>
-          <Field label="Club">
+          <Field entryId={entryId} label="Club">
             <Input
               value={form.club}
               onChange={(e) => patchForm("club", e.target.value)}
             />
           </Field>
-          <Field label="Judge">
+          <Field entryId={entryId} label="Judge">
             <Input
               value={form.judge}
               onChange={(e) => patchForm("judge", e.target.value)}
             />
           </Field>
-          <Field label="Dog's name">
+          <Field entryId={entryId} label="Dog's name">
             <Input
               value={form.dog_name}
               onChange={(e) => patchForm("dog_name", e.target.value)}
             />
           </Field>
-          <Field label="Registration number">
+          <Field entryId={entryId} label="Registration number">
             <Input
               value={form.registration_number}
               onChange={(e) =>
@@ -512,20 +550,20 @@ export default function StewardSeFormPage() {
               }
             />
           </Field>
-          <Field label="Date of birth">
+          <Field entryId={entryId} label="Date of birth">
             <Input
               type="date"
               value={form.date_of_birth}
               onChange={(e) => patchForm("date_of_birth", e.target.value)}
             />
           </Field>
-          <Field label="Microchip Nr">
+          <Field entryId={entryId} label="Microchip Nr">
             <Input
               value={form.microchip_nr}
               onChange={(e) => patchForm("microchip_nr", e.target.value)}
             />
           </Field>
-          <Field label="Tattoo Nr">
+          <Field entryId={entryId} label="Tattoo Nr">
             <Input
               value={form.tattoo_nr}
               onChange={(e) => patchForm("tattoo_nr", e.target.value)}
@@ -534,13 +572,13 @@ export default function StewardSeFormPage() {
         </div>
         <div className="flex gap-4">
           <Radio
-            name="sex"
+            name={seRadioName(entryId, "sex")}
             checked={form.sex === "male"}
             onChange={() => patchForm("sex", "male")}
             label="Male"
           />
           <Radio
-            name="sex"
+            name={seRadioName(entryId, "sex")}
             checked={form.sex === "female"}
             onChange={() => patchForm("sex", "female")}
             label="Female"
@@ -553,67 +591,67 @@ export default function StewardSeFormPage() {
           Pedigree & ownership
         </h2>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Sire">
+          <Field entryId={entryId} label="Sire">
             <Input
               value={form.sire}
               onChange={(e) => patchForm("sire", e.target.value)}
             />
           </Field>
-          <Field label="Sire Reg.-Nr.">
+          <Field entryId={entryId} label="Sire Reg.-Nr.">
             <Input
               value={form.sire_reg}
               onChange={(e) => patchForm("sire_reg", e.target.value)}
             />
           </Field>
-          <Field label="Dam">
+          <Field entryId={entryId} label="Dam">
             <Input
               value={form.dam}
               onChange={(e) => patchForm("dam", e.target.value)}
             />
           </Field>
-          <Field label="Dam Reg.-Nr.">
+          <Field entryId={entryId} label="Dam Reg.-Nr.">
             <Input
               value={form.dam_reg}
               onChange={(e) => patchForm("dam_reg", e.target.value)}
             />
           </Field>
-          <Field label="Breeder">
+          <Field entryId={entryId} label="Breeder">
             <Input
               value={form.breeder}
               onChange={(e) => patchForm("breeder", e.target.value)}
             />
           </Field>
-          <Field label="HD/ED JLPP Nr">
+          <Field entryId={entryId} label="HD/ED JLPP Nr">
             <Input
               value={form.hd_ed_jlpp_nr}
               onChange={(e) => patchForm("hd_ed_jlpp_nr", e.target.value)}
             />
           </Field>
-          <Field label="Owner / co-owner">
+          <Field entryId={entryId} label="Owner / co-owner">
             <Input
               value={form.owner_co_owner}
               onChange={(e) => patchForm("owner_co_owner", e.target.value)}
             />
           </Field>
-          <Field label="Email">
+          <Field entryId={entryId} label="Email">
             <Input
               value={form.email}
               onChange={(e) => patchForm("email", e.target.value)}
             />
           </Field>
-          <Field label="Address">
+          <Field entryId={entryId} label="Address">
             <Input
               value={form.address}
               onChange={(e) => patchForm("address", e.target.value)}
             />
           </Field>
-          <Field label="Handler">
+          <Field entryId={entryId} label="Handler">
             <Input
               value={form.handler}
               onChange={(e) => patchForm("handler", e.target.value)}
             />
           </Field>
-          <Field label="Phone">
+          <Field entryId={entryId} label="Phone">
             <Input
               value={form.phone}
               onChange={(e) => patchForm("phone", e.target.value)}
@@ -640,7 +678,7 @@ export default function StewardSeFormPage() {
               ["legible_tattoo", "Legible tattoo"],
             ] as const
           ).map(([key, label]) => (
-            <Field key={key} label={label}>
+            <Field key={key} entryId={entryId} label={label}>
               <Input
                 value={form.measurements[key]}
                 onChange={(e) => patchMeasurement(key, e.target.value)}
@@ -656,20 +694,20 @@ export default function StewardSeFormPage() {
         </h2>
         <div className="flex flex-wrap gap-4">
           <Radio
-            name="bite"
+            name={seRadioName(entryId, "bite")}
             checked={form.bite === "correct_scissor"}
             onChange={() => patchForm("bite", "correct_scissor")}
             label="Correct scissor bite"
           />
           <Radio
-            name="bite"
+            name={seRadioName(entryId, "bite")}
             checked={form.bite === "other"}
             onChange={() => patchForm("bite", "other")}
             label="Other"
           />
         </div>
         {form.bite === "other" && (
-          <Field label="Other details">
+          <Field entryId={entryId} label="Other details">
             <Input
               value={form.bite_other}
               onChange={(e) => patchForm("bite_other", e.target.value)}
@@ -683,6 +721,9 @@ export default function StewardSeFormPage() {
           Overall appearance and behavior
         </h2>
         <Textarea
+          id={seFieldId(entryId, "overall appearance")}
+          name={seFieldId(entryId, "overall appearance")}
+          autoComplete="off"
           rows={4}
           value={form.overall_appearance}
           onChange={(e) => patchForm("overall_appearance", e.target.value)}
@@ -695,6 +736,7 @@ export default function StewardSeFormPage() {
           Detailed ratings
         </h2>
         <OptionRow
+          entryId={entryId}
           label="Head shape"
           options={HEAD_SHAPE_OPTIONS}
           labels={HEAD_LABELS}
@@ -702,6 +744,7 @@ export default function StewardSeFormPage() {
           onChange={(v) => patchForm("head_shape", v)}
         />
         <OptionRow
+          entryId={entryId}
           label="Cheek bone"
           options={CHEEK_BONE_OPTIONS}
           labels={CHEEK_LABELS}
@@ -709,6 +752,7 @@ export default function StewardSeFormPage() {
           onChange={(v) => patchForm("cheek_bone", v)}
         />
         <OptionRow
+          entryId={entryId}
           label="Bone strength"
           options={BONE_STRENGTH_OPTIONS}
           labels={BONE_LABELS}
@@ -716,6 +760,7 @@ export default function StewardSeFormPage() {
           onChange={(v) => patchForm("bone_strength", v)}
         />
         <OptionRow
+          entryId={entryId}
           label="General behavior"
           options={BEHAVIOR_OPTIONS}
           labels={BEH_LABELS}
@@ -729,13 +774,14 @@ export default function StewardSeFormPage() {
           Gunfire & result
         </h2>
         <OptionRow
+          entryId={entryId}
           label="Reaction to gunfire"
           options={GUNFIRE_OPTIONS}
           labels={GUN_LABELS}
           value={form.gunfire}
           onChange={(v) => patchForm("gunfire", v)}
         />
-        <Field label="Comments">
+        <Field entryId={entryId} label="Comments">
           <Input
             value={form.comments}
             onChange={(e) => patchForm("comments", e.target.value)}
@@ -743,13 +789,13 @@ export default function StewardSeFormPage() {
         </Field>
         <div className="flex gap-4">
           <Radio
-            name="final"
+            name={seRadioName(entryId, "final")}
             checked={form.final_result === "pass"}
             onChange={() => patchForm("final_result", "pass")}
             label="PASS / Bestanden"
           />
           <Radio
-            name="final"
+            name={seRadioName(entryId, "final")}
             checked={form.final_result === "fail"}
             onChange={() => patchForm("final_result", "fail")}
             label="FAIL / Nicht bestanden"
@@ -757,7 +803,7 @@ export default function StewardSeFormPage() {
         </div>
         <div className="space-y-1.5">
           <Label
-            htmlFor="se-field-rating-formwert"
+            htmlFor={seFieldId(entryId, "rating formwert")}
             className="text-xs text-sss-text-muted"
           >
             Rating (Formwert)
@@ -772,7 +818,7 @@ export default function StewardSeFormPage() {
             }
           >
             <SelectTrigger
-              id="se-field-rating-formwert"
+              id={seFieldId(entryId, "rating formwert")}
               aria-label="Rating (Formwert)"
             >
               <SelectValue placeholder="Select rating" />
@@ -792,19 +838,19 @@ export default function StewardSeFormPage() {
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Judge's signature">
+          <Field entryId={entryId} label="Judge's signature">
             <Input
               value={form.judge_signature}
               onChange={(e) => patchForm("judge_signature", e.target.value)}
             />
           </Field>
-          <Field label="Event secretary">
+          <Field entryId={entryId} label="Event secretary">
             <Input
               value={form.event_secretary}
               onChange={(e) => patchForm("event_secretary", e.target.value)}
             />
           </Field>
-          <Field label="Signature date">
+          <Field entryId={entryId} label="Signature date">
             <Input
               type="date"
               value={form.signature_date}
@@ -871,7 +917,7 @@ export default function StewardSeFormPage() {
           ) : null}
         </div>
       </div>
-    </div>
+    </form>
   );
 }
 
@@ -907,19 +953,25 @@ function SeSectionObserver({
 }
 
 function Field({
+  entryId,
   label,
   children,
 }: {
+  entryId: string;
   label: string;
-  children: ReactElement<{ id?: string }>;
+  children: ReactElement<{
+    id?: string;
+    name?: string;
+    autoComplete?: string;
+  }>;
 }) {
-  const id = `se-field-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  const id = seFieldId(entryId, label);
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id} className="text-xs text-sss-text-muted">
         {label}
       </Label>
-      {cloneElement(children, { id })}
+      {cloneElement(children, { id, name: id, autoComplete: "off" })}
     </div>
   );
 }
@@ -949,6 +1001,7 @@ function Radio({
         name={name}
         checked={checked}
         onChange={onChange}
+        autoComplete="off"
         className="accent-sss-accent"
       />
       {label}
@@ -957,12 +1010,14 @@ function Radio({
 }
 
 function OptionRow<T extends string>({
+  entryId,
   label,
   options,
   labels,
   value,
   onChange,
 }: {
+  entryId: string;
   label: string;
   options: readonly T[];
   labels: Record<T, string>;
@@ -976,7 +1031,7 @@ function OptionRow<T extends string>({
         {options.map((opt) => (
           <Radio
             key={opt}
-            name={label}
+            name={seRadioName(entryId, label)}
             checked={value === opt}
             onChange={() => onChange(opt)}
             label={labels[opt]}

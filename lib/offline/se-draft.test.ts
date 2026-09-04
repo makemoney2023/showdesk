@@ -45,6 +45,12 @@ describe("recoverable SE drafts", () => {
         evaluation(),
       ),
     ).toBe(false);
+    expect(
+      shouldRestoreSeDraft(
+        { ...localDraft(), entryId: "entry-other" },
+        evaluation(),
+      ),
+    ).toBe(false);
   });
 
   it("fingerprints nested measurement changes", () => {

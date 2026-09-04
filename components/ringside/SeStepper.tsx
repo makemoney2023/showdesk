@@ -52,7 +52,7 @@ export function SeStepper({
             </a>
           </Button>
         ) : (
-          <Button variant="outline" size="sm" disabled>
+          <Button type="button" variant="outline" size="sm" disabled>
             <ChevronLeft className="h-4 w-4" aria-hidden />
             Previous
           </Button>
@@ -65,7 +65,7 @@ export function SeStepper({
             </a>
           </Button>
         ) : (
-          <Button variant="outline" size="sm" disabled>
+          <Button type="button" variant="outline" size="sm" disabled>
             Next
             <ChevronRight className="h-4 w-4" aria-hidden />
           </Button>
