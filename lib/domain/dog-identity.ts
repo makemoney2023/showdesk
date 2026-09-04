@@ -101,6 +101,25 @@ export function entriesForDog<
   );
 }
 
+/** Prefer this appearance's photo, then any sibling of the same dog. */
+export function photoSourceForDog<
+  T extends {
+    dog_id?: string;
+    id: string;
+    show_id: string;
+    zb_number?: string;
+    microchip?: string;
+    photo_path?: string;
+  },
+>(entries: T[], entry: T): T | undefined {
+  const siblings = entriesForDog(entries, entry);
+  const hasPhoto = (item: T) => Boolean(item.photo_path?.trim());
+  return (
+    siblings.find((item) => item.id === entry.id && hasPhoto(item)) ??
+    siblings.find(hasPhoto)
+  );
+}
+
 export function conformationDaysForDog<
   T extends {
     dog_id?: string;

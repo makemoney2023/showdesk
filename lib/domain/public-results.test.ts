@@ -123,6 +123,31 @@ describe("projection", () => {
     ]);
   });
 
+  it("shares a sibling photo onto the published SE result page", () => {
+    const rex = store.entries[0]!;
+    const withPhotoOnSibling = {
+      ...store,
+      entries: [
+        { ...rex, photo_path: undefined },
+        {
+          ...rex,
+          id: "sample-rex-sat",
+          event_kind: "conformation" as const,
+          photo_path: "sample-show/sample-rex-sat.jpg",
+        },
+        ...store.entries.slice(1),
+      ],
+    };
+    const found = getPublishedDog(
+      withPhotoOnSibling,
+      "tnrk-rcc-national-sieger-show-2026-09-04",
+      "101-rex-vom-blacksage",
+    );
+    expect(found?.dog.photoPath).toBe("sample-show/sample-rex-sat.jpg");
+    expect(found?.dog.photoHref).toContain("/api/public/photos/sample-rex-sat");
+    expect(found?.dog.entryId).toBe("sample-rex");
+  });
+
   it("shares SE health clearances onto the conformation page for the same dog", () => {
     const rex = store.entries[0]!;
     const withSeSibling = {

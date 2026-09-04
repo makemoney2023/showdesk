@@ -4,6 +4,7 @@ import {
   buildDogAppearances,
   conformationDaysForDog,
   identityFromEntry,
+  photoSourceForDog,
   seConformationAsterisk,
   syncIdentityToDog,
 } from "./dog-identity";
@@ -123,6 +124,17 @@ describe("dog identity", () => {
     expect(conformationDaysForDog(entries, entries[0], weekend)).toEqual([
       "saturday",
     ]);
+  });
+
+  it("uses a sibling photo when this appearance has none", () => {
+    const se = entry({ id: "se", dog_id: "dog-1", event_kind: "se" });
+    const sat = entry({
+      id: "sat",
+      dog_id: "dog-1",
+      photo_path: "show-1/sat.jpg",
+    });
+    expect(photoSourceForDog([se, sat], se)?.id).toBe("sat");
+    expect(photoSourceForDog([se, sat], sat)?.id).toBe("sat");
   });
 
   it("never copies a sibling's photo path during identity sync", () => {

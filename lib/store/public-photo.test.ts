@@ -24,6 +24,34 @@ describe("publishedEntryForPhoto", () => {
     ).toBeNull();
   });
 
+  it("serves a sibling photo when the published row has none", () => {
+    const rex = store.entries[0]!;
+    const withPhotoOnSibling = {
+      ...store,
+      entries: [
+        { ...rex, photo_path: undefined },
+        {
+          ...rex,
+          id: "sample-rex-sat",
+          event_kind: "conformation" as const,
+          photo_path: "sample-show/sample-rex-sat.jpg",
+        },
+        ...store.entries.slice(1),
+      ],
+    };
+    const found = publishedEntryForPhoto(
+      withPhotoOnSibling,
+      "sample-show",
+      "sample-rex-sat",
+    );
+    expect(found?.entry.id).toBe("sample-rex-sat");
+    expect(found?.entry.photo_path).toBe("sample-show/sample-rex-sat.jpg");
+    expect(
+      publishedEntryForPhoto(withPhotoOnSibling, "sample-show", "sample-rex")
+        ?.entry.id,
+    ).toBe("sample-rex-sat");
+  });
+
   it("rejects a path that does not belong to the entry", () => {
     const tampered = {
       ...store,
