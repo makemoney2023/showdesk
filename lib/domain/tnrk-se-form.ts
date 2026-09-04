@@ -181,6 +181,16 @@ function measurementsFilled(measurements: TnrkSeMeasurements): boolean {
   return Object.values(measurements).some((value) => asTrimmedText(value) !== "");
 }
 
+/** True when the form has measurements, appearance, or comments to print. */
+export function seFormHasPrintableOverlay(form: unknown): boolean {
+  const normalized = normalizeTnrkSeForm(form);
+  return (
+    measurementsFilled(normalized.measurements) ||
+    Boolean(normalized.overall_appearance) ||
+    Boolean(normalized.comments)
+  );
+}
+
 /** Coerce a stored/partial SE row into a complete form (legacy JSON included). */
 export function normalizeTnrkSeForm(input: unknown): TnrkSeForm {
   const empty = createEmptyTnrkSeForm();

@@ -48,6 +48,7 @@ import { BackLink } from "@/components/layout/BackLink";
 import { EmptyDesk } from "@/components/desk/EmptyDesk";
 import { DogPhotoField } from "@/components/roster/DogPhotoField";
 import { dogPhotoHref } from "@/lib/domain/dog-photo";
+import { tnrkSePdfHref } from "@/lib/domain/review-queue-layout";
 import {
   clearRecoverableSeDraft,
   readRecoverableSeDraft,
@@ -437,51 +438,32 @@ function StewardSeForm({
   }
 
   async function previewPdf() {
-    if (!showId || !form) {
+    if (!showId || !form || !evaluation) {
       setActionError(true);
       setActionMsg("Form is still loading — wait a moment and try again");
       return;
     }
-    const nextForm =
-      judgePick && !form.judge.trim()
-        ? { ...form, judge: judgePick }
-        : form;
-    const previewWin = window.open("about:blank", "_blank");
+    const href = tnrkSePdfHref(showId, evaluation.id, {
+      preview: true,
+      cacheBust: String(Date.now()),
+    });
+    const previewWin = window.open(href, "_blank");
+    if (!previewWin) {
+      setActionError(true);
+      setActionMsg("Popup blocked — allow popups to preview the PDF");
+      return;
+    }
     setActionError(false);
     setActionMsg("Building PDF preview…");
-    void save(false);
-    try {
-      const res = await fetch("/api/pdf/tnrk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          kind: "se",
-          show_id: showId,
-          evaluation_id: evaluation?.id,
-          form: nextForm,
-          preview: true,
-        }),
-      });
-      if (!res.ok) {
-        previewWin?.close();
-        setActionError(true);
-        setActionMsg("PDF preview failed");
-        return;
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      if (previewWin && !previewWin.closed) {
-        previewWin.location.href = url;
-      } else {
-        window.open(url, "_blank", "noopener");
-      }
-      setActionError(false);
-      setActionMsg("PDF preview ready");
-    } catch {
-      previewWin?.close();
-      setActionError(true);
-      setActionMsg("PDF preview failed");
+    await save(false);
+    const fresh = tnrkSePdfHref(showId, evaluation.id, {
+      preview: true,
+      cacheBust: String(Date.now()),
+    });
+    if (!previewWin.closed) {
+      previewWin.location.href = fresh;
     }
+    setActionMsg("PDF preview ready");
   }
 
   if (!form || !entry) {

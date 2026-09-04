@@ -5,11 +5,11 @@ import { buildTnrkAwardPdf } from "@/lib/pdf/tnrk-award-pdf";
 import { buildTnrkCritiquePdfForRecords } from "@/lib/pdf/tnrk-critique-from-records";
 import { mergePdfDocuments } from "@/lib/pdf/merge-pdfs";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
+import { type TnrkSeForm } from "@/lib/domain/tnrk-se-form";
 import {
-  mergeSeFormPreferFilled,
-  normalizeTnrkSeForm,
-  type TnrkSeForm,
-} from "@/lib/domain/tnrk-se-form";
+  resolveSeEvaluationForPdf,
+  resolveSeFormForPdf,
+} from "@/lib/domain/se-pdf-form";
 import { resolvePdfJudge } from "@/lib/domain/show-judges";
 import {
   DRAFT_PDF_PREVIEW_REQUIRED,
@@ -65,11 +65,21 @@ export async function GET(request: Request) {
       );
       if (!entry) continue;
       if (parsed.doc === "se") {
-        const evaluation = (store.se_evaluations ?? []).find(
-          (item) => item.entry_id === entry.id && item.show_id === showId,
+        const evaluation = resolveSeEvaluationForPdf(
+          (store.se_evaluations ?? []).filter((item) => item.show_id === showId),
+          store.entries.filter((item) => item.show_id === showId),
+          entry,
         );
         if (!evaluation || !canPrintSe(evaluation.status)) continue;
-        parts.push(await buildTnrkSePdf(normalizeTnrkSeForm(evaluation.form)));
+        parts.push(
+          await buildTnrkSePdf(
+            resolveSeFormForPdf({
+              evaluation,
+              evaluations: store.se_evaluations ?? [],
+              entries: store.entries,
+            }),
+          ),
+        );
       } else {
         const critique = primaryCritiqueForEntry(
           store.critiques,
@@ -128,7 +138,13 @@ export async function GET(request: Request) {
         { status: 403 },
       );
     }
-    const pdfBytes = await buildTnrkSePdf(normalizeTnrkSeForm(evaluation.form));
+    const pdfBytes = await buildTnrkSePdf(
+      resolveSeFormForPdf({
+        evaluation,
+        evaluations: store.se_evaluations ?? [],
+        entries: store.entries,
+      }),
+    );
     return pdfResponse(
       pdfBytes,
       `tnrk-se-${evaluation.entry_id}.pdf`,
@@ -160,8 +176,10 @@ export async function GET(request: Request) {
       );
     }
 
-    const se = (store.se_evaluations ?? []).find(
-      (e) => e.entry_id === entry.id && e.show_id === showId,
+    const se = resolveSeEvaluationForPdf(
+      (store.se_evaluations ?? []).filter((e) => e.show_id === showId),
+      store.entries.filter((e) => e.show_id === showId),
+      entry,
     );
     const pdfBytes = await buildTnrkCritiquePdfForRecords({
       show,
@@ -190,8 +208,10 @@ export async function GET(request: Request) {
     if (!entry) {
       return NextResponse.json({ error: "Entry not found" }, { status: 404 });
     }
-    const se = (store.se_evaluations ?? []).find(
-      (e) => e.entry_id === entry.id && e.show_id === showId,
+    const se = resolveSeEvaluationForPdf(
+      (store.se_evaluations ?? []).filter((e) => e.show_id === showId),
+      store.entries.filter((e) => e.show_id === showId),
+      entry,
     );
     const critique = primaryCritiqueForEntry(
       store.critiques,
@@ -273,7 +293,12 @@ export async function POST(request: Request) {
       )
     : undefined;
   const pdfBytes = await buildTnrkSePdf(
-    mergeSeFormPreferFilled(stored?.form, body.form),
+    resolveSeFormForPdf({
+      evaluation: stored,
+      incoming: body.form,
+      evaluations: store.se_evaluations ?? [],
+      entries: store.entries,
+    }),
   );
   return pdfResponse(pdfBytes, "tnrk-se-preview.pdf");
 }

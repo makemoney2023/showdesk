@@ -148,5 +148,17 @@ test.describe("SE PDF preview", () => {
     const staleBytes = new Uint8Array(await staleClient.body());
     expect(pdfContainsText(staleBytes, "62 cm")).toBe(true);
     expect(pdfContainsText(staleBytes, "powerful head")).toBe(true);
+
+    const popupPromise = page.waitForEvent("popup");
+    await page.getByRole("button", { name: "Preview PDF" }).click();
+    const popup = await popupPromise;
+    await popup.waitForURL(/\/api\/pdf\/tnrk\?.*kind=se/);
+    expect(popup.url()).not.toContain("about:blank");
+    expect(popup.url()).toContain("preview=1");
+    const clicked = await page.request.get(popup.url());
+    expect(clicked.ok()).toBeTruthy();
+    const clickedBytes = new Uint8Array(await clicked.body());
+    expect(pdfContainsText(clickedBytes, "62 cm")).toBe(true);
+    expect(pdfContainsText(clickedBytes, "powerful head")).toBe(true);
   });
 });

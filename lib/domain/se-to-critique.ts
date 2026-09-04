@@ -4,7 +4,11 @@ import {
   openCritiqueForEntry,
 } from "@/lib/domain/entry-cascade";
 import { entriesForDog } from "@/lib/domain/dog-identity";
-import { seFormFormwert, type TnrkSeForm } from "@/lib/domain/tnrk-se-form";
+import {
+  seFormFormwert,
+  seFormHasPrintableOverlay,
+  type TnrkSeForm,
+} from "@/lib/domain/tnrk-se-form";
 import type { CritiqueRecord } from "@/lib/types";
 
 export const SE_SYNC_NOTE = "Synced from ringside SE form";
@@ -133,13 +137,19 @@ export function isUnusedSeCloneCritique(
  * same dog already has an SE-entry critique. Real audio critiques stay.
  */
 export function seEvaluationForEntry<
-  TEvaluation extends { entry_id: string },
+  TEvaluation extends {
+    entry_id: string;
+    form?: unknown;
+    status?: string;
+    updated_at?: string;
+  },
   TEntry extends {
     id: string;
     show_id: string;
     dog_id?: string;
     zb_number?: string;
     microchip?: string;
+    event_kind?: "se" | "conformation";
   },
 >(
   evaluations: TEvaluation[],
@@ -147,8 +157,35 @@ export function seEvaluationForEntry<
   entry: TEntry | undefined,
 ): TEvaluation | undefined {
   if (!entry) return undefined;
-  const ids = new Set(entriesForDog(entries, entry).map((item) => item.id));
-  return evaluations.find((evaluation) => ids.has(evaluation.entry_id));
+  const dogEntries = entriesForDog(entries, entry);
+  const ids = new Set(dogEntries.map((item) => item.id));
+  const matches = evaluations.filter((evaluation) => ids.has(evaluation.entry_id));
+  if (matches.length <= 1) return matches[0];
+
+  const seEntryIds = new Set(
+    dogEntries
+      .filter((item) => item.event_kind === "se")
+      .map((item) => item.id),
+  );
+
+  const score = (evaluation: TEvaluation) => {
+    const filled = seFormHasPrintableOverlay(evaluation.form);
+    const onSeEntry = seEntryIds.has(evaluation.entry_id);
+    const exact = evaluation.entry_id === entry.id;
+    const complete = evaluation.status === "complete";
+    return (
+      (filled ? 8 : 0) +
+      (onSeEntry ? 4 : 0) +
+      (exact ? 2 : 0) +
+      (complete ? 1 : 0)
+    );
+  };
+
+  return [...matches].sort((a, b) => {
+    const delta = score(b) - score(a);
+    if (delta !== 0) return delta;
+    return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
+  })[0];
 }
 
 export function visibleReviewCritiques<

@@ -10,6 +10,7 @@ import {
   mergeEntryIntoSeForm,
   mergeSeFormPreferFilled,
   normalizeTnrkSeForm,
+  seFormHasPrintableOverlay,
   formatSeMissingFields,
   seCompletionGaps,
   seFormFormwert,
@@ -49,6 +50,8 @@ describe("tnrk-se-form", () => {
     expect(form.measurements.weight).toBe("53");
     expect(form.measurements.chest_depth).toBe("36cm");
     expect(form.overall_appearance).toBe("Very large male, strong bones.");
+    expect(seFormHasPrintableOverlay(form)).toBe(true);
+    expect(seFormHasPrintableOverlay(createEmptyTnrkSeForm())).toBe(false);
   });
 
   it("keeps saved measurements and appearance when the client form is blank", () => {

@@ -28,6 +28,7 @@ import {
   sanitizeRosterDivisionFilter,
 } from "@/lib/domain/roster-view";
 import { primaryCritiqueForEntry } from "@/lib/domain/entry-cascade";
+import { seEvaluationForEntry } from "@/lib/domain/se-to-critique";
 import {
   printBundleDisabledReason,
   printableEntryIdsForDoc,
@@ -141,7 +142,7 @@ export default function AdminReportsPage() {
           entry.id,
           showId,
         );
-        const se = evaluations.find((e) => e.entry_id === entry.id);
+        const se = seEvaluationForEntry(evaluations, entries, entry);
         const placement = placements.find((p) => p.entry_id === entry.id);
         const documents = buildReportDocumentsForDog({
           showId,
