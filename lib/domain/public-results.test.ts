@@ -13,6 +13,7 @@ import {
   slugify,
 } from "./public-results";
 import { samplePublishedStore } from "./public-results.sample";
+import { createEmptyTnrkSeForm } from "./tnrk-se-form";
 
 describe("public results slugs", () => {
   it("slugifies umlauts and punctuation", () => {
@@ -93,6 +94,9 @@ describe("projection", () => {
     expect(rex?.dog.narrative).toBeNull();
     expect(rex?.dog.formwert).toBeNull();
     expect(rex?.dog.placement).toBe(1);
+    expect(rex?.dog.documents.map((document) => document.kind)).toEqual([
+      "award",
+    ]);
     expect(JSON.stringify(rex)).not.toContain("secret@kennel.test");
   });
 
@@ -137,6 +141,17 @@ describe("projection", () => {
       { label: "JLPP", value: "N/N" },
       { label: "NAD", value: "N/N" },
     ]);
+    expect(found?.dog.documents.map((document) => document.kind)).toEqual([
+      "critique",
+      "award",
+    ]);
+    expect(found?.dog.documents[0]?.href).toContain(
+      "/api/public/pdf?kind=critique",
+    );
+    expect(found?.dog.documents[0]?.label).toBe("Critique certificate");
+    expect(found?.dog.documents[1]?.href).toContain(
+      "/api/public/pdf?kind=award&show_id=sample-show&entry_id=sample-rex",
+    );
   });
 
   it("shares a sibling photo onto the published SE result page", () => {
@@ -201,6 +216,67 @@ describe("projection", () => {
       { label: "JLPP", value: "N/N" },
     ]);
     expect(JSON.stringify(found)).not.toMatch(/@|email|audio/i);
+  });
+
+  it("lists a sibling SE PDF and uploaded attachment on the published page", () => {
+    const rex = store.entries[0]!;
+    const form = createEmptyTnrkSeForm();
+    form.overall_appearance = "Correct medium size, strong and typey.";
+    form.comments = "Self-confident.";
+    form.final_result = "pass";
+    const withDocs = {
+      ...store,
+      entries: [
+        rex,
+        {
+          ...rex,
+          id: "sample-rex-se",
+          event_kind: "se" as const,
+          catalog_class: "standard-evaluation" as const,
+        },
+        ...store.entries.slice(1),
+      ],
+      se_evaluations: [
+        {
+          id: "sample-se-rex",
+          show_id: "sample-show",
+          entry_id: "sample-rex-se",
+          status: "draft" as const,
+          form,
+          created_at: "2026-09-04T14:00:00.000Z",
+          updated_at: "2026-09-04T16:00:00.000Z",
+        },
+      ],
+      dog_documents: [
+        {
+          id: "sample-doc-rex",
+          show_id: "sample-show",
+          dog_id: "sample-rex-se",
+          path: "sample-show/docs/sample-rex-se/sample-doc-rex.pdf",
+          filename: "clearances.pdf",
+          content_type: "application/pdf" as const,
+          created_at: "2026-09-04T12:00:00.000Z",
+        },
+      ],
+    };
+    const found = getPublishedDog(
+      withDocs,
+      "tnrk-rcc-national-sieger-show-2026-09-04",
+      "101-rex-vom-blacksage",
+    );
+    expect(found?.dog.documents.map((document) => document.kind)).toEqual([
+      "critique",
+      "se",
+      "award",
+      "attachment",
+    ]);
+    expect(found?.dog.documents.find((document) => document.kind === "se")?.href).toContain(
+      "evaluation_id=sample-se-rex",
+    );
+    expect(
+      found?.dog.documents.find((document) => document.kind === "attachment")
+        ?.filename,
+    ).toBe("clearances.pdf");
   });
 
   it("falls back to the legacy clearance line when structured health is empty", () => {

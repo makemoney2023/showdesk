@@ -185,6 +185,9 @@ export function DogResultView({
   shareText: string;
   groupUrl?: string | null;
 }) {
+  const critiquePdf = dog.documents.find(
+    (document) => document.kind === "critique",
+  );
   return (
     <main className="mx-auto max-w-3xl px-6 py-16 sm:py-20">
       <nav className="text-sm text-[#f7f4ed]/45">
@@ -254,9 +257,21 @@ export function DogResultView({
 
       {dog.narrative ? (
         <section className="mt-12 rounded-2xl border border-white/8 bg-white/[0.03] p-6 sm:p-8">
-          <h2 className="text-xs font-semibold tracking-[0.18em] text-[#c4a35a] uppercase">
-            Richterbericht — judge&rsquo;s critique
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-xs font-semibold tracking-[0.18em] text-[#c4a35a] uppercase">
+              Richterbericht — judge&rsquo;s critique
+            </h2>
+            {critiquePdf ? (
+              <a
+                href={critiquePdf.href}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm font-semibold text-[#c4a35a] hover:underline"
+              >
+                Download PDF
+              </a>
+            ) : null}
+          </div>
           <p className="mt-4 font-[family-name:var(--font-fraunces)] text-lg leading-relaxed text-[#f7f4ed]">
             {dog.narrative}
           </p>
@@ -290,51 +305,49 @@ export function DogResultView({
         </p>
       ) : null}
 
-      {dog.health.length > 0 || dog.documents.length > 0 ? (
+      {dog.health.length > 0 ? (
         <section className="mt-10">
           <h2 className="text-xs font-semibold tracking-[0.18em] text-[#c4a35a] uppercase">
-            {dog.health.length > 0
-              ? "Health clearances"
-              : "Attachments"}
+            Health clearances
           </h2>
-          {dog.health.length > 0 ? (
-            <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
-              {dog.health.map((row) => (
-                <div
-                  key={row.label}
-                  className="rounded-xl border border-white/8 px-4 py-3"
+          <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
+            {dog.health.map((row) => (
+              <div
+                key={row.label}
+                className="rounded-xl border border-white/8 px-4 py-3"
+              >
+                <dt className="text-xs tracking-wide text-[#f7f4ed]/40">
+                  {row.label}
+                </dt>
+                <dd className="mt-1 text-[#f7f4ed]">{row.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      ) : null}
+
+      {dog.documents.length > 0 ? (
+        <section className="mt-10">
+          <h2 className="text-xs font-semibold tracking-[0.18em] text-[#c4a35a] uppercase">
+            Documents
+          </h2>
+          <ul className="mt-4 space-y-2">
+            {dog.documents.map((document) => (
+              <li key={document.id}>
+                <a
+                  href={document.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-white/8 px-4 py-3 text-sm text-[#c4a35a] transition-colors hover:border-[#c4a35a]/40"
                 >
-                  <dt className="text-xs tracking-wide text-[#f7f4ed]/40">
-                    {row.label}
-                  </dt>
-                  <dd className="mt-1 text-[#f7f4ed]">{row.value}</dd>
-                </div>
-              ))}
-            </dl>
-          ) : null}
-          {dog.documents.length > 0 ? (
-            <>
-              {dog.health.length > 0 ? (
-                <h3 className="mt-6 text-xs font-semibold tracking-[0.18em] text-[#c4a35a] uppercase">
-                  Attachments
-                </h3>
-              ) : null}
-              <ul className="mt-3 space-y-2">
-                {dog.documents.map((document) => (
-                  <li key={document.id}>
-                    <a
-                      href={document.href}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-sm text-[#c4a35a] hover:underline"
-                    >
-                      {document.filename}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : null}
+                  <span>{document.label ?? document.filename}</span>
+                  <span className="shrink-0 text-xs text-[#f7f4ed]/40">
+                    {document.contentType === "application/pdf" ? "PDF" : "File"}
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
     </main>

@@ -45,6 +45,21 @@ test.describe("smoke", () => {
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "Share results" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Facebook" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Documents" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /Critique certificate/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /Award certificate/ }),
+    ).toBeVisible();
+    const pdfRes = await page.request.get(
+      "/api/public/pdf?kind=critique&show_id=sample-show&critique_id=sample-crit-rex",
+    );
+    expect(pdfRes.ok()).toBeTruthy();
+    expect(pdfRes.headers()["content-type"]).toContain("application/pdf");
+    expect((await pdfRes.body()).subarray(0, 4).toString()).toBe("%PDF");
   });
 
   test("login page loads", async ({ page }) => {

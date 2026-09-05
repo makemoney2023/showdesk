@@ -8,12 +8,20 @@ import {
 } from "./adrk-template";
 import { dogSexLabel, type DogSex } from "./class-division";
 import { publicDogPhotoHref } from "./dog-photo";
+import {
+  canPublishSePdf,
+  publicAwardPdfHref,
+  publicCritiquePdfHref,
+  publicSePdfHref,
+} from "./public-pdf";
+import { resolveSeEvaluationForPdf } from "./se-pdf-form";
 import { formatDisplayDate } from "./show-day";
 import type {
   AppStore,
   CritiqueRecord,
   PlacementRecord,
   RosterEntryRecord,
+  SeEvaluationRecord,
   Show,
 } from "@/lib/types";
 import {
@@ -97,6 +105,8 @@ export interface PublicDogResult {
     filename: string;
     href: string;
     contentType: string;
+    label?: string;
+    kind?: "critique" | "se" | "award" | "attachment";
   }>;
   health: HealthClearanceRow[];
   href: string;
@@ -167,9 +177,14 @@ export function ratingPlacementLabel(
 function documentsForEntry(
   documents: DogDocumentRecord[],
   entry: RosterEntryRecord,
+  entries: RosterEntryRecord[],
 ): PublicDogResult["documents"] {
-  // Documents store the dog key used at upload; siblings share it via dogKey.
-  const keys = new Set([entry.dog_id?.trim(), dogKey(entry)].filter(Boolean));
+  const keys = new Set<string>();
+  for (const sibling of entriesForDog(entries, entry)) {
+    if (sibling.dog_id?.trim()) keys.add(sibling.dog_id.trim());
+    keys.add(dogKey(sibling));
+    keys.add(sibling.id);
+  }
   if (keys.size === 0) return [];
   return documents
     .filter(
@@ -181,7 +196,52 @@ function documentsForEntry(
       filename: document.filename,
       href: publicDogDocumentHref(entry.show_id, document.id),
       contentType: document.content_type,
+      label: document.filename,
+      kind: "attachment" as const,
     }));
+}
+
+function officialDocumentsForEntry(
+  show: Show,
+  entry: RosterEntryRecord,
+  critique: CritiqueRecord | null,
+  placement: PlacementRecord | null,
+  evaluations: SeEvaluationRecord[],
+  entries: RosterEntryRecord[],
+): PublicDogResult["documents"] {
+  const docs: PublicDogResult["documents"] = [];
+  if (critique) {
+    docs.push({
+      id: `pdf-critique-${critique.id}`,
+      filename: `critique-${entry.armband}.pdf`,
+      href: publicCritiquePdfHref(show.id, critique.id),
+      contentType: "application/pdf",
+      label: "Critique certificate",
+      kind: "critique",
+    });
+  }
+  const se = resolveSeEvaluationForPdf(evaluations, entries, entry);
+  if (se && canPublishSePdf(se)) {
+    docs.push({
+      id: `pdf-se-${se.id}`,
+      filename: `se-${entry.armband}.pdf`,
+      href: publicSePdfHref(show.id, se.id),
+      contentType: "application/pdf",
+      label: "Standard Evaluation",
+      kind: "se",
+    });
+  }
+  if (placement) {
+    docs.push({
+      id: `pdf-award-${entry.id}`,
+      filename: `award-${entry.armband}.pdf`,
+      href: publicAwardPdfHref(show.id, entry.id),
+      contentType: "application/pdf",
+      label: "Award certificate",
+      kind: "award",
+    });
+  }
+  return docs;
 }
 
 function healthForEntry(
@@ -208,6 +268,7 @@ function toPublicDog(
   placement: PlacementRecord | null,
   documents: DogDocumentRecord[],
   entries: RosterEntryRecord[],
+  evaluations: SeEvaluationRecord[],
 ): PublicDogResult | null {
   const formwert = critique?.draft.formwert ?? null;
   const rank = placement?.placement ?? critique?.draft.placement ?? null;
@@ -245,7 +306,17 @@ function toPublicDog(
     photoHref: photoPath && photoSource
       ? publicDogPhotoHref(show.id, photoSource.id, { cacheBust: photoPath })
       : null,
-    documents: documentsForEntry(documents, entry),
+    documents: [
+      ...officialDocumentsForEntry(
+        show,
+        entry,
+        critique,
+        placement,
+        evaluations,
+        entries,
+      ),
+      ...documentsForEntry(documents, entry, entries),
+    ],
     health: healthForEntry(entries, entry),
     href: dogResultsPath(show, entry),
   };
@@ -276,6 +347,10 @@ function projectShow(store: AppStore, show: Show): PublicShowResults | null {
     (placement) => placement.show_id === show.id,
   );
 
+  const evaluations = (store.se_evaluations ?? []).filter(
+    (evaluation) => evaluation.show_id === show.id,
+  );
+
   const dogs = entries
     .map((entry) =>
       toPublicDog(
@@ -285,6 +360,7 @@ function projectShow(store: AppStore, show: Show): PublicShowResults | null {
         placementForEntry(placements, entry.id),
         store.dog_documents ?? [],
         entries,
+        evaluations,
       ),
     )
     .filter((dog): dog is PublicDogResult => Boolean(dog));
