@@ -12,7 +12,7 @@ import {
   normalizeHealthClearances,
   type DogHealthClearances,
 } from "./health-clearances";
-import { splitRegisteredName } from "./registered-name";
+import { normalizeRegisteredName, splitRegisteredName } from "./registered-name";
 import type { RosterEntryRecord } from "@/lib/types";
 
 export interface DogIdentityFields {
@@ -60,20 +60,32 @@ export function adrkClassForCatalog(
 
 /** Same animal check for rows that predate dog_id (CSV imports, older shows). */
 export function sameDogIdentity(
-  a: { zb_number?: string; microchip?: string },
-  b: { zb_number?: string; microchip?: string },
+  a: { zb_number?: string; microchip?: string; dog_name?: string },
+  b: { zb_number?: string; microchip?: string; dog_name?: string },
 ): boolean {
   const norm = (value?: string) => value?.trim().toLowerCase() ?? "";
-  const registration = norm(a.zb_number);
-  if (registration && registration === norm(b.zb_number)) return true;
-  const chip = norm(a.microchip);
-  return Boolean(chip && chip === norm(b.microchip));
+  const aRegistration = norm(a.zb_number);
+  const bRegistration = norm(b.zb_number);
+  if (aRegistration && bRegistration && aRegistration !== bRegistration) {
+    return false;
+  }
+  if (aRegistration && aRegistration === bRegistration) return true;
+
+  const aChip = norm(a.microchip);
+  const bChip = norm(b.microchip);
+  if (aChip && bChip && aChip !== bChip) return false;
+  if (aChip && aChip === bChip) return true;
+
+  const aName = normalizeRegisteredName(a.dog_name);
+  const bName = normalizeRegisteredName(b.dog_name);
+  return Boolean(aName && aName === bName);
 }
 
 export function dogKey(entry: {
   dog_id?: string;
   zb_number?: string;
   microchip?: string;
+  dog_name?: string;
   id: string;
 }): string {
   if (entry.dog_id?.trim()) return entry.dog_id.trim();
@@ -81,6 +93,8 @@ export function dogKey(entry: {
   if (registration) return `reg:${registration}`;
   const chip = entry.microchip?.trim().toLowerCase();
   if (chip) return `chip:${chip}`;
+  const name = normalizeRegisteredName(entry.dog_name);
+  if (name) return `name:${name}`;
   return `entry:${entry.id}`;
 }
 
@@ -91,6 +105,7 @@ export function entriesForDog<
     show_id: string;
     zb_number?: string;
     microchip?: string;
+    dog_name?: string;
   },
 >(entries: T[], entry: T): T[] {
   const key = dogKey(entry);
@@ -109,6 +124,7 @@ export function photoSourceForDog<
     show_id: string;
     zb_number?: string;
     microchip?: string;
+    dog_name?: string;
     photo_path?: string;
   },
 >(entries: T[], entry: T): T | undefined {
@@ -127,6 +143,7 @@ export function conformationDaysForDog<
     show_id: string;
     zb_number?: string;
     microchip?: string;
+    dog_name?: string;
     event_kind?: CatalogEventKind;
     competition_day?: string;
   },

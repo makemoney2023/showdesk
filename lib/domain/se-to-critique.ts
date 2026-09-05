@@ -185,6 +185,7 @@ export function critiqueForReportEntry<
     dog_id?: string;
     zb_number?: string;
     microchip?: string;
+    dog_name?: string;
     event_kind?: "se" | "conformation";
   },
 >(
@@ -224,6 +225,7 @@ export function seEvaluationForEntry<
     dog_id?: string;
     zb_number?: string;
     microchip?: string;
+    dog_name?: string;
     event_kind?: "se" | "conformation";
   },
 >(
@@ -278,6 +280,7 @@ export function visibleReviewCritiques<
     dog_id?: string;
     zb_number?: string;
     microchip?: string;
+    dog_name?: string;
     event_kind?: "se" | "conformation";
   },
 >(critiques: TCritique[], entries: TEntry[]): TCritique[] {
@@ -306,6 +309,7 @@ export function conformationSiblingIds<
     dog_id?: string;
     zb_number?: string;
     microchip?: string;
+    dog_name?: string;
     event_kind?: "se" | "conformation";
   },
 >(entries: T[], seEntry: T): string[] {
@@ -325,6 +329,7 @@ export function syncSeIntoDogCritiques(
     dog_id?: string;
     zb_number?: string;
     microchip?: string;
+    dog_name?: string;
     event_kind?: "se" | "conformation";
   }>,
   showId: string,

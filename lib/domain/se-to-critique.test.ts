@@ -207,6 +207,58 @@ describe("se-to-critique", () => {
     expect(next[0]?.draft.narrative).toContain("Updated after recall");
   });
 
+  it("syncs SE #4 onto conformation #22 by dog name", () => {
+    const form = createEmptyTnrkSeForm();
+    form.overall_appearance = "SE notes for Calendar Girl.";
+    form.final_result = "pass";
+    const saturday = baseCritique({
+      id: "c-sat-22",
+      entry_id: "sat-22",
+      transcript: "Judge audio narrative",
+      draft: {
+        narrative: "Judge audio narrative",
+        formwert: "V",
+        placement: null,
+        titles: [],
+        draftAssist: { note: "Draft assist only" },
+      },
+    });
+    const next = syncSeIntoDogCritiques(
+      [saturday],
+      [
+        {
+          id: "se-4",
+          show_id: "s1",
+          dog_name: "Calendar Girl",
+          event_kind: "se",
+        },
+        {
+          id: "sat-22",
+          show_id: "s1",
+          dog_name: "AM CH Calendar Girl IGP1",
+          event_kind: "conformation",
+        },
+        {
+          id: "sat-4",
+          show_id: "s1",
+          dog_name: "Other Dog",
+          event_kind: "conformation",
+        },
+      ],
+      "s1",
+      "se-4",
+      form,
+      { force: true, newId: () => "c-se", now: "t" },
+    );
+    expect(next.map((critique) => critique.entry_id).sort()).toEqual([
+      "sat-22",
+      "se-4",
+    ]);
+    expect(
+      next.find((critique) => critique.entry_id === "sat-22")?.draft.narrative,
+    ).toContain("SE notes for Calendar Girl");
+  });
+
   it("creates one review draft for the SE appearance, not conformation clones", () => {
     const form = createEmptyTnrkSeForm();
     form.overall_appearance = "Imported roster dog.";
@@ -471,6 +523,64 @@ describe("se-to-critique", () => {
         "s1",
       )?.id,
     ).toBe("c-sat");
+  });
+
+  it("carries SE #4 onto conformation #22 by dog name, not armband", () => {
+    const seCritique = baseCritique({
+      id: "c-se-4",
+      entry_id: "se-4",
+      transcript: "Ringside SE form",
+      draft: {
+        narrative: "SE notes for Calendar Girl",
+        formwert: "V",
+        placement: null,
+        titles: [],
+        draftAssist: { note: SE_SYNC_NOTE },
+      },
+    });
+    const entries = [
+      {
+        id: "se-4",
+        show_id: "s1",
+        armband: "4",
+        dog_name: "AM CH Calendar Girl IGP1",
+        event_kind: "se" as const,
+      },
+      {
+        id: "sat-22",
+        show_id: "s1",
+        armband: "22",
+        dog_name: "Calendar Girl",
+        event_kind: "conformation" as const,
+      },
+      {
+        id: "sat-4",
+        show_id: "s1",
+        armband: "4",
+        dog_name: "Other Dog",
+        event_kind: "conformation" as const,
+      },
+    ];
+    expect(
+      critiqueForReportEntry([seCritique], entries, entries[1], "s1")?.id,
+    ).toBe("c-se-4");
+    expect(
+      critiqueForReportEntry([seCritique], entries, entries[2], "s1")?.id,
+    ).toBeUndefined();
+    expect(
+      seEvaluationForEntry(
+        [{ entry_id: "se-4", status: "complete" as const }],
+        entries,
+        entries[1],
+      )?.entry_id,
+    ).toBe("se-4");
+    expect(
+      seEvaluationForEntry(
+        [{ entry_id: "se-4", status: "complete" as const }],
+        entries,
+        entries[2],
+      ),
+    ).toBeUndefined();
   });
 
   it("finds the SE evaluation from a conformation sibling", () => {

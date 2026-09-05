@@ -111,6 +111,16 @@ function joinTitles(...groups: Array<string | undefined>): string {
   return out.join(" ");
 }
 
+/** Registered name only, lowercased, for matching weekend appearances. */
+export function normalizeRegisteredName(name?: string): string {
+  const trimmed = name?.trim() ?? "";
+  if (!trimmed) return "";
+  return splitRegisteredName({ dog_name: trimmed })
+    .dog_name.trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
 /** Move leading/trailing title tokens out of the registered name. */
 export function splitRegisteredName(input: {
   dog_name: string;

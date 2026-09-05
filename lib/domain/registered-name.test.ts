@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { formatTitlesLine, splitRegisteredName } from "./registered-name";
+import {
+  formatTitlesLine,
+  normalizeRegisteredName,
+  splitRegisteredName,
+} from "./registered-name";
 
 describe("registered name", () => {
   it("keeps a clean registered name untouched", () => {
@@ -48,6 +52,15 @@ describe("registered name", () => {
       prefix_titles: "",
       suffix_titles: "",
     });
+  });
+
+  it("normalizes titled and untitled names for matching", () => {
+    expect(normalizeRegisteredName("AM CH Calendar Girl IGP1")).toBe(
+      "calendar girl",
+    );
+    expect(normalizeRegisteredName("Calendar Girl")).toBe("calendar girl");
+    expect(normalizeRegisteredName("  Calendar   Girl  ")).toBe("calendar girl");
+    expect(normalizeRegisteredName("")).toBe("");
   });
 
   it("formats prefix and suffix for roster display", () => {

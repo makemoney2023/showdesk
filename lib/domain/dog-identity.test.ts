@@ -3,8 +3,11 @@ import { showWeekendDays } from "./show-weekend";
 import {
   buildDogAppearances,
   conformationDaysForDog,
+  dogKey,
+  entriesForDog,
   identityFromEntry,
   photoSourceForDog,
+  sameDogIdentity,
   seConformationAsterisk,
   syncIdentityToDog,
 } from "./dog-identity";
@@ -107,6 +110,54 @@ describe("dog identity", () => {
     expect(seConformationAsterisk(["saturday", "sunday"])).toMatch(/both|and/i);
   });
 
+  it("links appearances by registered name when ids and numbers are missing", () => {
+    expect(
+      sameDogIdentity(
+        { dog_name: "AM CH Calendar Girl IGP1" },
+        { dog_name: "Calendar Girl" },
+      ),
+    ).toBe(true);
+    expect(
+      sameDogIdentity(
+        { dog_name: "Calendar Girl", zb_number: "AKC-1" },
+        { dog_name: "Calendar Girl", zb_number: "AKC-2" },
+      ),
+    ).toBe(false);
+    expect(
+      sameDogIdentity({ dog_name: "Calendar Girl" }, { dog_name: "Other Dog" }),
+    ).toBe(false);
+    expect(sameDogIdentity({ dog_name: "" }, { dog_name: "" })).toBe(false);
+    expect(dogKey({ id: "se-4", dog_name: "Calendar Girl" })).toBe(
+      "name:calendar girl",
+    );
+    expect(dogKey({ id: "sat-22", dog_name: "AM CH Calendar Girl IGP1" })).toBe(
+      "name:calendar girl",
+    );
+  });
+
+  it("does not treat matching armbands as the same dog", () => {
+    const se = entry({
+      id: "se-4",
+      armband: "4",
+      dog_name: "Calendar Girl",
+      zb_number: "",
+      microchip: "",
+      event_kind: "se",
+    });
+    const other = entry({
+      id: "sat-4",
+      armband: "4",
+      dog_name: "Other Dog",
+      zb_number: "",
+      microchip: "",
+      event_kind: "conformation",
+    });
+    expect(sameDogIdentity(se, other)).toBe(false);
+    expect(entriesForDog([se, other], se).map((item) => item.id)).toEqual([
+      "se-4",
+    ]);
+  });
+
   it("links appearances by registration when dog_id is missing (CSV imports)", () => {
     const weekend = showWeekendDays("2026-09-05");
     const entries = [
@@ -124,6 +175,36 @@ describe("dog identity", () => {
     expect(conformationDaysForDog(entries, entries[0], weekend)).toEqual([
       "saturday",
     ]);
+  });
+
+  it("links SE #4 to conformation #22 by name when numbers differ", () => {
+    const weekend = showWeekendDays("2026-09-05");
+    const entries = [
+      entry({
+        id: "se-4",
+        armband: "4",
+        dog_name: "AM CH Calendar Girl IGP1",
+        zb_number: "",
+        microchip: "",
+        event_kind: "se",
+        competition_day: weekend.se,
+      }),
+      entry({
+        id: "sat-22",
+        armband: "22",
+        dog_name: "Calendar Girl",
+        zb_number: "",
+        microchip: "",
+        event_kind: "conformation",
+        competition_day: weekend.saturday,
+      }),
+    ];
+    expect(conformationDaysForDog(entries, entries[0], weekend)).toEqual([
+      "saturday",
+    ]);
+    expect(entriesForDog(entries, entries[1]).map((item) => item.id).sort()).toEqual(
+      ["sat-22", "se-4"],
+    );
   });
 
   it("uses a sibling photo when this appearance has none", () => {
