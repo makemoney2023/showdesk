@@ -35,3 +35,20 @@ export function reportRowMatchesFilter(
   if (filter === "all") return true;
   return reportDeskRowKind(input).includes(filter);
 }
+
+/** Reports date chips. `"all"` keeps SE + Saturday + Sunday visible. */
+export function reportRowMatchesDay(
+  entry: { competition_day?: string },
+  selectedDay: string,
+): boolean {
+  if (!selectedDay || selectedDay === "all") return true;
+  return (entry.competition_day ?? "") === selectedDay;
+}
+
+/** Search looks across the weekend; date chips apply only while browsing. */
+export function reportBrowseDay(
+  selectedDay: string,
+  search: string,
+): string {
+  return search.trim() ? "all" : selectedDay;
+}

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CheckCircle2, CircleDashed, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { CompetitionDayFilter } from "@/components/desk/CompetitionDayFilter";
 import { DogAvatar } from "@/components/desk/DogAvatar";
 import { DogSearchField } from "@/components/desk/DogSearchField";
 import { DivisionFilterChips } from "@/components/desk/DivisionFilterChips";
@@ -23,13 +24,18 @@ import {
   divisionsWithDogs,
   entryMatchesDivision,
 } from "@/lib/domain/class-division";
-import { catalogCompetitionLabel } from "@/lib/domain/catalog-competition";
+import {
+  catalogCompetitionLabel,
+  competitionDaysWithEntries,
+} from "@/lib/domain/catalog-competition";
 import {
   compareRosterEntries,
   sanitizeRosterDivisionFilter,
 } from "@/lib/domain/roster-view";
-import { primaryCritiqueForEntry } from "@/lib/domain/entry-cascade";
-import { seEvaluationForEntry } from "@/lib/domain/se-to-critique";
+import {
+  critiqueForReportEntry,
+  seEvaluationForEntry,
+} from "@/lib/domain/se-to-critique";
 import {
   printBundleDisabledReason,
   printableEntryIdsForDoc,
@@ -38,6 +44,8 @@ import {
   tnrkPrintBundleHref,
 } from "@/lib/domain/print-documents";
 import {
+  reportBrowseDay,
+  reportRowMatchesDay,
   reportRowMatchesFilter,
   type ReportDeskFilter,
 } from "@/lib/domain/report-filters";
@@ -64,6 +72,7 @@ export default function AdminReportsPage() {
   const [hasShow, setHasShow] = useState(true);
   const [filter, setFilter] = useState<ReportDeskFilter>("all");
   const [search, setSearch] = useState("");
+  const [selectedDay, setSelectedDay] = useState("all");
   const [divisionFilter, setDivisionFilter] = useState("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -138,9 +147,10 @@ export default function AdminReportsPage() {
     return [...entries]
       .toSorted((a, b) => compareRosterEntries(a, b, "class"))
       .map((entry) => {
-        const critique = primaryCritiqueForEntry(
+        const critique = critiqueForReportEntry(
           critiques,
-          entry.id,
+          entries,
+          entry,
           showId,
         );
         const se = seEvaluationForEntry(evaluations, entries, entry);
@@ -161,14 +171,25 @@ export default function AdminReportsPage() {
       });
   }, [showId, entries, critiques, evaluations, placements]);
 
-  const divisions = divisionsWithDogs(entries);
+  const days = competitionDaysWithEntries(entries);
+  const activeDay =
+    selectedDay === "all" || days.some((day) => day.day === selectedDay)
+      ? selectedDay
+      : "all";
+  const browseDay = reportBrowseDay(activeDay, search);
+  const dayEntries =
+    browseDay === "all"
+      ? entries
+      : entries.filter((entry) => reportRowMatchesDay(entry, browseDay));
+  const divisions = divisionsWithDogs(dayEntries);
   const activeDivisionFilter = sanitizeRosterDivisionFilter(
     divisionFilter,
-    entries,
+    dayEntries,
   );
   const visibleRows = rows.filter(
     (row) =>
       dogRecordMatchesSearch(search, row.entry) &&
+      reportRowMatchesDay(row.entry, browseDay) &&
       entryMatchesDivision(row.entry, activeDivisionFilter) &&
       reportRowMatchesFilter(
         {
@@ -215,7 +236,7 @@ export default function AdminReportsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Reports"
-        description="Search dogs, then view, download, or print approved SE forms and certificates."
+        description="Filter by date, then view, download, or print approved SE forms and certificates."
         actions={
           <Button variant="outline" onClick={() => void load()}>
             <RefreshCw className="h-4 w-4" />
@@ -238,11 +259,27 @@ export default function AdminReportsPage() {
       ) : (
         <div className="space-y-3">
         <div className="space-y-3">
+        {days.length > 0 ? (
+          <CompetitionDayFilter
+            days={days}
+            value={activeDay}
+            allCount={entries.length}
+            onChange={(day) => {
+              setSelectedDay(day);
+              setDivisionFilter("all");
+            }}
+          />
+        ) : null}
         <DogSearchField
           value={search}
           onChange={setSearch}
           aria-label="Search reports"
         />
+        {search.trim() ? (
+          <p className="text-xs text-sss-text-muted" role="status">
+            Showing matches from all dates
+          </p>
+        ) : null}
         <DivisionFilterChips
           divisions={divisions}
           value={activeDivisionFilter}
@@ -384,7 +421,9 @@ export default function AdminReportsPage() {
             <li className="sss-tray p-5 text-sm text-sss-text-muted">
               {search.trim()
                 ? `No dogs match “${search}”.`
-                : "No dogs match this filter."}
+                : browseDay !== "all"
+                  ? "No dogs entered on this day."
+                  : "No dogs match this filter."}
             </li>
           ) : null}
         </ul>

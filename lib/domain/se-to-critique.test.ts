@@ -3,6 +3,7 @@ import { createEmptyTnrkSeForm } from "./tnrk-se-form";
 import {
   canSyncSeIntoCritique,
   critiqueDraftFromSeForm,
+  critiqueForReportEntry,
   critiqueLetterForCertificate,
   applySeFormwert,
   mergeSeIntoCritiqueDraft,
@@ -359,6 +360,117 @@ describe("se-to-critique", () => {
     expect(
       visibleReviewCritiques([se, clone, audio], entries).map((item) => item.id),
     ).toEqual(["c-se", "c-sun"]);
+  });
+
+  it("carries the SE critique onto Saturday and Sunday report rows", () => {
+    const seCritique = baseCritique({
+      id: "c-se",
+      entry_id: "se-1",
+      transcript: "Ringside SE form",
+      draft: {
+        narrative: "SE notes",
+        formwert: "V",
+        placement: null,
+        titles: [],
+        draftAssist: { note: SE_SYNC_NOTE },
+      },
+    });
+    const entries = [
+      { id: "se-1", show_id: "s1", dog_id: "dog-1", event_kind: "se" as const },
+      {
+        id: "sat-1",
+        show_id: "s1",
+        dog_id: "dog-1",
+        event_kind: "conformation" as const,
+      },
+      {
+        id: "sun-1",
+        show_id: "s1",
+        dog_id: "dog-1",
+        event_kind: "conformation" as const,
+      },
+    ];
+    expect(
+      critiqueForReportEntry([seCritique], entries, entries[0], "s1")?.id,
+    ).toBe("c-se");
+    expect(
+      critiqueForReportEntry([seCritique], entries, entries[1], "s1")?.id,
+    ).toBe("c-se");
+    expect(
+      critiqueForReportEntry([seCritique], entries, entries[2], "s1")?.id,
+    ).toBe("c-se");
+  });
+
+  it("replaces an unused Saturday SE clone with the real SE critique", () => {
+    const seCritique = baseCritique({
+      id: "c-se",
+      entry_id: "se-1",
+      transcript: "Ringside SE form",
+      draft: {
+        narrative: "SE notes",
+        formwert: "V",
+        placement: null,
+        titles: [],
+        draftAssist: { note: SE_SYNC_NOTE },
+      },
+    });
+    const clone = baseCritique({
+      id: "c-sat-clone",
+      entry_id: "sat-1",
+      transcript: "Ringside SE form",
+      draft: seCritique.draft,
+    });
+    const entries = [
+      { id: "se-1", show_id: "s1", dog_id: "dog-1", event_kind: "se" as const },
+      {
+        id: "sat-1",
+        show_id: "s1",
+        dog_id: "dog-1",
+        event_kind: "conformation" as const,
+      },
+    ];
+    expect(
+      critiqueForReportEntry([seCritique, clone], entries, entries[1], "s1")
+        ?.id,
+    ).toBe("c-se");
+  });
+
+  it("keeps a spoken Saturday critique instead of the SE stub", () => {
+    const seCritique = baseCritique({
+      id: "c-se",
+      entry_id: "se-1",
+      transcript: "Ringside SE form",
+      draft: {
+        narrative: "SE notes",
+        formwert: "V",
+        placement: null,
+        titles: [],
+        draftAssist: { note: SE_SYNC_NOTE },
+      },
+    });
+    const saturday = baseCritique({
+      id: "c-sat",
+      entry_id: "sat-1",
+      transcript: "Judge audio narrative",
+      audio_path: "show/c-sat.webm",
+    });
+    const entries = [
+      { id: "se-1", show_id: "s1", dog_id: "dog-1", event_kind: "se" as const },
+      {
+        id: "sat-1",
+        show_id: "s1",
+        dog_id: "dog-1",
+        event_kind: "conformation" as const,
+      },
+    ];
+    expect(
+      critiqueForReportEntry(
+        [seCritique, saturday],
+        entries,
+        entries[1],
+        "s1",
+      )?.id,
+    ).toBe("c-sat");
   });
 
   it("finds the SE evaluation from a conformation sibling", () => {

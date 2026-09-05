@@ -19,6 +19,7 @@ import {
   parsePrintBundleRequest,
 } from "@/lib/domain/print-documents";
 import { primaryCritiqueForEntry } from "@/lib/domain/entry-cascade";
+import { critiqueForReportEntry } from "@/lib/domain/se-to-critique";
 import {
   catalogDivisionLabel,
   competitionDayLabel,
@@ -81,9 +82,10 @@ export async function GET(request: Request) {
           ),
         );
       } else {
-        const critique = primaryCritiqueForEntry(
+        const critique = critiqueForReportEntry(
           store.critiques,
-          entry.id,
+          store.entries.filter((item) => item.show_id === showId),
+          entry,
           showId,
         );
         if (!critique || !canPrintCertificate(critique.status)) continue;

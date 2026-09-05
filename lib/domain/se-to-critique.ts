@@ -2,6 +2,7 @@ import { createEmptyDraft, type DraftCritiqueSchema } from "@/lib/domain/adrk-te
 import {
   critiquesForEntry,
   openCritiqueForEntry,
+  primaryCritiqueForEntry,
 } from "@/lib/domain/entry-cascade";
 import { entriesForDog } from "@/lib/domain/dog-identity";
 import {
@@ -173,9 +174,43 @@ export function isUnusedSeCloneCritique(
 }
 
 /**
- * Review / desk counts hide unused SE clones on Saturday/Sunday when the
- * same dog already has an SE-entry critique. Real audio critiques stay.
+ * Reports / print: this appearance's critique, or the dog's SE critique
+ * when Saturday/Sunday has no spoken certificate of its own.
  */
+export function critiqueForReportEntry<
+  TCritique extends CritiqueRecord,
+  TEntry extends {
+    id: string;
+    show_id: string;
+    dog_id?: string;
+    zb_number?: string;
+    microchip?: string;
+    event_kind?: "se" | "conformation";
+  },
+>(
+  critiques: TCritique[],
+  entries: TEntry[],
+  entry: TEntry | undefined,
+  showId: string,
+): TCritique | undefined {
+  if (!entry) return undefined;
+  const own = primaryCritiqueForEntry(critiques, entry.id, showId) as
+    | TCritique
+    | undefined;
+  if (own && !isUnusedSeCloneCritique(own)) return own;
+
+  const seEntry = entriesForDog(entries, entry).find(
+    (item) => item.event_kind === "se",
+  );
+  if (seEntry && seEntry.id !== entry.id) {
+    const fromSe = primaryCritiqueForEntry(critiques, seEntry.id, showId) as
+      | TCritique
+      | undefined;
+    if (fromSe) return fromSe;
+  }
+  return own;
+}
+
 export function seEvaluationForEntry<
   TEvaluation extends {
     entry_id: string;
@@ -228,6 +263,10 @@ export function seEvaluationForEntry<
   })[0];
 }
 
+/**
+ * Review / desk counts hide unused SE clones on Saturday/Sunday when the
+ * same dog already has an SE-entry critique. Real audio critiques stay.
+ */
 export function visibleReviewCritiques<
   TCritique extends Pick<
     CritiqueRecord,

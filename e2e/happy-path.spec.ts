@@ -452,14 +452,36 @@ test.describe("happy path", () => {
     await expect(page.getByText(/No dogs match/)).toBeVisible();
     await page.getByRole("button", { name: "Clear search" }).click();
     await expect(
+      page.getByRole("button", { name: /All dates/ }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(
       page.getByRole("heading", { name: /Rex Happy Path/ }).first(),
     ).toBeVisible();
+    await expect(page.getByText("Standard Evaluation (SE)")).toBeVisible();
     await expect(
       page.getByText("Youth I — Male (Rüde) · Place 1"),
     ).toBeVisible();
     await expect(
       page.getByText("Youth I — Female (Hündin) · Place 1"),
     ).toBeVisible();
+    await page.getByRole("button", { name: /Friday, September 4/ }).click();
+    await expect(page.getByText("Standard Evaluation (SE)")).toBeVisible();
+    await expect(
+      page.getByText("Youth I — Male (Rüde) · Place 1"),
+    ).toHaveCount(0);
+    await page.getByRole("button", { name: /Sunday, September 6/ }).click();
+    await expect(
+      page.getByText("Youth I — Male (Rüde) · Place 2"),
+    ).toBeVisible();
+    await expect(page.getByText("Standard Evaluation (SE)")).toHaveCount(0);
+    await page.getByRole("button", { name: /Saturday, September 5/ }).click();
+    await expect(
+      page.getByText("Youth I — Male (Rüde) · Place 1"),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Youth I — Female (Hündin) · Place 1"),
+    ).toBeVisible();
+    await expect(page.getByText("Standard Evaluation (SE)")).toHaveCount(0);
     await page.getByRole("button", { name: "Select all printable" }).click();
     await expect(
       page.getByRole("link", { name: "Print selected certificates" }),
