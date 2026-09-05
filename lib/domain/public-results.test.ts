@@ -74,6 +74,35 @@ describe("projection", () => {
     expect(youth?.dogs[0]?.ratingPlacement).toBe("V1");
   });
 
+  it("uses the newest approved spoken letter when two certificates exist", () => {
+    const older = store.critiques.find((c) => c.entry_id === "sample-rex");
+    expect(older).toBeTruthy();
+    const doubled = {
+      ...store,
+      critiques: [
+        {
+          ...older!,
+          id: "sample-crit-rex-old",
+          draft: {
+            ...older!.draft,
+            narrative: "Older take that should not publish.",
+          },
+          created_at: "2026-09-04T10:00:00.000Z",
+          updated_at: "2026-09-04T10:00:00.000Z",
+          approved_at: "2026-09-04T10:00:00.000Z",
+        },
+        ...store.critiques,
+      ],
+    };
+    const rex = getPublishedDog(
+      doubled,
+      "tnrk-rcc-national-sieger-show-2026-09-04",
+      "101-rex-vom-blacksage",
+    );
+    expect(rex?.dog.narrative).toContain("Correct medium size");
+    expect(rex?.dog.narrative).not.toContain("Older take");
+  });
+
   it("omits unapproved critique text and never leaks owner email", () => {
     const dirty = {
       ...store,

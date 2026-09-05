@@ -75,7 +75,7 @@ async function installBrowserAudioMocks(page: Page) {
         this.state = "inactive";
         this.ondataavailable?.(
           new BlobEvent("dataavailable", {
-            data: new Blob(["fake-audio"], { type: "audio/webm" }),
+            data: new Blob([new Uint8Array(1024)], { type: "audio/webm" }),
           }),
         );
         this.onstop?.(new Event("stop"));

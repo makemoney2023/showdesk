@@ -1,8 +1,10 @@
+import { critiqueLetterWithoutSeSection } from "./se-to-critique";
+
 export function reviewDraftFingerprint(draft: {
   narrative: string;
   formwert: string | null;
 }): string {
-  return `${draft.narrative}\0${draft.formwert ?? ""}`;
+  return `${critiqueLetterWithoutSeSection(draft.narrative)}\0${draft.formwert ?? ""}`;
 }
 
 export function isReviewDraftDirty(

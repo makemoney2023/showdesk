@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ensureNarrativeFromTranscript,
+  fallbackWhenSttUnavailable,
   structureDraftFromTranscript,
 } from "./process-critique";
 import { mergeLiveAndBatchTranscript } from "@/lib/deepgram/transcript";
@@ -41,6 +42,23 @@ describe("ensureNarrativeFromTranscript", () => {
       "Fresh transcript",
     );
     expect(draft.narrative).toBe("Secretary edit");
+  });
+});
+
+describe("fallbackWhenSttUnavailable", () => {
+  it("uses the demo letter only when no provider is configured", () => {
+    const mock = fallbackWhenSttUnavailable({
+      hasDeepgram: false,
+      hasAssembly: false,
+    });
+    expect(mock.mock).toBe(true);
+    expect(mock.transcript).toContain("Excellent male");
+  });
+
+  it("does not invent a critique when Deepgram is configured", () => {
+    expect(
+      fallbackWhenSttUnavailable({ hasDeepgram: true, hasAssembly: false }),
+    ).toEqual({ transcript: "", mock: false });
   });
 });
 

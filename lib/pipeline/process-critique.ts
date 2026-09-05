@@ -26,8 +26,21 @@ export interface ProcessCritiqueResult {
   source: TranscriptSource;
 }
 
-const MOCK_TRANSCRIPT =
+export const MOCK_TRANSCRIPT =
   "Armband one oh one. Excellent male. Strong bone. Good proportions. Scissor bite. Movement free and powerful. Rating V.";
+
+const MIN_AUDIO_BYTES = 64;
+
+/** Demo filler only when no STT provider is configured. Never invent a letter. */
+export function fallbackWhenSttUnavailable(opts: {
+  hasDeepgram: boolean;
+  hasAssembly: boolean;
+}): { transcript: string; mock: boolean } {
+  if (!opts.hasDeepgram && !opts.hasAssembly) {
+    return { transcript: MOCK_TRANSCRIPT, mock: true };
+  }
+  return { transcript: "", mock: false };
+}
 
 function mapRatingToFormwert(text: string): AdrkFormwertCode | null {
   const lower = text.toLowerCase();
@@ -91,28 +104,39 @@ export function ensureNarrativeFromTranscript(
 export async function transcribeAudio(
   audioBase64: string | undefined,
 ): Promise<{ transcript: string; mock: boolean }> {
+  const hasAssembly = Boolean(process.env.ASSEMBLYAI_API_KEY?.trim());
+  const unavailable = () =>
+    fallbackWhenSttUnavailable({
+      hasDeepgram: hasDeepgramKey(),
+      hasAssembly,
+    });
+
   if (!audioBase64) {
-    return { transcript: MOCK_TRANSCRIPT, mock: true };
+    return unavailable();
+  }
+
+  const bytes = new Uint8Array(Buffer.from(audioBase64, "base64"));
+  if (bytes.length < MIN_AUDIO_BYTES) {
+    return { transcript: "", mock: false };
   }
 
   // Preferred: Deepgram prerecorded (batch backup after live, or sole path offline sync).
   if (hasDeepgramKey()) {
     try {
-      const bytes = new Uint8Array(Buffer.from(audioBase64, "base64"));
       const text = await transcribeWithDeepgram(
         bytes,
         sniffAudioContentType(bytes),
       );
       if (text) return { transcript: text, mock: false };
     } catch {
-      // fall through to AssemblyAI / mock
+      // fall through to AssemblyAI; never invent a mock letter
     }
   }
 
   // Legacy optional fallback.
   const apiKey = process.env.ASSEMBLYAI_API_KEY;
   if (!apiKey) {
-    return { transcript: MOCK_TRANSCRIPT, mock: true };
+    return unavailable();
   }
 
   try {
@@ -154,10 +178,10 @@ export async function transcribeAudio(
       text = data.text ?? "";
     }
 
-    if (!text) return { transcript: MOCK_TRANSCRIPT, mock: true };
+    if (!text) return unavailable();
     return { transcript: text, mock: false };
   } catch {
-    return { transcript: MOCK_TRANSCRIPT, mock: true };
+    return unavailable();
   }
 }
 

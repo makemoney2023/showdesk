@@ -29,7 +29,10 @@ import {
 import { isReviewDraftDirty } from "@/lib/domain/review-dirty";
 import { catalogCompetitionLabel } from "@/lib/domain/catalog-competition";
 import {
+  critiqueLetterWithoutSeSection,
+  isSeFormReplacementDraft,
   seEvaluationForEntry,
+  spokenCritiqueTranscript,
   visibleReviewCritiques,
 } from "@/lib/domain/se-to-critique";
 import { seFormFormwert } from "@/lib/domain/tnrk-se-form";
@@ -146,13 +149,16 @@ export default function AdminReviewPage() {
     }
     const selectedEntry = entries.find((e) => e.id === selected.entry_id);
     const se = seEvaluationForEntry(evaluations, entries, selectedEntry);
+    const spokenOrDraft = isSeFormReplacementDraft(selected.draft)
+      ? selected.draft.narrative.trim()
+      : critiqueLetterWithoutSeSection(selected.draft.narrative) ||
+        spokenCritiqueTranscript(selected);
     const seeded = {
-      ...(selected.draft.narrative.trim()
-        ? selected.draft
-        : {
-            ...selected.draft,
-            narrative: selected.transcript.trim(),
-          }),
+      ...selected.draft,
+      narrative:
+        spokenOrDraft ||
+        selected.draft.narrative.trim() ||
+        selected.transcript.trim(),
       formwert: selected.draft.formwert ?? seFormFormwert(se?.form),
     };
     setDraft(seeded);
@@ -620,9 +626,11 @@ export default function AdminReviewPage() {
                     {formatAdrkFormwert(draft.formwert ?? null)}
                   </p>
                   <p className="text-xs text-sss-text-muted">
-                    {draft.formwert
+                    {seRating
                       ? "From the ringside SE form. Recalled critiques can be updated by re-saving the SE form."
-                      : "No rating on the SE form yet — set Formwert at ringside, then save the SE form."}
+                      : draft.formwert
+                        ? "Guessed from the spoken critique — confirm against the SE form before release."
+                        : "No rating yet — set Formwert on the SE form at ringside."}
                   </p>
                 </div>
                 {showId && selectedId ? (

@@ -19,6 +19,12 @@ describe("sniffAudioContentType", () => {
       "audio/webm",
     );
   });
+
+  it("detects MP4 ftyp", () => {
+    const mp4 = new Uint8Array(12);
+    mp4.set([0x66, 0x74, 0x79, 0x70], 4);
+    expect(sniffAudioContentType(mp4)).toBe("audio/mp4");
+  });
 });
 
 describe("extractDeepgramTranscript", () => {
@@ -74,6 +80,32 @@ describe("mergeLiveAndBatchTranscript", () => {
       }),
     ).toEqual({ transcript: "mock", mock: true, source: "mock" });
   });
+
+  it("prefers a complete batch take over a live fragment", () => {
+    expect(
+      mergeLiveAndBatchTranscript({
+        live: "excellent gait",
+        batch:
+          "Large male, strong bones, excellent gait, correct croup, and a firm back. Rating very good.",
+        batchMock: false,
+      }),
+    ).toEqual({
+      transcript:
+        "Large male, strong bones, excellent gait, correct croup, and a firm back. Rating very good.",
+      mock: false,
+      source: "batch",
+    });
+  });
+
+  it("keeps live when batch is only a mock filler", () => {
+    expect(
+      mergeLiveAndBatchTranscript({
+        live: "excellent gait",
+        batch: "Armband one oh one. Excellent male.",
+        batchMock: true,
+      }),
+    ).toEqual({ transcript: "excellent gait", mock: false, source: "live" });
+  });
 });
 
 describe("deepgramListenUrl", () => {
@@ -108,5 +140,14 @@ describe("applyLiveResult", () => {
     expect(next.finals).toEqual(["Excellent male."]);
     expect(next.interim).toBe("");
     expect(next.display).toBe("Excellent male.");
+  });
+
+  it("does not append the same final twice", async () => {
+    const { applyLiveResult } = await import("./transcript");
+    const once = applyLiveResult(
+      { finals: ["Excellent male."], interim: "" },
+      { is_final: true, transcript: "Excellent male." },
+    );
+    expect(once.finals).toEqual(["Excellent male."]);
   });
 });

@@ -105,7 +105,7 @@ export function critiqueDraftFromSeForm(form: TnrkSeForm): DraftCritiqueSchema {
  * - Empty / prior SE-only drafts are replaced
  * - Audio/secretary narratives keep their text and get an updated SE section appended
  */
-function applySeFormwert(
+export function applySeFormwert(
   draft: DraftCritiqueSchema,
   form: TnrkSeForm,
 ): DraftCritiqueSchema {

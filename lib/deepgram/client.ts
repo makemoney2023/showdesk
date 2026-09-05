@@ -31,6 +31,15 @@ export function sniffAudioContentType(bytes: Uint8Array): string {
   ) {
     return "audio/webm";
   }
+  if (
+    bytes.length >= 12 &&
+    bytes[4] === 0x66 &&
+    bytes[5] === 0x74 &&
+    bytes[6] === 0x79 &&
+    bytes[7] === 0x70
+  ) {
+    return "audio/mp4";
+  }
   return "audio/webm";
 }
 
@@ -42,7 +51,7 @@ export async function grantDeepgramTemporaryToken(opts?: {
     throw new Error("DEEPGRAM_API_KEY is not set");
   }
 
-  const ttlSeconds = opts?.ttlSeconds ?? 600;
+  const ttlSeconds = opts?.ttlSeconds ?? 3600;
   const res = await fetch("https://api.deepgram.com/v1/auth/grant", {
     method: "POST",
     headers: {

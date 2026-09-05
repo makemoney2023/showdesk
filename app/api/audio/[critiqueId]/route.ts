@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { readStore, readCritiqueAudio, audioExists } from "@/lib/store";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
+import { sniffAudioContentType } from "@/lib/deepgram/client";
 
 export async function GET(
   request: Request,
@@ -28,13 +29,15 @@ export async function GET(
 
   const buf = await readCritiqueAudio(critique.audio_path);
   const asDownload = new URL(request.url).searchParams.get("download") === "1";
+  const contentType = sniffAudioContentType(new Uint8Array(buf));
+  const ext = contentType === "audio/mp4" ? "mp4" : contentType === "audio/wav" ? "wav" : "webm";
   return new NextResponse(new Uint8Array(buf), {
     headers: {
-      "Content-Type": "audio/webm",
+      "Content-Type": contentType,
       "Cache-Control": "private, no-store",
       ...(asDownload
         ? {
-            "Content-Disposition": `attachment; filename="critique-${critiqueId}.webm"`,
+            "Content-Disposition": `attachment; filename="critique-${critiqueId}.${ext}"`,
           }
         : {}),
     },
