@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { PUBLIC_SITE_ORIGIN, isPrivateVercelHost } from "@/lib/site-url";
 
 const DEMO_COOKIE = "sss-demo-session";
 
@@ -15,6 +16,18 @@ function hasSession(request: NextRequest): boolean {
 }
 
 export function middleware(request: NextRequest) {
+  const host = request.headers.get("host") ?? request.nextUrl.host;
+  if (
+    process.env.VERCEL_ENV === "production" &&
+    isPrivateVercelHost(host)
+  ) {
+    const publicUrl = new URL(
+      `${request.nextUrl.pathname}${request.nextUrl.search}`,
+      PUBLIC_SITE_ORIGIN,
+    );
+    return NextResponse.redirect(publicUrl, 308);
+  }
+
   const { pathname } = request.nextUrl;
   const isProtected =
     pathname === "/" ||
@@ -36,5 +49,12 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/admin/:path*", "/ringside", "/ringside/:path*"],
+  matcher: [
+    "/",
+    "/admin/:path*",
+    "/ringside",
+    "/ringside/:path*",
+    "/results",
+    "/results/:path*",
+  ],
 };

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Check, Copy, Link2, Share2 } from "lucide-react";
+import { publicPageUrl, rewritePrivateShareText } from "@/lib/site-url";
 
 export function ShareButtons({
   url,
@@ -15,6 +16,8 @@ export function ShareButtons({
   groupUrl?: string | null;
 }) {
   const [copied, setCopied] = useState<"link" | "post" | null>(null);
+  const shareUrl = publicPageUrl(url);
+  const shareText = rewritePrivateShareText(text);
 
   async function copy(value: string, which: "link" | "post") {
     await navigator.clipboard.writeText(value);
@@ -25,18 +28,18 @@ export function ShareButtons({
   async function nativeShare() {
     if (navigator.share) {
       try {
-        await navigator.share({ title, text, url });
+        await navigator.share({ title, text: shareText, url: shareUrl });
         return;
       } catch {
         /* user cancelled */
       }
     }
-    await copy(`${text}\n${url}`, "post");
+    await copy(`${shareText}\n${shareUrl}`, "post");
   }
 
-  const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
-  const xUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(url)}`;
-  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`${title}\n${url}`)}`;
+  const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+  const xUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(shareUrl)}`;
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`${title}\n${shareUrl}`)}`;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -84,7 +87,7 @@ export function ShareButtons({
       </a>
       <button
         type="button"
-        onClick={() => void copy(url, "link")}
+        onClick={() => void copy(shareUrl, "link")}
         className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm text-[#f7f4ed]/80 hover:border-[#c4a35a]/50"
       >
         {copied === "link" ? (
@@ -96,7 +99,7 @@ export function ShareButtons({
       </button>
       <button
         type="button"
-        onClick={() => void copy(text, "post")}
+        onClick={() => void copy(shareText, "post")}
         className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm text-[#f7f4ed]/80 hover:border-[#c4a35a]/50"
       >
         {copied === "post" ? (

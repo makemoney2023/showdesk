@@ -12,7 +12,7 @@ import {
 } from "@/lib/domain/public-results";
 import { resultShareMetadata } from "@/lib/domain/result-share-metadata";
 import { facebookGroupUrl } from "@/lib/social/facebook-results";
-import { siteUrl } from "@/lib/site-url";
+import { publicPageUrl, siteUrl } from "@/lib/site-url";
 import { readPublicResultsStore } from "@/lib/store/public-results";
 
 export const revalidate = 60;
@@ -53,7 +53,7 @@ export default async function DogResultPage({
   const store = await readPublicResultsStore();
   const found = getPublishedDog(store, showSlug, dogSlug);
   if (!found) notFound();
-  const pageUrl = `${siteUrl()}${found.dog.href}`;
+  const pageUrl = publicPageUrl(found.dog.href);
   return (
     <>
       <JsonLd data={dogResultJsonLd(found.show, found.dog)} />

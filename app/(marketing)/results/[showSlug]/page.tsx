@@ -10,7 +10,7 @@ import {
 } from "@/lib/domain/public-results";
 import { resultShareMetadata } from "@/lib/domain/result-share-metadata";
 import { facebookGroupUrl } from "@/lib/social/facebook-results";
-import { siteUrl } from "@/lib/site-url";
+import { publicPageUrl, siteUrl } from "@/lib/site-url";
 import { readPublicResultsStore } from "@/lib/store/public-results";
 
 export const revalidate = 60;
@@ -47,7 +47,7 @@ export default async function ShowResultsPage({
   const store = await readPublicResultsStore();
   const show = getPublishedShow(store, showSlug);
   if (!show) notFound();
-  const pageUrl = `${siteUrl()}${show.href}`;
+  const pageUrl = publicPageUrl(show.href);
   return (
     <>
       <JsonLd data={showResultsJsonLd(show)} />

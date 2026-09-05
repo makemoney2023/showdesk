@@ -14,7 +14,7 @@ import {
   requireApiSession,
   requireSecretaryWrite,
 } from "@/lib/auth/api-guard";
-import { siteUrl } from "@/lib/site-url";
+import { publicPageUrl, siteUrl } from "@/lib/site-url";
 import { readStore, updateStore } from "@/lib/store";
 
 export async function GET() {
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
     } else {
       facebook = await postShowResultsToFacebookPage({
         message: facebookShowPost(projected, siteUrl()),
-        link: `${siteUrl()}${projected.href}`,
+        link: publicPageUrl(projected.href),
       });
     }
   }
