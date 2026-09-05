@@ -101,8 +101,8 @@ export function reviewTranscriptPreview(
 }
 
 /**
- * Single-column review queue: editor appears directly under the selected dog,
- * not after the full list.
+ * Queue source order for mobile: editor sits directly under the selected dog.
+ * Desktop CSS (`reviewQueueRowClassName`) parks that same editor in column 2.
  */
 export function buildReviewQueueRows(
   critiqueIds: string[],
@@ -116,6 +116,15 @@ export function buildReviewQueueRows(
     }
   }
   return rows;
+}
+
+/** Tailwind placement: stacked under the dog below `lg`, side column at `lg+`. */
+export function reviewQueueRowClassName(
+  kind: ReviewQueueRow["kind"],
+): string {
+  return kind === "editor"
+    ? "min-w-0 lg:col-start-2 lg:row-start-1"
+    : "lg:col-start-1";
 }
 
 export function tnrkCritiquePdfLabel(): string {

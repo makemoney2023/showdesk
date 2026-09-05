@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildReviewQueueRows,
   nextReviewItemId,
+  reviewQueueRowClassName,
   reviewQueueMatchesSearch,
   reviewDogHeading,
   reviewPdfPreviewActions,
@@ -134,6 +135,12 @@ describe("buildReviewQueueRows", () => {
       { kind: "critique", critiqueId: "a" },
       { kind: "critique", critiqueId: "b" },
     ]);
+  });
+
+  it("places the editor in the desktop side column without leaving the dog list", () => {
+    expect(reviewQueueRowClassName("editor")).toContain("lg:col-start-2");
+    expect(reviewQueueRowClassName("editor")).toContain("lg:row-start-1");
+    expect(reviewQueueRowClassName("critique")).toContain("lg:col-start-1");
   });
 
   it("omits the editor when selection is not in the queue", () => {

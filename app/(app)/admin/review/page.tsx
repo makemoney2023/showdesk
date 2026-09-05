@@ -27,10 +27,12 @@ import {
 import { critiqueNarrativeOverflowsCertificate } from "@/lib/domain/tnrk-critique-wrap";
 import { reviewPrimaryAction } from "@/lib/domain/review-primary-action";
 import {
+  buildReviewQueueRows,
   nextReviewItemId,
   reviewDogHeading,
   reviewPdfPreviewActions,
   reviewQueueMatchesSearch,
+  reviewQueueRowClassName,
   reviewTranscriptPreview,
 } from "@/lib/domain/review-queue-layout";
 import { isReviewDraftDirty } from "@/lib/domain/review-dirty";
@@ -82,6 +84,7 @@ export default function AdminReviewPage() {
   const queueNavRef = useRef({ ids: [] as string[], index: -1 });
   const selectedIdRef = useRef<string | null>(null);
   const autoOpenedRef = useRef(false);
+  const editorRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     const showRes = await fetch("/api/shows");
@@ -367,6 +370,10 @@ export default function AdminReviewPage() {
     return rank(a.status) - rank(b.status) || b.updated_at.localeCompare(a.updated_at);
   });
   const selectedIndex = queue.findIndex((item) => item.id === selectedId);
+  const queueRows = buildReviewQueueRows(
+    queue.map((item) => item.id),
+    selectedId,
+  );
   const firstQueueId = queue[0]?.id ?? null;
   saveDraftRef.current = saveDraft;
   selectCritiqueRef.current = selectCritique;
@@ -381,6 +388,14 @@ export default function AdminReviewPage() {
     autoOpenedRef.current = true;
     setSelectedId(firstQueueId);
   }, [firstQueueId, loaded, selectedId]);
+
+  const editorReady = Boolean(selectedId && draft);
+  useEffect(() => {
+    if (!editorReady) return;
+    const mobile = window.matchMedia("(max-width: 1023px)").matches;
+    if (!mobile) return;
+    editorRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [editorReady, selectedId]);
 
   useEffect(() => {
     function onShortcut(event: KeyboardEvent) {
@@ -414,141 +429,13 @@ export default function AdminReviewPage() {
     return <PageSkeleton rows={5} />;
   }
 
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Review queue"
-        description="Secretary approve gate — nothing releases until approved."
-      />
+  const editorEl =
+    selected && draft ? (
+      <div
+        ref={editorRef}
+        className="sss-paper space-y-4 border-sss-accent p-5 lg:sticky lg:top-24"
+      >
 
-      <section className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="font-medium">
-            {pendingOnly
-              ? `Needs attention (${attentionCount})`
-              : `All (${reviewCritiques.length})`}
-          </h2>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPendingOnly((v) => !v)}
-            >
-              {pendingOnly ? "Show all" : "Needs attention"}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => void load()}>
-              Refresh
-            </Button>
-          </div>
-        </div>
-        <p className="text-xs text-sss-text-muted">
-          Includes ringside recordings and SE forms synced into review. Select a
-          dog to edit, then approve.
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-60 flex-1 sm:max-w-sm">
-            <Search
-              className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-sss-text-muted"
-              aria-hidden
-            />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search dog, armband, owner, or judge"
-              aria-label="Search review queue"
-              className="pl-9"
-            />
-          </div>
-          {search ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setSearch("")}
-            >
-              Clear search
-            </Button>
-          ) : null}
-          <span className="text-xs text-sss-text-muted">
-            ⌘/Ctrl+S saves · Alt+←/→ navigates
-          </span>
-        </div>
-        <DivisionFilterChips
-          divisions={divisions}
-          value={activeDivisionFilter}
-          onChange={setDivisionFilter}
-        />
-        <div className="grid gap-4 lg:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)]">
-          <ul className="space-y-2 lg:max-h-[70vh] lg:overflow-y-auto">
-            {queue.map((c) => {
-              const e = entries.find((en) => en.id === c.entry_id);
-              const se = seEvaluationForEntry(evaluations, entries, e);
-              const fromSe =
-                Boolean(c.draft.draftAssist?.se_sync) ||
-                c.draft.draftAssist?.note?.includes("SE form") ||
-                c.transcript.startsWith("Ringside SE");
-              const preview = reviewTranscriptPreview(c);
-              return (
-                <li key={c.id}>
-                  <button
-                    type="button"
-                    onClick={() => selectCritique(c.id)}
-                    className={`sss-interactive w-full rounded-sss-lg border p-3 text-left ${
-                      selectedId === c.id
-                        ? "border-sss-accent bg-sss-lifted shadow-sss-card"
-                        : "border-sss-border bg-sss-elevated"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-start gap-3">
-                        <DogAvatar
-                          size="sm"
-                          src={
-                            dogPhotoHrefForEntry(showId, entries, e) ?? null
-                          }
-                        />
-                        <div>
-                          <div className="font-medium">
-                            {e
-                              ? reviewDogHeading({
-                                  armband: e.armband,
-                                  dog_name: e.dog_name,
-                                })
-                              : "Unknown dog"}
-                          </div>
-                          <div className="text-xs text-sss-text-muted">
-                            {e
-                              ? catalogCompetitionLabel(e)
-                              : ""}
-                            {` · ${fromSe ? "SE form" : "Audio"}`}
-                            {se
-                              ? ` · ${se.status === "complete" ? "SE complete" : "Draft"}`
-                              : ""}
-                          </div>
-                          <p
-                            className={`mt-2 line-clamp-3 text-sm leading-relaxed ${
-                              preview.empty
-                                ? "text-destructive"
-                                : "text-sss-text"
-                            }`}
-                          >
-                            {preview.text}
-                          </p>
-                        </div>
-                      </div>
-                      <StatusChip
-                        label={labelCritiqueStatus(c.status)}
-                        tone={critiqueChipTone(c.status)}
-                      />
-                    </div>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          <div className="min-w-0">
-            {selected && draft ? (
-              <div className="sss-paper space-y-4 border-sss-accent p-5 lg:sticky lg:top-24">
                 {queue.length > 0 && selectedIndex >= 0 ? (
                   <div className="flex items-center justify-between gap-2 lg:hidden">
                     <p className="text-xs text-sss-text-muted">
@@ -870,10 +757,155 @@ export default function AdminReviewPage() {
                 {statusMsg ? (
                   <p className="text-sm text-sss-accent">{statusMsg}</p>
                 ) : null}
-              </div>
-            ) : null}
+      </div>
+    ) : null;
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Review queue"
+        description="Secretary approve gate — nothing releases until approved."
+      />
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="font-medium">
+            {pendingOnly
+              ? `Needs attention (${attentionCount})`
+              : `All (${reviewCritiques.length})`}
+          </h2>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPendingOnly((v) => !v)}
+            >
+              {pendingOnly ? "Show all" : "Needs attention"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => void load()}>
+              Refresh
+            </Button>
           </div>
         </div>
+        <p className="text-xs text-sss-text-muted">
+          Includes ringside recordings and SE forms synced into review. Select a
+          dog to edit, then approve.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-60 flex-1 sm:max-w-sm">
+            <Search
+              className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-sss-text-muted"
+              aria-hidden
+            />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search dog, armband, owner, or judge"
+              aria-label="Search review queue"
+              className="pl-9"
+            />
+          </div>
+          {search ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setSearch("")}
+            >
+              Clear search
+            </Button>
+          ) : null}
+          <span className="text-xs text-sss-text-muted">
+            ⌘/Ctrl+S saves · Alt+←/→ navigates
+          </span>
+        </div>
+        <DivisionFilterChips
+          divisions={divisions}
+          value={activeDivisionFilter}
+          onChange={setDivisionFilter}
+        />
+        <ul className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] lg:items-start lg:gap-x-4">
+          {queueRows.map((row) => {
+            if (row.kind === "editor") {
+              return (
+                <li
+                  key={`editor-${row.critiqueId}`}
+                  className={reviewQueueRowClassName(row.kind)}
+                >
+                  {editorEl}
+                </li>
+              );
+            }
+            const c = queue.find((item) => item.id === row.critiqueId);
+            if (!c) return null;
+            const e = entries.find((en) => en.id === c.entry_id);
+            const se = seEvaluationForEntry(evaluations, entries, e);
+            const fromSe =
+              Boolean(c.draft.draftAssist?.se_sync) ||
+              c.draft.draftAssist?.note?.includes("SE form") ||
+              c.transcript.startsWith("Ringside SE");
+            const preview = reviewTranscriptPreview(c);
+            return (
+                <li
+                  key={c.id}
+                  className={reviewQueueRowClassName(row.kind)}
+                >
+                  <button
+                    type="button"
+                    onClick={() => selectCritique(c.id)}
+                    className={`sss-interactive w-full rounded-sss-lg border p-3 text-left ${
+                      selectedId === c.id
+                        ? "border-sss-accent bg-sss-lifted shadow-sss-card"
+                        : "border-sss-border bg-sss-elevated"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <DogAvatar
+                          size="sm"
+                          src={
+                            dogPhotoHrefForEntry(showId, entries, e) ?? null
+                          }
+                        />
+                        <div>
+                          <div className="font-medium">
+                            {e
+                              ? reviewDogHeading({
+                                  armband: e.armband,
+                                  dog_name: e.dog_name,
+                                })
+                              : "Unknown dog"}
+                          </div>
+                          <div className="text-xs text-sss-text-muted">
+                            {e
+                              ? catalogCompetitionLabel(e)
+                              : ""}
+                            {` · ${fromSe ? "SE form" : "Audio"}`}
+                            {se
+                              ? ` · ${se.status === "complete" ? "SE complete" : "Draft"}`
+                              : ""}
+                          </div>
+                          <p
+                            className={`mt-2 line-clamp-3 text-sm leading-relaxed ${
+                              preview.empty
+                                ? "text-destructive"
+                                : "text-sss-text"
+                            }`}
+                          >
+                            {preview.text}
+                          </p>
+                        </div>
+                      </div>
+                      <StatusChip
+                        label={labelCritiqueStatus(c.status)}
+                        tone={critiqueChipTone(c.status)}
+                      />
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
+        </ul>
         {queue.length === 0 && !search ? <EmptyDesk variant="no-queue" /> : null}
         {queue.length === 0 && search ? (
           <p className="sss-tray p-4 text-sm text-sss-text-muted">
