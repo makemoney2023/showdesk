@@ -28,6 +28,7 @@ import { critiqueNarrativeOverflowsCertificate } from "@/lib/domain/tnrk-critiqu
 import { reviewPrimaryAction } from "@/lib/domain/review-primary-action";
 import {
   nextReviewItemId,
+  reviewDogHeading,
   reviewPdfPreviewActions,
   reviewQueueMatchesSearch,
   reviewTranscriptPreview,
@@ -508,12 +509,16 @@ export default function AdminReviewPage() {
                         />
                         <div>
                           <div className="font-medium">
-                            {e?.dog_name ?? "Unknown dog"}
+                            {e
+                              ? reviewDogHeading({
+                                  armband: e.armband,
+                                  dog_name: e.dog_name,
+                                })
+                              : "Unknown dog"}
                           </div>
                           <div className="text-xs text-sss-text-muted">
-                            {e ? `#${e.armband}` : ""}
                             {e
-                              ? ` · ${catalogCompetitionLabel(e)}`
+                              ? catalogCompetitionLabel(e)
                               : ""}
                             {` · ${fromSe ? "SE form" : "Audio"}`}
                             {se
@@ -579,7 +584,14 @@ export default function AdminReviewPage() {
                 ) : null}
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="font-medium">{entry?.dog_name}</h2>
+                    <h2 className="font-medium">
+                      {entry
+                        ? reviewDogHeading({
+                            armband: entry.armband,
+                            dog_name: entry.dog_name,
+                          })
+                        : ""}
+                    </h2>
                     {dirty ? (
                       <span className="rounded-full bg-sss-warning-soft px-2 py-0.5 text-xs text-sss-warning">
                         Unsaved

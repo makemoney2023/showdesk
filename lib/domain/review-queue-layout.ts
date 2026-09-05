@@ -13,6 +13,15 @@ export type ReviewQueueRow =
   | { kind: "critique"; critiqueId: string }
   | { kind: "editor"; critiqueId: string };
 
+/** Queue card and editor heading: armband first so the ring book is obvious. */
+export function reviewDogHeading(entry: {
+  armband: number | string;
+  dog_name: string;
+}): string {
+  const name = entry.dog_name.trim() || "Untitled dog";
+  return `#${entry.armband}  ${name}`;
+}
+
 /** Choose the following queue item, falling back to the preceding item. */
 export function nextReviewItemId(
   critiqueIds: string[],

@@ -3,6 +3,7 @@ import {
   buildReviewQueueRows,
   nextReviewItemId,
   reviewQueueMatchesSearch,
+  reviewDogHeading,
   reviewPdfPreviewActions,
   reviewTranscriptPreview,
   tnrkCritiquePdfHref,
@@ -10,6 +11,17 @@ import {
   tnrkSePdfHref,
   tnrkSePdfLabel,
 } from "./review-queue-layout";
+
+describe("reviewDogHeading", () => {
+  it("puts the armband in front of the dog name", () => {
+    expect(
+      reviewDogHeading({ armband: 8, dog_name: "Aka Azure" }),
+    ).toBe("#8  Aka Azure");
+    expect(
+      reviewDogHeading({ armband: "12", dog_name: "  Kylan  " }),
+    ).toBe("#12  Kylan");
+  });
+});
 
 describe("nextReviewItemId", () => {
   it("moves forward, then falls back to the previous item", () => {
