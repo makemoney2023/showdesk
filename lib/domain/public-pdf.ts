@@ -1,4 +1,3 @@
-import { canPrintSe } from "./print-documents";
 import {
   normalizeTnrkSeForm,
   seFormHasPrintableOverlay,
@@ -46,7 +45,7 @@ export function canPublishSePdf(
   se: { status?: string | null; form?: unknown } | null | undefined,
 ): boolean {
   if (!se) return false;
-  if (canPrintSe(se.status)) return true;
+  if (se.status === "complete") return true;
   const form = normalizeTnrkSeForm(se.form);
   return Boolean(form.final_result) && seFormHasPrintableOverlay(form);
 }
