@@ -58,4 +58,14 @@ describe("shouldOpenWebmFallback", () => {
       }),
     ).toBe(true);
   });
+
+  it("switches after a short wait when no words have arrived", () => {
+    expect(
+      shouldOpenWebmFallback({
+        ...idle,
+        pcmChunksSent: 0,
+        reason: "no-results",
+      }),
+    ).toBe(true);
+  });
 });

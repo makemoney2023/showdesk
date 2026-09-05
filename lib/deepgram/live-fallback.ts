@@ -1,4 +1,8 @@
-export type WebmFallbackReason = "pcm-closed" | "processor-idle" | "pcm-silent";
+export type WebmFallbackReason =
+  | "pcm-closed"
+  | "processor-idle"
+  | "pcm-silent"
+  | "no-results";
 
 /**
  * Live PCM and WebM sockets must never run together — both would
@@ -13,7 +17,9 @@ export function shouldOpenWebmFallback(input: {
   reason: WebmFallbackReason;
 }): boolean {
   if (input.stopped || input.gotResult || input.webmStarted) return false;
-  if (input.reason === "pcm-closed") return true;
+  if (input.reason === "pcm-closed" || input.reason === "no-results") {
+    return true;
+  }
   if (input.reason === "processor-idle") {
     return !input.pcmOpen || input.pcmChunksSent === 0;
   }

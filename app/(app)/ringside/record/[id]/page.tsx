@@ -63,6 +63,7 @@ export default function RecordPage() {
   const [elapsed, setElapsed] = useState(0);
   const [status, setStatus] = useState("Ready");
   const [liveTranscript, setLiveTranscript] = useState("");
+  const [liveSttStatus, setLiveSttStatus] = useState("");
   const [queueCount, setQueueCount] = useState(0);
   const [entryLoaded, setEntryLoaded] = useState(false);
   const [micCheck, setMicCheck] = useState<
@@ -86,6 +87,7 @@ export default function RecordPage() {
     ReturnType<typeof startDeepgramLiveSession>
   > | null>(null);
   const liveConnectRef = useRef<Promise<void> | null>(null);
+  const pendingLiveChunksRef = useRef<Blob[]>([]);
   const hasLiveTextRef = useRef(false);
   const liveFinalRef = useRef("");
   const recordingMimeRef = useRef("audio/webm");
@@ -277,9 +279,11 @@ export default function RecordPage() {
       updateVuMeter();
 
       setLiveTranscript("");
+      setLiveSttStatus("Connecting live STT…");
       liveFinalRef.current = "";
       hasLiveTextRef.current = false;
       liveSessionRef.current = null;
+      pendingLiveChunksRef.current = [];
 
       const mime = pickRecordingMimeType();
       const recorder = mime
@@ -291,7 +295,11 @@ export default function RecordPage() {
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
           chunksRef.current.push(e.data);
-          liveSessionRef.current?.feedWebmChunk(e.data);
+          if (liveSessionRef.current) {
+            liveSessionRef.current.feedWebmChunk(e.data);
+          } else {
+            pendingLiveChunksRef.current.push(e.data);
+          }
         }
       };
       recorder.onstop = () => void handleStop();
@@ -436,10 +444,12 @@ export default function RecordPage() {
           setLiveTranscript(text);
           if (text.trim()) {
             hasLiveTextRef.current = true;
+            setLiveSttStatus("Recording · transcribing…");
             if (recordingRef.current) setStatus("Recording · transcribing…");
           }
         },
         onStatus: (next) => {
+          setLiveSttStatus(next);
           if (recordingRef.current && !hasLiveTextRef.current) {
             setStatus(next);
           }
@@ -451,8 +461,12 @@ export default function RecordPage() {
       }
       liveSessionRef.current = session;
       if (session) {
+        const pending = pendingLiveChunksRef.current;
+        pendingLiveChunksRef.current = [];
+        for (const chunk of pending) session.feedWebmChunk(chunk);
         await session.attachAudio({ stream, audioContext });
       } else if (recordingRef.current) {
+        setLiveSttStatus("Recording… (will transcribe on stop)");
         setStatus("Recording… (will transcribe on stop)");
       }
     } catch {
@@ -656,6 +670,22 @@ export default function RecordPage() {
           level={vuLevel}
           label={status}
         />
+        {recording || liveTranscript ? (
+          <div className="rounded-sss-lg border border-sss-accent/40 bg-sss-lifted p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-sss-text-secondary">
+                Live transcript
+              </p>
+              {liveSttStatus ? (
+                <p className="text-xs text-sss-text-muted">{liveSttStatus}</p>
+              ) : null}
+            </div>
+            <p className="mt-2 min-h-[5.5rem] whitespace-pre-wrap text-base leading-relaxed text-sss-text">
+              {liveTranscript ||
+                "Waiting for speech… words appear here as the judge talks."}
+            </p>
+          </div>
+        ) : null}
         <div className="flex flex-col items-center gap-3">
           {!recording ? (
             <Button
@@ -715,22 +745,6 @@ export default function RecordPage() {
           ) : null}
         </div>
       </div>
-
-      {(recording || liveTranscript) && (
-        <div className="sss-paper space-y-2 p-4">
-          <p className="text-xs uppercase tracking-wide text-sss-text-secondary">
-            Live transcript
-          </p>
-          <p className="text-xs text-sss-text-muted">
-            Live STT (English). Continues while you speak — fills Narrative on
-            Review after stop.
-          </p>
-          <p className="min-h-[4.5rem] whitespace-pre-wrap text-sm leading-relaxed text-sss-text">
-            {liveTranscript ||
-              "Waiting for speech… words appear here as the judge talks."}
-          </p>
-        </div>
-      )}
 
       {queueCount > 0 ? (
         <div className="space-y-2 border border-sss-border bg-sss-lifted p-4">
