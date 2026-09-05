@@ -34,6 +34,7 @@ import {
   mergeHealthClearances,
   type HealthClearanceRow,
 } from "./health-clearances";
+import { critiqueLetterForCertificate } from "./se-to-critique";
 
 /** Public URL slug: lowercase, hyphenated, no leading/trailing hyphens. */
 export function slugify(value: string): string {
@@ -272,8 +273,8 @@ function toPublicDog(
 ): PublicDogResult | null {
   const formwert = critique?.draft.formwert ?? null;
   const rank = placement?.placement ?? critique?.draft.placement ?? null;
-  const narrative = critique?.draft.narrative?.trim() || null;
-  const hasResult = Boolean(formwert || rank || narrative);
+  const narrative = critiqueLetterForCertificate(critique) || null;
+  const hasResult = Boolean(formwert || rank || narrative || critique);
   if (!hasResult) return null;
 
   const photoSource = photoSourceForDog(entries, entry);

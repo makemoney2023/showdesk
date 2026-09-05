@@ -154,6 +154,41 @@ describe("projection", () => {
     );
   });
 
+  it("does not publish SE form text as the critique letter", () => {
+    const seDraft = {
+      narrative:
+        "SE overall appearance only\n\nSE steward comments\n\nSE result: PASS.",
+      formwert: "V" as const,
+      placement: null,
+      titles: [],
+      draftAssist: { note: "Synced from ringside SE form" },
+    };
+    const withSeCritique = {
+      ...store,
+      critiques: store.critiques.map((critique, index) =>
+        index === 0
+          ? {
+              ...critique,
+              transcript: "Ringside SE form",
+              draft: seDraft,
+            }
+          : critique,
+      ),
+    };
+    const found = getPublishedDog(
+      withSeCritique,
+      "tnrk-rcc-national-sieger-show-2026-09-04",
+      "101-rex-vom-blacksage",
+    );
+    expect(found?.dog.narrative).toBeNull();
+    expect(found?.dog.documents.map((document) => document.kind)).toContain(
+      "critique",
+    );
+    expect(JSON.stringify(found?.dog.narrative)).not.toContain(
+      "SE overall appearance",
+    );
+  });
+
   it("shares a sibling photo onto the published SE result page", () => {
     const rex = store.entries[0]!;
     const withPhotoOnSibling = {

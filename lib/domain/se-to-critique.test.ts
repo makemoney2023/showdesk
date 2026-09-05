@@ -3,6 +3,7 @@ import { createEmptyTnrkSeForm } from "./tnrk-se-form";
 import {
   canSyncSeIntoCritique,
   critiqueDraftFromSeForm,
+  critiqueLetterForCertificate,
   mergeSeIntoCritiqueDraft,
   SE_SYNC_NOTE,
   seEvaluationForEntry,
@@ -386,5 +387,47 @@ describe("se-to-critique", () => {
     expect(
       seEvaluationForEntry(evaluations, entries, entries[1])?.entry_id,
     ).toBe("entry-038-se");
+  });
+
+  it("keeps SE letter off the critique certificate", () => {
+    const seOnly = baseCritique({
+      transcript: "Ringside SE form",
+      draft: critiqueDraftFromSeForm({
+        ...createEmptyTnrkSeForm(),
+        overall_appearance: "Strong male, good type.",
+        comments: "Moves freely.",
+        final_result: "pass",
+      }),
+    });
+    expect(critiqueLetterForCertificate(seOnly)).toBe("");
+
+    const spokenOverSe = baseCritique({
+      transcript: "Medium size, excellent gait.",
+      draft: seOnly.draft,
+    });
+    expect(critiqueLetterForCertificate(spokenOverSe)).toBe(
+      "Medium size, excellent gait.",
+    );
+
+    const merged = mergeSeIntoCritiqueDraft(
+      {
+        narrative: "Judge audio narrative",
+        formwert: "V",
+        placement: null,
+        titles: [],
+        draftAssist: { note: "Draft assist only" },
+      },
+      {
+        ...createEmptyTnrkSeForm(),
+        comments: "SE steward notes",
+        final_result: "pass",
+      },
+    );
+    expect(
+      critiqueLetterForCertificate({
+        transcript: "Raw STT",
+        draft: merged,
+      }),
+    ).toBe("Judge audio narrative");
   });
 });

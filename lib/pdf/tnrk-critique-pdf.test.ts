@@ -16,7 +16,6 @@ describe("resolveCritiqueCertificateNarrative", () => {
       resolveCritiqueCertificateNarrative({
         draftNarrative: " Edited narrative ",
         transcript: "Raw STT",
-        seNarrative: "SE text",
       }),
     ).toBe("Edited narrative");
   });
@@ -26,19 +25,38 @@ describe("resolveCritiqueCertificateNarrative", () => {
       resolveCritiqueCertificateNarrative({
         draftNarrative: "  ",
         transcript: "Live STT body",
-        seNarrative: "SE text",
       }),
     ).toBe("Live STT body");
   });
 
-  it("falls back to SE narrative last", () => {
+  it("does not use SE form text on the critique certificate", () => {
     expect(
       resolveCritiqueCertificateNarrative({
-        draftNarrative: "",
-        transcript: "",
-        seNarrative: "From SE form",
+        draftNarrative: "Strong male. Head: strong_typey. SE result: PASS.",
+        transcript: "Ringside SE form",
+        seReplacementDraft: true,
       }),
-    ).toBe("From SE form");
+    ).toBe("");
+  });
+
+  it("uses spoken STT when the draft was replaced by the SE form", () => {
+    expect(
+      resolveCritiqueCertificateNarrative({
+        draftNarrative: "SE overall appearance only",
+        transcript: "Medium size, excellent gait.",
+        seReplacementDraft: true,
+      }),
+    ).toBe("Medium size, excellent gait.");
+  });
+
+  it("strips an appended SE section from a secretary-edited letter", () => {
+    expect(
+      resolveCritiqueCertificateNarrative({
+        draftNarrative:
+          "Edited STT letter\n\n— SE form —\nStrong male\n\nSE result: PASS.",
+        transcript: "Raw STT",
+      }),
+    ).toBe("Edited STT letter");
   });
 });
 

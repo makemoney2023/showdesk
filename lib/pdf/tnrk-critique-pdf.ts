@@ -3,6 +3,10 @@ import path from "path";
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import type { TnrkCritiqueForm } from "@/lib/domain/tnrk-se-form";
 import {
+  critiqueLetterForCertificate,
+  SE_SYNC_NOTE,
+} from "@/lib/domain/se-to-critique";
+import {
   TNRK_CRITIQUE_MAX_NARRATIVE_LINES,
   wrapCritiqueNarrative,
 } from "@/lib/domain/tnrk-critique-wrap";
@@ -64,21 +68,22 @@ export const TNRK_CRITIQUE_BODY_TITLE_SIZE =
   TNRK_CRITIQUE_BODY_TITLE_BASE_SIZE * 1.2;
 export const TNRK_CRITIQUE_NARRATIVE_SIZE = 10;
 
-/** Prefer secretary draft → STT transcript → SE-derived text. */
+/** Prefer secretary-edited STT draft → spoken transcript. Never SE form text. */
 export function resolveCritiqueCertificateNarrative(input: {
   draftNarrative?: string | null;
   transcript?: string | null;
-  seNarrative?: string | null;
+  seReplacementDraft?: boolean;
 }): string {
-  for (const candidate of [
-    input.draftNarrative,
-    input.transcript,
-    input.seNarrative,
-  ]) {
-    const text = candidate?.trim();
-    if (text) return text;
-  }
-  return "";
+  return critiqueLetterForCertificate({
+    transcript: input.transcript ?? "",
+    draft: {
+      narrative: input.draftNarrative ?? "",
+      formwert: null,
+      placement: null,
+      titles: [],
+      draftAssist: input.seReplacementDraft ? { note: SE_SYNC_NOTE } : {},
+    },
+  });
 }
 
 /** Horizontal x so `text` is centered on the page. */
