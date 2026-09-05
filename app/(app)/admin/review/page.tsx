@@ -626,9 +626,11 @@ export default function AdminReviewPage() {
                     {formatAdrkFormwert(draft.formwert ?? null)}
                   </p>
                   <p className="text-xs text-sss-text-muted">
-                    {draft.formwert
+                    {seRating
                       ? "From the ringside SE form. Recalled critiques can be updated by re-saving the SE form."
-                      : "No rating on the SE form yet — set Formwert at ringside, then save the SE form."}
+                      : draft.formwert
+                        ? "Guessed from the spoken critique — confirm against the SE form before release."
+                        : "No rating yet — set Formwert on the SE form at ringside."}
                   </p>
                 </div>
                 {showId && selectedId ? (

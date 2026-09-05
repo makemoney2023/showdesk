@@ -8,6 +8,7 @@ import {
 } from "./adrk-template";
 import { dogSexLabel, type DogSex } from "./class-division";
 import { publicDogPhotoHref } from "./dog-photo";
+import { approvedCritiqueForEntry } from "./entry-cascade";
 import {
   canPublishSePdf,
   publicAwardPdfHref,
@@ -144,18 +145,6 @@ export interface PublicShowResults extends PublicShowSummary {
 function optionalPublicText(value: string | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
-}
-
-function approvedCritiqueForEntry(
-  critiques: CritiqueRecord[],
-  entryId: string,
-): CritiqueRecord | null {
-  return (
-    critiques.find(
-      (critique) =>
-        critique.entry_id === entryId && critique.status === "APPROVED",
-    ) ?? null
-  );
 }
 
 function placementForEntry(
@@ -357,7 +346,7 @@ function projectShow(store: AppStore, show: Show): PublicShowResults | null {
       toPublicDog(
         show,
         entry,
-        approvedCritiqueForEntry(critiques, entry.id),
+        approvedCritiqueForEntry(critiques, entry.id, show.id) ?? null,
         placementForEntry(placements, entry.id),
         store.dog_documents ?? [],
         entries,

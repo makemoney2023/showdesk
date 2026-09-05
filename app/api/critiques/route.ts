@@ -268,9 +268,16 @@ export async function PATCH(request: Request) {
         entryId: critique.entry_id,
         showId: body.show_id,
       });
-      const placement = (await readStore()).placements.find(
+      const latest = await readStore();
+      const placement = latest.placements.find(
         (p) => p.entry_id === critique.entry_id && p.show_id === body.show_id,
       );
+      const se = (latest.se_evaluations ?? []).find(
+        (evaluation) =>
+          evaluation.entry_id === critique.entry_id &&
+          evaluation.show_id === body.show_id,
+      );
+      const draft = se ? applySeFormwert(result.draft, se.form) : result.draft;
       await updateStore((s) => ({
         ...s,
         critiques: s.critiques.map((c) =>
@@ -280,8 +287,8 @@ export async function PATCH(request: Request) {
                 status: "PENDING_REVIEW" as const,
                 transcript: result.transcript,
                 draft: {
-                  ...result.draft,
-                  placement: placement?.placement ?? result.draft.placement,
+                  ...draft,
+                  placement: placement?.placement ?? draft.placement,
                 },
                 error_message: undefined,
                 updated_at: new Date().toISOString(),
