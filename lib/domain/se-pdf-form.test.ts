@@ -7,6 +7,12 @@ describe("resolveSeFormForPdf", () => {
   const filled = {
     ...createEmptyTnrkSeForm(),
     dog_name: "Ason Von Haus Wilkerson",
+    judge: "Sandra Reck (ADRK)",
+    sex: "male" as const,
+    bite: "correct_scissor" as const,
+    head_shape: "strong_typey" as const,
+    final_result: "pass" as const,
+    formwert: "V" as const,
     measurements: { ...empty.measurements, height: "67cm", weight: "53kg" },
     overall_appearance: "Very large male, strong bones.",
   };
@@ -16,12 +22,26 @@ describe("resolveSeFormForPdf", () => {
       show_id: "s1",
       dog_id: "dog-1",
       event_kind: "conformation" as const,
+      dog_name: "Ason Von Haus Wilkerson",
+      armband: "38",
+      owner: "Mr. Michael Wilkerson",
+      email: "",
+      sex: "R" as const,
+      zb_number: "AKC-WS73993802",
+      wt: "2021-08-31",
     },
     {
       id: "entry-038-se",
       show_id: "s1",
       dog_id: "dog-1",
       event_kind: "se" as const,
+      dog_name: "Ason Von Haus Wilkerson",
+      armband: "38",
+      owner: "Mr. Michael Wilkerson",
+      email: "",
+      sex: "R" as const,
+      zb_number: "AKC-WS73993802",
+      wt: "2021-08-31",
     },
   ];
   const evaluations = [
@@ -38,6 +58,15 @@ describe("resolveSeFormForPdf", () => {
     expect(form.measurements.height).toBe("67cm");
     expect(form.measurements.weight).toBe("53kg");
     expect(form.overall_appearance).toBe("Very large male, strong bones.");
+    expect(form.dog_name).toBe("Ason Von Haus Wilkerson");
+    expect(form.owner_co_owner).toBe("Mr. Michael Wilkerson");
+    expect(form.registration_number).toBe("AKC-WS73993802");
+    expect(form.sex).toBe("male");
+    expect(form.judge).toBe("Sandra Reck (ADRK)");
+    expect(form.bite).toBe("correct_scissor");
+    expect(form.head_shape).toBe("strong_typey");
+    expect(form.final_result).toBe("pass");
+    expect(form.formwert).toBe("V");
   });
 
   it("keeps on-screen incoming values over a stored sibling", () => {

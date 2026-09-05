@@ -76,6 +76,38 @@ describe("tnrk-se-form", () => {
     expect(merged.overall_appearance).toBe("Very large male, strong bones.");
   });
 
+  it("does not let a blank incoming form wipe saved identity and ratings", () => {
+    const stored = {
+      ...createEmptyTnrkSeForm(),
+      dog_name: "Ason Von Haus Wilkerson",
+      owner_co_owner: "Mr. Michael Wilkerson",
+      date_of_birth: "2021-08-31",
+      judge: "Sandra Reck (ADRK)",
+      sex: "male" as const,
+      bite: "correct_scissor" as const,
+      head_shape: "strong_typey" as const,
+      final_result: "pass" as const,
+      formwert: "V" as const,
+      measurements: {
+        ...createEmptyTnrkSeForm().measurements,
+        height: "67cm",
+      },
+      overall_appearance: "Very large male, strong bones.",
+    };
+    const merged = mergeSeFormPreferFilled(stored, createEmptyTnrkSeForm());
+    expect(merged.dog_name).toBe("Ason Von Haus Wilkerson");
+    expect(merged.owner_co_owner).toBe("Mr. Michael Wilkerson");
+    expect(merged.date_of_birth).toBe("2021-08-31");
+    expect(merged.judge).toBe("Sandra Reck (ADRK)");
+    expect(merged.sex).toBe("male");
+    expect(merged.bite).toBe("correct_scissor");
+    expect(merged.head_shape).toBe("strong_typey");
+    expect(merged.final_result).toBe("pass");
+    expect(merged.formwert).toBe("V");
+    expect(merged.measurements.height).toBe("67cm");
+    expect(merged.overall_appearance).toBe("Very large male, strong bones.");
+  });
+
   it("lets a filled client form replace stored measurements", () => {
     const stored = {
       ...createEmptyTnrkSeForm(),
