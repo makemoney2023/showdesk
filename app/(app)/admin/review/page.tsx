@@ -32,7 +32,6 @@ import {
   reviewDogHeading,
   reviewPdfPreviewActions,
   reviewQueueMatchesSearch,
-  reviewQueueRowClassName,
   reviewTranscriptPreview,
 } from "@/lib/domain/review-queue-layout";
 import { isReviewDraftDirty } from "@/lib/domain/review-dirty";
@@ -85,6 +84,7 @@ export default function AdminReviewPage() {
   const selectedIdRef = useRef<string | null>(null);
   const autoOpenedRef = useRef(false);
   const editorRef = useRef<HTMLDivElement>(null);
+  const [isDesktop, setIsDesktop] = useState(false);
 
   const load = useCallback(async () => {
     const showRes = await fetch("/api/shows");
@@ -389,13 +389,19 @@ export default function AdminReviewPage() {
     setSelectedId(firstQueueId);
   }, [firstQueueId, loaded, selectedId]);
 
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setIsDesktop(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+
   const editorReady = Boolean(selectedId && draft);
   useEffect(() => {
-    if (!editorReady) return;
-    const mobile = window.matchMedia("(max-width: 1023px)").matches;
-    if (!mobile) return;
+    if (!editorReady || isDesktop) return;
     editorRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, [editorReady, selectedId]);
+  }, [editorReady, isDesktop, selectedId]);
 
   useEffect(() => {
     function onShortcut(event: KeyboardEvent) {
@@ -824,32 +830,31 @@ export default function AdminReviewPage() {
           value={activeDivisionFilter}
           onChange={setDivisionFilter}
         />
-        <ul className="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] lg:items-start lg:gap-x-4">
-          {queueRows.map((row) => {
-            if (row.kind === "editor") {
+        <div className="grid gap-4 lg:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)]">
+          <ul className="space-y-2 lg:max-h-[70vh] lg:overflow-y-auto">
+            {(isDesktop
+              ? queue.map((item) => ({
+                  kind: "critique" as const,
+                  critiqueId: item.id,
+                }))
+              : queueRows
+            ).map((row) => {
+              if (row.kind === "editor") {
+                return (
+                  <li key={`editor-${row.critiqueId}`}>{editorEl}</li>
+                );
+              }
+              const c = queue.find((item) => item.id === row.critiqueId);
+              if (!c) return null;
+              const e = entries.find((en) => en.id === c.entry_id);
+              const se = seEvaluationForEntry(evaluations, entries, e);
+              const fromSe =
+                Boolean(c.draft.draftAssist?.se_sync) ||
+                c.draft.draftAssist?.note?.includes("SE form") ||
+                c.transcript.startsWith("Ringside SE");
+              const preview = reviewTranscriptPreview(c);
               return (
-                <li
-                  key={`editor-${row.critiqueId}`}
-                  className={reviewQueueRowClassName(row.kind)}
-                >
-                  {editorEl}
-                </li>
-              );
-            }
-            const c = queue.find((item) => item.id === row.critiqueId);
-            if (!c) return null;
-            const e = entries.find((en) => en.id === c.entry_id);
-            const se = seEvaluationForEntry(evaluations, entries, e);
-            const fromSe =
-              Boolean(c.draft.draftAssist?.se_sync) ||
-              c.draft.draftAssist?.note?.includes("SE form") ||
-              c.transcript.startsWith("Ringside SE");
-            const preview = reviewTranscriptPreview(c);
-            return (
-                <li
-                  key={c.id}
-                  className={reviewQueueRowClassName(row.kind)}
-                >
+                <li key={c.id}>
                   <button
                     type="button"
                     onClick={() => selectCritique(c.id)}
@@ -905,7 +910,9 @@ export default function AdminReviewPage() {
                 </li>
               );
             })}
-        </ul>
+          </ul>
+          {isDesktop ? <div className="min-w-0">{editorEl}</div> : null}
+        </div>
         {queue.length === 0 && !search ? <EmptyDesk variant="no-queue" /> : null}
         {queue.length === 0 && search ? (
           <p className="sss-tray p-4 text-sm text-sss-text-muted">
