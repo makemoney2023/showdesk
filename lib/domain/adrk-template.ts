@@ -184,3 +184,25 @@ export function formatAdrkFormwert(
   if (!code) return "—";
   return `${code} (${getAdrkFormwertLabel(code, scale)})`;
 }
+
+/** Compact rating for the critique certificate (code + English gloss). */
+export function critiqueCertificateRating(
+  code: AdrkFormwertCode | null | undefined,
+  scale: FormwertScale = "adult",
+): string {
+  if (!code || !isValidFormwert(code)) return "";
+  return `${code} ${getAdrkFormwertLabel(code, scale)}`;
+}
+
+/** Dog name with rating beside it for the critique certificate title. */
+export function critiqueCertificateNameLine(
+  dogName: string,
+  code: AdrkFormwertCode | null | undefined,
+  scale: FormwertScale = "adult",
+): string {
+  const name = dogName.trim();
+  const rating = critiqueCertificateRating(code, scale);
+  if (!name) return rating;
+  if (!rating) return name;
+  return `${name}  ·  ${rating}`;
+}

@@ -144,13 +144,22 @@ export async function buildTnrkCritiquePdf(
 
   // Header form fields (template NAME DES HUNDES / DOB / armband row)
   const yHeader = baseline(TNRK_CRITIQUE_FIELD_TOP.dog_name);
-  draw(form.dog_name, TNRK_CRITIQUE_FIELD_X.dog_name, yHeader, 12, true);
+  const headerName = form.dog_name.trim();
+  const headerRating = form.rating?.trim() ?? "";
+  draw(headerName, TNRK_CRITIQUE_FIELD_X.dog_name, yHeader, 12, true);
+  if (headerRating) {
+    const nameWidth = bold.widthOfTextAtSize(headerName.slice(0, 140), 12);
+    const ratingX = TNRK_CRITIQUE_FIELD_X.dog_name + nameWidth + 12;
+    if (ratingX < TNRK_CRITIQUE_FIELD_X.dob - 8) {
+      draw(headerRating, ratingX, yHeader, 12, true);
+    }
+  }
   draw(form.dob, TNRK_CRITIQUE_FIELD_X.dob, yHeader, 10);
   draw(form.armband, TNRK_CRITIQUE_FIELD_X.armband, yHeader, 10);
 
-  // Body: centered bold dog title (+20%), centered critique underneath
+  // Body: centered bold dog title + rating, then critique underneath
   drawCentered(
-    form.dog_name,
+    [headerName, headerRating].filter(Boolean).join("  ·  "),
     baseline(TNRK_CRITIQUE_FIELD_TOP.body_title),
     TNRK_CRITIQUE_BODY_TITLE_SIZE,
     true,

@@ -1,4 +1,8 @@
 import { catalogDivisionLabel } from "@/lib/domain/catalog-competition";
+import {
+  critiqueCertificateRating,
+  formwertScaleForEntry,
+} from "@/lib/domain/adrk-template";
 import { critiqueLetterForCertificate } from "@/lib/domain/se-to-critique";
 import { seFormFormwert } from "@/lib/domain/tnrk-se-form";
 import { resolvePdfJudge } from "@/lib/domain/show-judges";
@@ -36,16 +40,16 @@ export async function buildTnrkCritiquePdfForRecords(input: {
   const { show, entry, critique, se } = input;
   const narrative = critiqueLetterForCertificate(critique);
   const dogName = se?.form.dog_name?.trim() || entry.dog_name;
+  const formwert = critique?.draft.formwert ?? seFormFormwert(se?.form) ?? null;
+  const scale = formwertScaleForEntry(entry);
 
   return buildTnrkCritiquePdf({
     dog_name: dogName,
     dob: se?.form.date_of_birth?.trim() || entry.wt,
     armband: entry.armband,
     narrative,
-    class_and_rating: [
-      catalogDivisionLabel(entry),
-      critique?.draft.formwert ?? seFormFormwert(se?.form) ?? "",
-    ]
+    rating: critiqueCertificateRating(formwert, scale),
+    class_and_rating: [catalogDivisionLabel(entry), formwert ?? ""]
       .filter(Boolean)
       .join(" — "),
     date: se?.form.date?.trim() || entry.competition_day || show.date,

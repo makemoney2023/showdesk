@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PDFDocument, StandardFonts } from "pdf-lib";
+import { pdfContainsText } from "./pdf-text";
 import {
   TNRK_CRITIQUE_BODY_TITLE_BASE_SIZE,
   TNRK_CRITIQUE_BODY_TITLE_SIZE,
@@ -116,5 +117,22 @@ describe("tnrk-critique-pdf layout", () => {
     });
     expect(bytes.byteLength).toBeGreaterThan(1000);
     expect(Buffer.from(bytes.slice(0, 5)).toString()).toBe("%PDF-");
+  });
+
+  it("draws the rating beside the dog name", async () => {
+    const bytes = await buildTnrkCritiquePdf({
+      dog_name: "Der Norden's Aka Azure",
+      dob: "2026-04-02",
+      armband: "8",
+      narrative: "Very promising female.",
+      class_and_rating: "Puppy Class I Females — vv",
+      rating: "vv Very promising",
+      date: "2026-09-05",
+      owner: "Christiane Poiré",
+      co_owner: "",
+      judge_signature: "Hamid Falah",
+    });
+    expect(pdfContainsText(bytes, "Der Norden's Aka Azure")).toBe(true);
+    expect(pdfContainsText(bytes, "vv Very promising")).toBe(true);
   });
 });

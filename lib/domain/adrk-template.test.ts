@@ -3,6 +3,8 @@ import {
   ADRK_CLASSES,
   ADRK_FORMWERT_CODES,
   createEmptyDraft,
+  critiqueCertificateNameLine,
+  critiqueCertificateRating,
   formatAdrkFormwert,
   formwertScaleForEntry,
   formwertSelectCodes,
@@ -78,5 +80,17 @@ describe("adrk-template", () => {
     ]);
     expect(formwertSelectCodes("adult")[0]).toBe("V");
     expect(formwertSelectCodes("puppy", "Sg")[0]).toBe("Sg");
+  });
+
+  it("puts the class-aware rating beside the dog name on the certificate", () => {
+    expect(critiqueCertificateRating("vv", "puppy")).toBe("vv Very promising");
+    expect(critiqueCertificateRating("V", "adult")).toBe("V Excellent");
+    expect(critiqueCertificateRating(null, "puppy")).toBe("");
+    expect(
+      critiqueCertificateNameLine("Der Norden's Aka Azure", "vv", "puppy"),
+    ).toBe("Der Norden's Aka Azure  ·  vv Very promising");
+    expect(critiqueCertificateNameLine("Rex vom Test", null)).toBe(
+      "Rex vom Test",
+    );
   });
 });
