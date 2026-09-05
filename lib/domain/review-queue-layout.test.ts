@@ -4,6 +4,7 @@ import {
   nextReviewItemId,
   reviewQueueMatchesSearch,
   reviewPdfPreviewActions,
+  reviewTranscriptPreview,
   tnrkCritiquePdfHref,
   tnrkCritiquePdfLabel,
   tnrkSePdfHref,
@@ -38,6 +39,71 @@ describe("reviewQueueMatchesSearch", () => {
     expect(reviewQueueMatchesSearch("müller", critique, entry)).toBe(true);
     expect(reviewQueueMatchesSearch("pending", critique, entry)).toBe(true);
     expect(reviewQueueMatchesSearch("missing", critique, entry)).toBe(false);
+  });
+
+  it("searches spoken transcript and letter narrative", () => {
+    expect(
+      reviewQueueMatchesSearch(
+        "correct shoulder",
+        {
+          ...critique,
+          transcript: "Medium sized male. Correct shoulder.",
+        },
+        entry,
+      ),
+    ).toBe(true);
+    expect(
+      reviewQueueMatchesSearch(
+        "typey head",
+        {
+          ...critique,
+          transcript: "Ringside SE form",
+          draft: { narrative: "Typey head. Free movement." },
+        },
+        entry,
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("reviewTranscriptPreview", () => {
+  it("prefers the spoken transcript over SE narrative", () => {
+    expect(
+      reviewTranscriptPreview({
+        transcript: "Medium sized male. Correct shoulder.",
+        draft: { narrative: "SE comments should not win" },
+      }),
+    ).toEqual({
+      text: "Medium sized male. Correct shoulder.",
+      empty: false,
+    });
+  });
+
+  it("uses the letter when the transcript is an SE stub", () => {
+    expect(
+      reviewTranscriptPreview({
+        transcript: "Ringside SE form",
+        draft: {
+          narrative: "large female, very good bone\n\n— SE form —\nhead notes",
+        },
+      }),
+    ).toEqual({
+      text: "large female, very good bone",
+      empty: false,
+    });
+  });
+
+  it("flags empty audio takes so the queue shows the missing letter", () => {
+    expect(
+      reviewTranscriptPreview({
+        transcript: "",
+        draft: { narrative: "" },
+        audio_path: "show/crit.webm",
+      }),
+    ).toEqual({
+      text: "No speech was transcribed",
+      empty: true,
+    });
   });
 });
 

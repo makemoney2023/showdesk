@@ -25,6 +25,7 @@ import {
   nextReviewItemId,
   reviewPdfPreviewActions,
   reviewQueueMatchesSearch,
+  reviewTranscriptPreview,
 } from "@/lib/domain/review-queue-layout";
 import { isReviewDraftDirty } from "@/lib/domain/review-dirty";
 import { catalogCompetitionLabel } from "@/lib/domain/catalog-competition";
@@ -74,6 +75,7 @@ export default function AdminReviewPage() {
   const selectCritiqueRef = useRef<(id: string | null) => void>(() => undefined);
   const queueNavRef = useRef({ ids: [] as string[], index: -1 });
   const selectedIdRef = useRef<string | null>(null);
+  const autoOpenedRef = useRef(false);
 
   const load = useCallback(async () => {
     const showRes = await fetch("/api/shows");
@@ -129,6 +131,12 @@ export default function AdminReviewPage() {
     ? entries.find((e) => e.id === selected.entry_id)
     : undefined;
   const seForSelected = seEvaluationForEntry(evaluations, entries, entry);
+  const selectedFromSe = Boolean(
+    selected &&
+      (selected.draft.draftAssist?.se_sync ||
+        selected.draft.draftAssist?.note?.includes("SE form") ||
+        selected.transcript.startsWith("Ringside SE")),
+  );
   const seRating = seFormFormwert(seForSelected?.form);
   const dirty = Boolean(
     selected &&
@@ -351,6 +359,7 @@ export default function AdminReviewPage() {
     return rank(a.status) - rank(b.status) || b.updated_at.localeCompare(a.updated_at);
   });
   const selectedIndex = queue.findIndex((item) => item.id === selectedId);
+  const firstQueueId = queue[0]?.id ?? null;
   saveDraftRef.current = saveDraft;
   selectCritiqueRef.current = selectCritique;
   queueNavRef.current = {
@@ -358,6 +367,12 @@ export default function AdminReviewPage() {
     index: selectedIndex,
   };
   selectedIdRef.current = selectedId;
+
+  useEffect(() => {
+    if (!loaded || autoOpenedRef.current || selectedId || !firstQueueId) return;
+    autoOpenedRef.current = true;
+    setSelectedId(firstQueueId);
+  }, [firstQueueId, loaded, selectedId]);
 
   useEffect(() => {
     function onShortcut(event: KeyboardEvent) {
@@ -464,6 +479,7 @@ export default function AdminReviewPage() {
                 Boolean(c.draft.draftAssist?.se_sync) ||
                 c.draft.draftAssist?.note?.includes("SE form") ||
                 c.transcript.startsWith("Ringside SE");
+              const preview = reviewTranscriptPreview(c);
               return (
                 <li key={c.id}>
                   <button
@@ -497,6 +513,15 @@ export default function AdminReviewPage() {
                               ? ` · ${se.status === "complete" ? "SE complete" : "Draft"}`
                               : ""}
                           </div>
+                          <p
+                            className={`mt-2 line-clamp-3 text-sm leading-relaxed ${
+                              preview.empty
+                                ? "text-destructive"
+                                : "text-sss-text"
+                            }`}
+                          >
+                            {preview.text}
+                          </p>
                         </div>
                       </div>
                       <StatusChip
@@ -558,16 +583,18 @@ export default function AdminReviewPage() {
                     <p className="text-xs font-medium uppercase tracking-wide text-sss-text-secondary">
                       Transcript
                     </p>
-                    {selected.transcript.trim() ? (
+                    {spokenCritiqueTranscript(selected) ? (
                       <p className="whitespace-pre-wrap text-sm leading-relaxed text-sss-text">
-                        {selected.transcript}
+                        {spokenCritiqueTranscript(selected)}
                       </p>
                     ) : (
                       <p className="text-sm text-destructive">
                         No speech was transcribed
                         {selected.audio_path
                           ? " — play the audio and type the letter, or tap Transcribe again."
-                          : "."}
+                          : selectedFromSe
+                            ? " — this letter came from the SE form."
+                            : "."}
                       </p>
                     )}
                   </div>

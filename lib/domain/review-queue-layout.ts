@@ -4,6 +4,10 @@ import {
   type DogSex,
 } from "./class-division";
 import type { AdrkClassId } from "./adrk-template";
+import {
+  critiqueLetterWithoutSeSection,
+  spokenCritiqueTranscript,
+} from "./se-to-critique";
 
 export type ReviewQueueRow =
   | { kind: "critique"; critiqueId: string }
@@ -21,7 +25,12 @@ export function nextReviewItemId(
 
 export function reviewQueueMatchesSearch(
   query: string,
-  critique: { judge?: string; status: string },
+  critique: {
+    judge?: string;
+    status: string;
+    transcript?: string;
+    draft?: { narrative?: string };
+  },
   entry?: {
     dog_name: string;
     armband: string;
@@ -32,6 +41,12 @@ export function reviewQueueMatchesSearch(
 ): boolean {
   const normalized = query.trim().toLowerCase();
   if (!normalized) return true;
+  const spoken = spokenCritiqueTranscript({
+    transcript: critique.transcript ?? "",
+  });
+  const letter = critiqueLetterWithoutSeSection(
+    critique.draft?.narrative ?? "",
+  );
   return [
     entry?.dog_name,
     entry?.armband,
@@ -46,7 +61,34 @@ export function reviewQueueMatchesSearch(
     entry?.sex,
     critique.judge,
     critique.status,
+    spoken,
+    letter,
   ].some((value) => value?.toLowerCase().includes(normalized));
+}
+
+export function reviewTranscriptPreview(
+  critique: {
+    transcript: string;
+    draft?: { narrative?: string };
+    audio_path?: string | null;
+  },
+  maxLength = 160,
+): { text: string; empty: boolean } {
+  const spoken = spokenCritiqueTranscript(critique);
+  const letter = critiqueLetterWithoutSeSection(
+    critique.draft?.narrative ?? "",
+  );
+  const text = (spoken || letter).replace(/\s+/g, " ").trim();
+  if (!text) {
+    return {
+      text: critique.audio_path
+        ? "No speech was transcribed"
+        : "No spoken critique yet",
+      empty: true,
+    };
+  }
+  if (text.length <= maxLength) return { text, empty: false };
+  return { text: `${text.slice(0, maxLength).trimEnd()}…`, empty: false };
 }
 
 /**
