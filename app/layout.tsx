@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Manrope } from "next/font/google";
+import { marketingShareMetadata } from "@/lib/domain/marketing-share-metadata";
 import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
 
@@ -13,11 +14,11 @@ const fraunces = Fraunces({
   variable: "--font-fraunces",
 });
 
+const marketing = marketingShareMetadata();
+
 export const metadata: Metadata = {
+  ...marketing,
   metadataBase: new URL(siteUrl()),
-  title: "Show Desk",
-  description:
-    "Ringside critique capture, secretary review, and ADRK-aligned PDF delivery for Sieger shows.",
   applicationName: "Show Desk",
   manifest: "/manifest.webmanifest",
   appleWebApp: {

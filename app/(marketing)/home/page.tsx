@@ -18,28 +18,10 @@ import {
   OfflineSection,
   ProblemSection,
 } from "@/components/marketing/sections";
+import { marketingShareMetadata } from "@/lib/domain/marketing-share-metadata";
+import { absoluteUrl, siteUrl } from "@/lib/site-url";
 
-const DESCRIPTION =
-  "Show secretary software for German-style breed shows. The judge's spoken critique becomes an official certificate in the owner's inbox the same day.";
-
-export const metadata: Metadata = {
-  title: "Show Desk — Sieger Show Secretary & Critique Software",
-  description: DESCRIPTION,
-  // Anonymous visitors are served this page at "/" via middleware rewrite.
-  alternates: { canonical: "/" },
-  openGraph: {
-    title: "The judge speaks. The certificate arrives the same day.",
-    description: DESCRIPTION,
-    type: "website",
-    url: "/",
-    siteName: "Show Desk",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Show Desk — Sieger Show Secretary & Critique Software",
-    description: DESCRIPTION,
-  },
-};
+export const metadata: Metadata = marketingShareMetadata();
 
 const softwareJsonLd = {
   "@context": "https://schema.org",
@@ -77,6 +59,8 @@ const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
   name: "Show Desk",
+  url: siteUrl(),
+  logo: absoluteUrl("/og.png"),
   description:
     "Show Desk is show secretary software for German-style breed shows — Sieger shows, SE evaluations, and breed surveys.",
 };

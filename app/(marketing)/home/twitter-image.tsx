@@ -10,6 +10,7 @@ export const alt = marketingOgAlt;
 export const size = marketingOgSize;
 export const contentType = marketingOgContentType;
 
-export default function OpengraphImage() {
+export default function TwitterImage() {
   return marketingOgImage();
 }
+
