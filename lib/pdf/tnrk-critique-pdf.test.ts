@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { PDFDocument, StandardFonts } from "pdf-lib";
-import { pdfContainsText } from "./pdf-text";
+import { extractPdfText, pdfContainsText } from "./pdf-text";
 import {
-  TNRK_CRITIQUE_BODY_TITLE_BASE_SIZE,
-  TNRK_CRITIQUE_BODY_TITLE_SIZE,
   TNRK_CRITIQUE_FIELD_TOP,
   TNRK_CRITIQUE_FIELD_X,
+  TNRK_CRITIQUE_NARRATIVE_SIZE,
   buildTnrkCritiquePdf,
   centeredTextX,
   resolveCritiqueCertificateNarrative,
@@ -64,6 +63,7 @@ describe("resolveCritiqueCertificateNarrative", () => {
 describe("tnrk-critique-pdf layout", () => {
   it("places fill-ins below label bands (not on CRITIQUE title)", () => {
     expect(TNRK_CRITIQUE_FIELD_TOP.dog_name).toBeGreaterThan(200);
+    expect(TNRK_CRITIQUE_FIELD_TOP.dog_name).toBeLessThan(210);
     expect(TNRK_CRITIQUE_FIELD_TOP.narrative_start).toBeGreaterThan(
       TNRK_CRITIQUE_FIELD_TOP.dog_name,
     );
@@ -72,24 +72,11 @@ describe("tnrk-critique-pdf layout", () => {
     expect(TNRK_CRITIQUE_FIELD_X.dob).toBeGreaterThan(648);
   });
 
-  it("shifts body dog title and critique 20% lower to clear certificate print", () => {
-    // Previous band tops were 235 / 258; +20% keeps them below header print.
-    expect(TNRK_CRITIQUE_FIELD_TOP.body_title).toBe(Math.round(235 * 1.2));
+  it("shifts the critique 20% lower to clear certificate print", () => {
     expect(TNRK_CRITIQUE_FIELD_TOP.narrative_start).toBe(Math.round(258 * 1.2));
-    expect(TNRK_CRITIQUE_FIELD_TOP.body_title).toBeLessThan(
-      TNRK_CRITIQUE_FIELD_TOP.narrative_start,
-    );
     expect(TNRK_CRITIQUE_FIELD_TOP.narrative_start).toBeLessThan(
       TNRK_CRITIQUE_FIELD_TOP.class_and_rating,
     );
-  });
-
-  it("makes the body dog title at least 24pt and 20% larger than base", () => {
-    expect(TNRK_CRITIQUE_BODY_TITLE_BASE_SIZE).toBeGreaterThanOrEqual(24);
-    expect(TNRK_CRITIQUE_BODY_TITLE_SIZE).toBe(
-      TNRK_CRITIQUE_BODY_TITLE_BASE_SIZE * 1.2,
-    );
-    expect(TNRK_CRITIQUE_BODY_TITLE_SIZE).toBeGreaterThanOrEqual(24);
   });
 
   it("centers text on the page width", async () => {
@@ -97,13 +84,13 @@ describe("tnrk-critique-pdf layout", () => {
     const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
     const pageWidth = 842;
     const text = "Rex Happy Path";
-    const size = TNRK_CRITIQUE_BODY_TITLE_SIZE;
+    const size = TNRK_CRITIQUE_NARRATIVE_SIZE;
     const x = centeredTextX(text, size, bold, pageWidth);
     const width = bold.widthOfTextAtSize(text, size);
     expect(x + width / 2).toBeCloseTo(pageWidth / 2, 5);
   });
 
-  it("builds a PDF with bold dog title and transcript body", async () => {
+  it("builds a PDF with the header name and transcript body", async () => {
     const bytes = await buildTnrkCritiquePdf({
       dog_name: "Rex Happy Path",
       dob: "2024-01-01",
@@ -119,7 +106,7 @@ describe("tnrk-critique-pdf layout", () => {
     expect(Buffer.from(bytes.slice(0, 5)).toString()).toBe("%PDF-");
   });
 
-  it("draws the rating beside the dog name", async () => {
+  it("keeps the rating on the class line only", async () => {
     const bytes = await buildTnrkCritiquePdf({
       dog_name: "Der Norden's Aka Azure",
       dob: "2026-04-02",
@@ -132,7 +119,10 @@ describe("tnrk-critique-pdf layout", () => {
       co_owner: "",
       judge_signature: "Hamid Falah",
     });
+    const text = extractPdfText(bytes);
     expect(pdfContainsText(bytes, "Der Norden's Aka Azure")).toBe(true);
-    expect(pdfContainsText(bytes, "vv Very promising")).toBe(true);
+    expect(pdfContainsText(bytes, "Puppy Class I Females")).toBe(true);
+    expect(text).toMatch(/vv/);
+    expect(text.toLowerCase()).not.toContain("vv very promising");
   });
 });

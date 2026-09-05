@@ -82,7 +82,7 @@ describe("adrk-template", () => {
     expect(formwertSelectCodes("puppy", "Sg")[0]).toBe("Sg");
   });
 
-  it("puts the class-aware rating beside the dog name on the certificate", () => {
+  it("formats a compact class-aware rating for certificates", () => {
     expect(critiqueCertificateRating("vv", "puppy")).toBe("vv Very promising");
     expect(critiqueCertificateRating("V", "adult")).toBe("V Excellent");
     expect(critiqueCertificateRating(null, "puppy")).toBe("");

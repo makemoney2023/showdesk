@@ -194,7 +194,7 @@ export function critiqueCertificateRating(
   return `${code} ${getAdrkFormwertLabel(code, scale)}`;
 }
 
-/** Dog name with rating beside it for the critique certificate title. */
+/** Dog name with optional compact rating (legacy helper). */
 export function critiqueCertificateNameLine(
   dogName: string,
   code: AdrkFormwertCode | null | undefined,

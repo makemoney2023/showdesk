@@ -340,7 +340,7 @@ export interface TnrkCritiqueForm {
   armband: string;
   narrative: string;
   class_and_rating: string;
-  /** Formwert drawn beside the dog name (e.g. "vv Very promising"). */
+  /** @deprecated Rating belongs on class_and_rating only. */
   rating?: string;
   date: string;
   owner: string;

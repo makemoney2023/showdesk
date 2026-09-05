@@ -30,16 +30,15 @@ const TEMPLATE = path.join(
  * Labels (fromTop):
  *  DOG/DOB/ARMBAND ~188–201 · CLASS/DATE ~447–461 · OWNER ~481 ·
  *  CO-OWNER ~507 · JUDGE SIGNATURE ~537–548
- * Narrative band sits between header row (~210) and CLASS (~440).
- * Body title + critique are shifted +20% from the original band tops
- * (235 / 258) so they clear printed certificate text.
+ * Narrative band sits between header row (~206) and CLASS (~440).
+ * Critique lines are shifted +20% from the original band top (258)
+ * so they clear printed certificate text.
  */
 const TNRK_CRITIQUE_BODY_TOP_SHIFT = 1.2;
 
 export const TNRK_CRITIQUE_FIELD_TOP = {
-  dog_name: 214,
-  /** Bold dog title inside the critique body band (+20% lower) */
-  body_title: Math.round(235 * TNRK_CRITIQUE_BODY_TOP_SHIFT),
+  /** Header NAME DES HUNDES fill-in, a few points above the old 214pt row. */
+  dog_name: 206,
   /** Critique lines start (+20% lower) */
   narrative_start: Math.round(258 * TNRK_CRITIQUE_BODY_TOP_SHIFT),
   class_and_rating: 472,
@@ -61,11 +60,6 @@ export const TNRK_CRITIQUE_FIELD_X = {
   judge_signature: 385,
 } as const;
 
-/** Base body title size (minimum 24pt for certificate prominence). */
-export const TNRK_CRITIQUE_BODY_TITLE_BASE_SIZE = 24;
-/** Dog name title in the critique band — 20% larger than base (≥28.8pt). */
-export const TNRK_CRITIQUE_BODY_TITLE_SIZE =
-  TNRK_CRITIQUE_BODY_TITLE_BASE_SIZE * 1.2;
 export const TNRK_CRITIQUE_NARRATIVE_SIZE = 10;
 
 /** Prefer secretary-edited STT draft → spoken transcript. Never SE form text. */
@@ -144,26 +138,9 @@ export async function buildTnrkCritiquePdf(
 
   // Header form fields (template NAME DES HUNDES / DOB / armband row)
   const yHeader = baseline(TNRK_CRITIQUE_FIELD_TOP.dog_name);
-  const headerName = form.dog_name.trim();
-  const headerRating = form.rating?.trim() ?? "";
-  draw(headerName, TNRK_CRITIQUE_FIELD_X.dog_name, yHeader, 12, true);
-  if (headerRating) {
-    const nameWidth = bold.widthOfTextAtSize(headerName.slice(0, 140), 12);
-    const ratingX = TNRK_CRITIQUE_FIELD_X.dog_name + nameWidth + 12;
-    if (ratingX < TNRK_CRITIQUE_FIELD_X.dob - 8) {
-      draw(headerRating, ratingX, yHeader, 12, true);
-    }
-  }
+  draw(form.dog_name, TNRK_CRITIQUE_FIELD_X.dog_name, yHeader, 12, true);
   draw(form.dob, TNRK_CRITIQUE_FIELD_X.dob, yHeader, 10);
   draw(form.armband, TNRK_CRITIQUE_FIELD_X.armband, yHeader, 10);
-
-  // Body: centered bold dog title + rating, then critique underneath
-  drawCentered(
-    [headerName, headerRating].filter(Boolean).join("  ·  "),
-    baseline(TNRK_CRITIQUE_FIELD_TOP.body_title),
-    TNRK_CRITIQUE_BODY_TITLE_SIZE,
-    true,
-  );
 
   const lines = wrapCritiqueNarrative(form.narrative);
   lines.slice(0, TNRK_CRITIQUE_MAX_NARRATIVE_LINES).forEach((line, i) => {
