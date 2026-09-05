@@ -258,7 +258,7 @@ export default function RecordPage() {
           // AEC + mic routed through Web Audio can mute the track mid-recording.
           echoCancellation: false,
           noiseSuppression: false,
-          autoGainControl: true,
+          autoGainControl: false,
         },
       });
       setMicCheck("ready");

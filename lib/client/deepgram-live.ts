@@ -157,6 +157,7 @@ export async function startDeepgramLiveSession(opts: {
   let processor: ScriptProcessorNode | null = null;
   let source: MediaStreamAudioSourceNode | null = null;
   let processorSink: GainNode | null = null;
+  let clonedTracks: MediaStreamTrack[] = [];
   let keepAliveOsc: OscillatorNode | null = null;
   let keepAliveGain: GainNode | null = null;
   let keepAliveId: number | null = null;
@@ -259,7 +260,10 @@ export async function startDeepgramLiveSession(opts: {
       keepAliveOsc.start();
 
       try {
-        source = audioContext.createMediaStreamSource(stream);
+        clonedTracks = stream.getAudioTracks().map((track) => track.clone());
+        const sttStream =
+          clonedTracks.length > 0 ? new MediaStream(clonedTracks) : stream;
+        source = audioContext.createMediaStreamSource(sttStream);
         processor = audioContext.createScriptProcessor(4096, 1, 1);
         processorSink = audioContext.createGain();
         processorSink.gain.value = 0;
@@ -298,7 +302,7 @@ export async function startDeepgramLiveSession(opts: {
           opts.onStatus?.("Recording · switching STT…");
           void ensureWebmSocket();
         }
-      }, 3000);
+      }, 1500);
 
       window.setTimeout(() => {
         if (
@@ -356,6 +360,8 @@ export async function startDeepgramLiveSession(opts: {
         processor?.disconnect();
         source?.disconnect();
         processorSink?.disconnect();
+        clonedTracks.forEach((track) => track.stop());
+        clonedTracks = [];
       } catch {
         /* ignore */
       }

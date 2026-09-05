@@ -554,10 +554,23 @@ export default function AdminReviewPage() {
                       </span>
                     ) : null}
                   </div>
-                  <details className="text-xs text-sss-text-muted">
-                    <summary className="cursor-pointer">Show transcript</summary>
-                    <p className="mt-2">{selected.transcript}</p>
-                  </details>
+                  <div className="mt-3 space-y-1">
+                    <p className="text-xs font-medium uppercase tracking-wide text-sss-text-secondary">
+                      Transcript
+                    </p>
+                    {selected.transcript.trim() ? (
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-sss-text">
+                        {selected.transcript}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-destructive">
+                        No speech was transcribed
+                        {selected.audio_path
+                          ? " — play the audio and type the letter, or tap Transcribe again."
+                          : "."}
+                      </p>
+                    )}
+                  </div>
                   {seForSelected ? (
                     <p className="mt-1 text-xs text-sss-text-secondary">
                       Ringside SE: <strong>{seForSelected.status}</strong>
@@ -602,8 +615,24 @@ export default function AdminReviewPage() {
                     </p>
                   ) : null}
                   <p className="text-xs text-sss-text-muted">
-                    Pre-filled from speech-to-text — edit before approve.
+                    {draft.narrative.trim()
+                      ? "Pre-filled from speech-to-text — edit before approve."
+                      : "Type the judge’s letter here if speech-to-text came back empty."}
                   </p>
+                  {selected.audio_path && !selected.transcript.trim() ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={
+                        busy ||
+                        (selected.status !== "PENDING_REVIEW" &&
+                          selected.status !== "ERROR")
+                      }
+                      onClick={() => void discardAndRerun()}
+                    >
+                      Transcribe again
+                    </Button>
+                  ) : null}
                   {draft.narrative &&
                   critiqueNarrativeOverflowsCertificate(draft.narrative) ? (
                     <p className="text-xs text-destructive">

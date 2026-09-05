@@ -121,6 +121,7 @@ export async function transcribeAudio(
   }
 
   // Preferred: Deepgram prerecorded (batch backup after live, or sole path offline sync).
+  let deepgramError: Error | null = null;
   if (hasDeepgramKey()) {
     try {
       const text = await transcribeWithDeepgram(
@@ -128,14 +129,16 @@ export async function transcribeAudio(
         sniffAudioContentType(bytes),
       );
       if (text) return { transcript: text, mock: false };
-    } catch {
-      // fall through to AssemblyAI; never invent a mock letter
+    } catch (err) {
+      deepgramError =
+        err instanceof Error ? err : new Error("Deepgram listen failed");
     }
   }
 
   // Legacy optional fallback.
   const apiKey = process.env.ASSEMBLYAI_API_KEY;
   if (!apiKey) {
+    if (deepgramError) throw deepgramError;
     return unavailable();
   }
 
@@ -178,9 +181,16 @@ export async function transcribeAudio(
       text = data.text ?? "";
     }
 
-    if (!text) return unavailable();
+    if (!text) {
+      if (deepgramError) throw deepgramError;
+      return unavailable();
+    }
     return { transcript: text, mock: false };
-  } catch {
+  } catch (err) {
+    if (deepgramError) throw deepgramError;
+    if (err instanceof Error && err.message.startsWith("AssemblyAI")) {
+      throw err;
+    }
     return unavailable();
   }
 }
