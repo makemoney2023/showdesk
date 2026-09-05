@@ -222,9 +222,15 @@ export function normalizeTnrkSeForm(input: unknown): TnrkSeForm {
   };
 }
 
+function isFilledSeValue(value: unknown): boolean {
+  if (value == null) return false;
+  if (typeof value === "string") return value.trim() !== "";
+  return true;
+}
+
 /**
- * Keep filled measurements / appearance from the stored form when the
- * incoming client copy is blank (stale IndexedDB draft or unsaved preview).
+ * Keep any filled SE field. Empty strings / nulls from a blank sibling,
+ * stale IndexedDB draft, or unsaved preview must not wipe saved values.
  */
 export function mergeSeFormPreferFilled(
   stored: TnrkSeForm | null | undefined,
@@ -235,13 +241,16 @@ export function mergeSeFormPreferFilled(
   const measurements = measurementsFilled(next.measurements)
     ? next.measurements
     : base.measurements;
-  return {
-    ...base,
-    ...next,
-    measurements,
-    overall_appearance: next.overall_appearance || base.overall_appearance,
-    comments: next.comments || base.comments,
-  };
+  const merged = { ...base, measurements };
+  (Object.keys(base) as Array<keyof TnrkSeForm>).forEach((key) => {
+    if (key === "measurements") return;
+    if (!isFilledSeValue(next[key])) {
+      Object.assign(merged, { [key]: base[key] });
+    } else {
+      Object.assign(merged, { [key]: next[key] });
+    }
+  });
+  return merged;
 }
 
 export function mergeEntryIntoSeForm(
