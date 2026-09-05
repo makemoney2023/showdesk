@@ -6,7 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { formatAdrkFormwert } from "@/lib/domain/adrk-template";
+import {
+  formatAdrkFormwert,
+  formwertScaleForEntry,
+  formwertSelectCodes,
+  getAdrkFormwertLabel,
+} from "@/lib/domain/adrk-template";
 import {
   divisionsWithDogs,
   entryMatchesDivision,
@@ -138,6 +143,8 @@ export default function AdminReviewPage() {
         selected.transcript.startsWith("Ringside SE")),
   );
   const seRating = seFormFormwert(seForSelected?.form);
+  const ratingScale = formwertScaleForEntry(entry ?? {});
+  const ratingCodes = formwertSelectCodes(ratingScale, draft?.formwert ?? null);
   const dirty = Boolean(
     selected &&
       draft &&
@@ -605,7 +612,7 @@ export default function AdminReviewPage() {
                         ? ` · ${seForSelected.form.final_result.toUpperCase()}`
                         : ""}
                       {seForSelected.form.formwert
-                        ? ` · ${formatAdrkFormwert(seForSelected.form.formwert)}`
+                        ? ` · ${formatAdrkFormwert(seForSelected.form.formwert, ratingScale)}`
                         : ""}
                       {seForSelected.form.comments?.trim()
                         ? ` · “${seForSelected.form.comments.trim().slice(0, 80)}${seForSelected.form.comments.trim().length > 80 ? "…" : ""}”`
@@ -678,15 +685,56 @@ export default function AdminReviewPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Rating</Label>
+                  <p className="text-xs text-sss-text-muted">
+                    {ratingScale === "puppy"
+                      ? "Puppy Class I–III: Very promising, Promising, Little promising."
+                      : "Youth and older: V Excellent, SG Very good, G Good."}
+                  </p>
+                  <div
+                    className="flex flex-wrap gap-2"
+                    role="group"
+                    aria-label="Formwert rating"
+                  >
+                    {ratingCodes.map((code) => {
+                      const selectedRating = draft.formwert === code;
+                      return (
+                        <Button
+                          key={code}
+                          type="button"
+                          size="sm"
+                          variant={selectedRating ? "default" : "outline"}
+                          disabled={busy || selected.status === "APPROVED"}
+                          onClick={() =>
+                            setDraft({ ...draft, formwert: code })
+                          }
+                        >
+                          {code} · {getAdrkFormwertLabel(code, ratingScale)}
+                        </Button>
+                      );
+                    })}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      disabled={
+                        busy ||
+                        !draft.formwert ||
+                        selected.status === "APPROVED"
+                      }
+                      onClick={() => setDraft({ ...draft, formwert: null })}
+                    >
+                      Clear
+                    </Button>
+                  </div>
                   <p className="text-sm font-medium">
-                    {formatAdrkFormwert(draft.formwert ?? null)}
+                    {formatAdrkFormwert(draft.formwert ?? null, ratingScale)}
                   </p>
                   <p className="text-xs text-sss-text-muted">
                     {seRating
-                      ? "From the ringside SE form. Recalled critiques can be updated by re-saving the SE form."
+                      ? "Seeded from the ringside SE form — change it here if the judge announced a different rating."
                       : draft.formwert
-                        ? "Guessed from the spoken critique — confirm against the SE form before release."
-                        : "No rating yet — set Formwert on the SE form at ringside."}
+                        ? "Save the draft or approve to keep this rating."
+                        : "Tap the rating the judge announced."}
                   </p>
                 </div>
                 {showId && selectedId ? (

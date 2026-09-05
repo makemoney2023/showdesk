@@ -22,8 +22,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  ADRK_FORMWERT_CODES,
   formatAdrkFormwert,
+  formwertScaleForEntry,
+  formwertSelectCodes,
   type AdrkFormwertCode,
 } from "@/lib/domain/adrk-template";
 import { seFieldId, seRadioName } from "@/lib/domain/se-form-fields";
@@ -866,16 +867,21 @@ function StewardSeForm({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">—</SelectItem>
-              {ADRK_FORMWERT_CODES.map((code) => (
+              {formwertSelectCodes(
+                formwertScaleForEntry(entry ?? {}),
+                form.formwert,
+              ).map((code) => (
                 <SelectItem key={code} value={code}>
-                  {formatAdrkFormwert(code)}
+                  {formatAdrkFormwert(code, formwertScaleForEntry(entry ?? {}))}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <p className="text-xs text-sss-text-muted">
-            Copied onto Review and used to sort placements. The desk does not
-            set this again.
+            {formwertScaleForEntry(entry ?? {}) === "puppy"
+              ? "Puppy classes: Very promising (vv), Promising (V), Little promising (wv)."
+              : "Youth and older: V Excellent, SG Very good, G Good."}{" "}
+            Copied onto Review and used to sort placements.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">

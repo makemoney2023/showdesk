@@ -105,11 +105,82 @@ export function getAdrkClassLabel(id: AdrkClassId): string {
   return found?.label ?? id;
 }
 
-export function getAdrkFormwertLabel(code: AdrkFormwertCode): string {
+export type FormwertScale = "puppy" | "adult";
+
+const PUPPY_CATALOG_CLASSES = new Set([
+  "puppy-i",
+  "puppy-ii",
+  "puppy-iii",
+]);
+const PUPPY_ADRK_CLASSES = new Set(["babyklasse", "juengstenklasse"]);
+
+/** Puppy I–III use promising ratings; youth and older use V / SG / G. */
+export function formwertScaleForEntry(entry: {
+  catalog_class?: string | null;
+  class_id?: string | null;
+}): FormwertScale {
+  if (entry.catalog_class && PUPPY_CATALOG_CLASSES.has(entry.catalog_class)) {
+    return "puppy";
+  }
+  if (entry.class_id && PUPPY_ADRK_CLASSES.has(entry.class_id)) {
+    return "puppy";
+  }
+  return "adult";
+}
+
+export const PUPPY_FORMWERT_CODES: AdrkFormwertCode[] = [
+  "vv",
+  "V",
+  "wv",
+  "oB",
+  "zgz",
+  "ne",
+  "disq.",
+];
+
+export const ADULT_FORMWERT_CODES: AdrkFormwertCode[] = [
+  "V",
+  "vsp",
+  "Sg",
+  "G",
+  "Ggd",
+  "oB",
+  "zgz",
+  "ne",
+  "disq.",
+];
+
+export function formwertCodesForScale(
+  scale: FormwertScale,
+): AdrkFormwertCode[] {
+  return scale === "puppy" ? PUPPY_FORMWERT_CODES : ADULT_FORMWERT_CODES;
+}
+
+export function formwertSelectCodes(
+  scale: FormwertScale,
+  current?: AdrkFormwertCode | null,
+): AdrkFormwertCode[] {
+  const codes = [...formwertCodesForScale(scale)];
+  if (current && !codes.includes(current)) codes.unshift(current);
+  return codes;
+}
+
+export function getAdrkFormwertLabel(
+  code: AdrkFormwertCode,
+  scale: FormwertScale = "adult",
+): string {
+  if (scale === "puppy") {
+    if (code === "vv") return "Very promising";
+    if (code === "V") return "Promising";
+    if (code === "wv") return "Little promising";
+  }
   return ADRK_FORMWERT_LABELS[code];
 }
 
-export function formatAdrkFormwert(code: AdrkFormwertCode | null): string {
+export function formatAdrkFormwert(
+  code: AdrkFormwertCode | null,
+  scale: FormwertScale = "adult",
+): string {
   if (!code) return "—";
-  return `${code} (${getAdrkFormwertLabel(code)})`;
+  return `${code} (${getAdrkFormwertLabel(code, scale)})`;
 }

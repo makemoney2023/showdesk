@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { formatAdrkFormwert } from "@/lib/domain/adrk-template";
+import {
+  formatAdrkFormwert,
+  formwertScaleForEntry,
+} from "@/lib/domain/adrk-template";
 import {
   competitionPoolKey,
   competitionPoolsWithDogs,
@@ -244,7 +247,10 @@ export default function PlacementsPage() {
                       className="min-w-28 rounded-sss-md bg-sss-lifted px-2 py-1 text-sm font-semibold tabular-nums"
                       aria-label={`Rating for ${dog.dog_name}`}
                     >
-                      {formatAdrkFormwert(formwert ?? null)}
+                      {formatAdrkFormwert(
+                        formwert ?? null,
+                        formwertScaleForEntry(dog),
+                      )}
                     </span>
                     <div
                       className="flex gap-1"

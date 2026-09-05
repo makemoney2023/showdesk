@@ -4,7 +4,10 @@ import {
   ADRK_FORMWERT_CODES,
   createEmptyDraft,
   formatAdrkFormwert,
+  formwertScaleForEntry,
+  formwertSelectCodes,
   getAdrkClassLabel,
+  getAdrkFormwertLabel,
   isValidAdrkClassId,
   isValidFormwert,
 } from "./adrk-template";
@@ -52,5 +55,28 @@ describe("adrk-template", () => {
   it("formats Formwert with English gloss", () => {
     expect(formatAdrkFormwert("V")).toBe("V (Excellent)");
     expect(formatAdrkFormwert(null)).toBe("—");
+  });
+
+  it("uses promising labels for puppy classes", () => {
+    expect(formwertScaleForEntry({ catalog_class: "puppy-i" })).toBe("puppy");
+    expect(formwertScaleForEntry({ catalog_class: "puppy-iii" })).toBe("puppy");
+    expect(formwertScaleForEntry({ class_id: "babyklasse" })).toBe("puppy");
+    expect(formwertScaleForEntry({ catalog_class: "youth-i" })).toBe("adult");
+    expect(formwertScaleForEntry({ catalog_class: "open" })).toBe("adult");
+    expect(getAdrkFormwertLabel("vv", "puppy")).toBe("Very promising");
+    expect(getAdrkFormwertLabel("V", "puppy")).toBe("Promising");
+    expect(getAdrkFormwertLabel("V", "adult")).toBe("Excellent");
+    expect(formatAdrkFormwert("vv", "puppy")).toBe("vv (Very promising)");
+    expect(formwertSelectCodes("puppy")).toEqual([
+      "vv",
+      "V",
+      "wv",
+      "oB",
+      "zgz",
+      "ne",
+      "disq.",
+    ]);
+    expect(formwertSelectCodes("adult")[0]).toBe("V");
+    expect(formwertSelectCodes("puppy", "Sg")[0]).toBe("Sg");
   });
 });
