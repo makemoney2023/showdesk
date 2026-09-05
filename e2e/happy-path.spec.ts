@@ -32,6 +32,9 @@ async function installBrowserAudioMocks(page: Page) {
       getByteFrequencyData(data: Uint8Array) {
         data.fill(64);
       }
+      getByteTimeDomainData(data: Uint8Array) {
+        data.fill(160);
+      }
     }
 
     class MockAudioContext {
@@ -43,6 +46,18 @@ async function installBrowserAudioMocks(page: Page) {
       }
       createAnalyser() {
         return new MockAnalyser();
+      }
+      createOscillator() {
+        return Object.assign(new MockAudioNode(), { start() {}, stop() {} });
+      }
+      createGain() {
+        return Object.assign(new MockAudioNode(), { gain: { value: 0 } });
+      }
+      createScriptProcessor() {
+        return new MockAudioNode();
+      }
+      createMediaStreamDestination() {
+        return new MockAudioNode();
       }
       async resume() {}
       async close() {}

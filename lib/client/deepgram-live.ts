@@ -116,8 +116,8 @@ async function grantAccessToken(): Promise<string | null> {
 
 /**
  * Browser live STT via temporary Deepgram JWT.
- * Keeps the AudioContext alive with a silent oscillator (does NOT route mic
- * to speakers — that triggers browser AEC and mutes the mic after a moment).
+ * The ScriptProcessor is muted into destination so WebKit keeps firing
+ * onaudioprocess; echoCancellation is off on the mic track.
  */
 export async function startDeepgramLiveSession(opts: {
   onDisplay: (text: string) => void;
@@ -147,7 +147,7 @@ export async function startDeepgramLiveSession(opts: {
     return null;
   }
 
-  opts.onStatus?.("Live transcription connected");
+  opts.onStatus?.("Recording · live STT ready");
 
   let state = { finals: [] as string[], interim: "" };
   let stopped = false;
@@ -156,7 +156,7 @@ export async function startDeepgramLiveSession(opts: {
   let pcmChunksSent = 0;
   let processor: ScriptProcessorNode | null = null;
   let source: MediaStreamAudioSourceNode | null = null;
-  let processorSink: MediaStreamAudioDestinationNode | null = null;
+  let processorSink: GainNode | null = null;
   let keepAliveOsc: OscillatorNode | null = null;
   let keepAliveGain: GainNode | null = null;
   let keepAliveId: number | null = null;
@@ -207,7 +207,7 @@ export async function startDeepgramLiveSession(opts: {
         reason: "pcm-closed",
       })
     ) {
-      opts.onStatus?.("PCM socket closed — trying webm…");
+      opts.onStatus?.("Recording · switching STT…");
       void ensureWebmSocket();
     }
   };
@@ -231,7 +231,7 @@ export async function startDeepgramLiveSession(opts: {
       await waitForOpen(ws, "Deepgram webm socket");
       webmWs = ws;
       ws.onmessage = handleMessage;
-      opts.onStatus?.("Live transcription (webm)");
+      opts.onStatus?.("Recording · listening…");
       while (webmQueue.length > 0 && webmWs.readyState === WebSocket.OPEN) {
         const blob = webmQueue.shift();
         if (!blob) break;
@@ -249,8 +249,8 @@ export async function startDeepgramLiveSession(opts: {
         await audioContext.resume();
       }
 
-      // Keep the audio graph running WITHOUT routing mic to speakers.
-      // Mic→destination (even gain 0) can trip browser AEC and mute the track.
+      // Keep the graph running. WebKit only fires ScriptProcessor when the
+      // node can reach destination; the gain is 0 so the mic is not played.
       keepAliveOsc = audioContext.createOscillator();
       keepAliveGain = audioContext.createGain();
       keepAliveGain.gain.value = 0;
@@ -261,7 +261,8 @@ export async function startDeepgramLiveSession(opts: {
       try {
         source = audioContext.createMediaStreamSource(stream);
         processor = audioContext.createScriptProcessor(4096, 1, 1);
-        processorSink = audioContext.createMediaStreamDestination();
+        processorSink = audioContext.createGain();
+        processorSink.gain.value = 0;
 
         processor.onaudioprocess = (e) => {
           if (stopped || paused) return;
@@ -271,14 +272,15 @@ export async function startDeepgramLiveSession(opts: {
           pcmWs.send(pcmChunkToArrayBuffer(pcm));
           pcmChunksSent += 1;
           if (pcmChunksSent === 1) {
-            opts.onStatus?.("Live transcription listening…");
+            opts.onStatus?.("Recording · listening…");
           }
         };
 
         source.connect(processor);
         processor.connect(processorSink);
+        processorSink.connect(audioContext.destination);
       } catch {
-        opts.onStatus?.("Live PCM unavailable — using webm");
+        opts.onStatus?.("Recording · will transcribe on stop");
         void ensureWebmSocket();
       }
 
@@ -293,7 +295,7 @@ export async function startDeepgramLiveSession(opts: {
             reason: "processor-idle",
           })
         ) {
-          opts.onStatus?.("Live PCM idle — trying webm…");
+          opts.onStatus?.("Recording · switching STT…");
           void ensureWebmSocket();
         }
       }, 3000);
@@ -309,7 +311,7 @@ export async function startDeepgramLiveSession(opts: {
             reason: "pcm-silent",
           })
         ) {
-          opts.onStatus?.("Live PCM silent — switching to webm…");
+          opts.onStatus?.("Recording · switching STT…");
           try {
             pcmWs.close();
           } catch {

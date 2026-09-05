@@ -28,6 +28,7 @@ import {
   isUsableRecordingBlob,
   microphoneErrorLabel,
   pickRecordingMimeType,
+  vuLevelFromTimeDomain,
 } from "@/lib/domain/recording-readiness";
 import { recordingBlockedReason } from "@/lib/domain/entry-cascade";
 import type { CritiqueRecord, RosterEntryRecord, Show } from "@/lib/types";
@@ -84,6 +85,8 @@ export default function RecordPage() {
   const liveSessionRef = useRef<Awaited<
     ReturnType<typeof startDeepgramLiveSession>
   > | null>(null);
+  const liveConnectRef = useRef<Promise<void> | null>(null);
+  const hasLiveTextRef = useRef(false);
   const liveFinalRef = useRef("");
   const recordingMimeRef = useRef("audio/webm");
   const wakeLockRef = useRef<ScreenWakeLock | null>(null);
@@ -147,6 +150,7 @@ export default function RecordPage() {
     void loadEntry();
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      recordingRef.current = false;
       // Leaving mid-recording means the steward chose to discard it. Detach
       // onstop BEFORE ending the tracks, otherwise the recorder's stop event
       // still fires handleStop and uploads the partial take.
@@ -157,6 +161,9 @@ export default function RecordPage() {
         if (recorder.state !== "inactive") recorder.stop();
       }
       streamRef.current?.getTracks().forEach((t) => t.stop());
+      void liveConnectRef.current
+        ?.catch(() => undefined)
+        .then(() => liveSessionRef.current?.stop());
       void liveSessionRef.current?.stop();
       void audioContextRef.current?.close().catch(() => undefined);
       audioContextRef.current = null;
@@ -185,10 +192,9 @@ export default function RecordPage() {
   function updateVuMeter() {
     const analyser = analyserRef.current;
     if (!analyser) return;
-    const data = new Uint8Array(analyser.frequencyBinCount);
-    analyser.getByteFrequencyData(data);
-    const avg = data.reduce((a, b) => a + b, 0) / data.length;
-    setVuLevel(Math.min(100, Math.round((avg / 255) * 100)));
+    const data = new Uint8Array(analyser.fftSize);
+    analyser.getByteTimeDomainData(data);
+    setVuLevel(vuLevelFromTimeDomain(data));
     animationRef.current = requestAnimationFrame(updateVuMeter);
   }
 
@@ -240,8 +246,8 @@ export default function RecordPage() {
       setStatus(approvedBlock);
       return;
     }
-    // Mic permission + live STT connect can take seconds; a second tap in
-    // that window would orphan the first stream with the mic still hot.
+    // Mic permission can take a moment; a second tap in that window would
+    // orphan the first stream with the mic still hot.
     if (startingRef.current || recordingRef.current) return;
     startingRef.current = true;
     setStatus("Opening microphone…");
@@ -272,22 +278,8 @@ export default function RecordPage() {
 
       setLiveTranscript("");
       liveFinalRef.current = "";
-      try {
-        liveSessionRef.current = await startDeepgramLiveSession({
-          onDisplay: (text) => {
-            setLiveTranscript(text);
-            if (text.trim()) setStatus("Transcribing…");
-          },
-          onStatus: setStatus,
-        });
-        if (liveSessionRef.current) {
-          await liveSessionRef.current.attachAudio({ stream, audioContext });
-        }
-      } catch {
-        void liveSessionRef.current?.stop();
-        liveSessionRef.current = null;
-        setStatus("Live STT unavailable — will transcribe on stop");
-      }
+      hasLiveTextRef.current = false;
+      liveSessionRef.current = null;
 
       const mime = pickRecordingMimeType();
       const recorder = mime
@@ -309,12 +301,15 @@ export default function RecordPage() {
       elapsedBaseRef.current = 0;
       tickStartedAtRef.current = Date.now();
       setElapsed(0);
+      recordingRef.current = true;
       setRecording(true);
       setPaused(false);
+      setStatus("Recording…");
       await acquireWakeLock();
-      if (!liveSessionRef.current) {
-        setStatus("Recording… (batch STT on stop)");
-      }
+
+      // Live STT can stall on ring Wi-Fi. Capture starts first so the
+      // steward sees the meter and timer immediately.
+      liveConnectRef.current = connectLiveStt(stream, audioContext);
     } catch (error) {
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
@@ -431,11 +426,53 @@ export default function RecordPage() {
     streamRef.current = null;
   }
 
+  async function connectLiveStt(
+    stream: MediaStream,
+    audioContext: AudioContext,
+  ) {
+    try {
+      const session = await startDeepgramLiveSession({
+        onDisplay: (text) => {
+          setLiveTranscript(text);
+          if (text.trim()) {
+            hasLiveTextRef.current = true;
+            if (recordingRef.current) setStatus("Recording · transcribing…");
+          }
+        },
+        onStatus: (next) => {
+          if (recordingRef.current && !hasLiveTextRef.current) {
+            setStatus(next);
+          }
+        },
+      });
+      if (!recordingRef.current) {
+        await session?.stop();
+        return;
+      }
+      liveSessionRef.current = session;
+      if (session) {
+        await session.attachAudio({ stream, audioContext });
+      } else if (recordingRef.current) {
+        setStatus("Recording… (will transcribe on stop)");
+      }
+    } catch {
+      void liveSessionRef.current?.stop();
+      liveSessionRef.current = null;
+      if (recordingRef.current) {
+        setStatus("Recording… (will transcribe on stop)");
+      }
+    }
+  }
+
   async function handleStop() {
     const blob = new Blob(chunksRef.current, {
       type: recordingMimeRef.current || "audio/webm",
     });
     releaseMic();
+    if (liveConnectRef.current) {
+      await liveConnectRef.current.catch(() => undefined);
+      liveConnectRef.current = null;
+    }
     const live = liveSessionRef.current
       ? await liveSessionRef.current.stop()
       : "";
@@ -605,9 +642,16 @@ export default function RecordPage() {
       </div>
 
       <div className="sss-paper space-y-5 p-5">
-        <p className="text-center font-mono text-4xl tabular-nums tracking-tight">
-          {formatElapsed(elapsed)}
-        </p>
+        <div className="space-y-1">
+          {recording ? (
+            <p className="text-center text-sm font-medium text-sss-accent">
+              {paused ? "Paused" : "Recording"}
+            </p>
+          ) : null}
+          <p className="text-center font-mono text-4xl tabular-nums tracking-tight">
+            {formatElapsed(elapsed)}
+          </p>
+        </div>
         <VuMeter
           level={vuLevel}
           label={status}
@@ -682,7 +726,8 @@ export default function RecordPage() {
             Review after stop.
           </p>
           <p className="min-h-[4.5rem] whitespace-pre-wrap text-sm leading-relaxed text-sss-text">
-            {liveTranscript || "Listening…"}
+            {liveTranscript ||
+              "Waiting for speech… words appear here as the judge talks."}
           </p>
         </div>
       )}

@@ -1,3 +1,5 @@
+import { vuBarHeightPx } from "@/lib/domain/recording-readiness";
+
 const BAR_COUNT = 24;
 
 export function VuMeter({
@@ -20,7 +22,8 @@ export function VuMeter({
         {Array.from({ length: BAR_COUNT }, (_, i) => (
           <div
             key={i}
-            className={`min-h-2 flex-1 rounded-sss-sm ${
+            style={{ height: `${vuBarHeightPx(i, BAR_COUNT)}px` }}
+            className={`flex-1 rounded-sss-sm ${
               i < active ? "bg-sss-accent" : "bg-sss-border"
             }`}
           />

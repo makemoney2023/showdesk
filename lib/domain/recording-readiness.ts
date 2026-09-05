@@ -21,6 +21,29 @@ export function isUsableRecordingBlob(blob: Pick<Blob, "size"> | null | undefine
   return Boolean(blob && blob.size >= MIN_RECORDING_BYTES);
 }
 
+/** RMS of unsigned 8-bit PCM (128 = silence). Frequency bins stay quiet on speech. */
+export function vuLevelFromTimeDomain(data: Uint8Array): number {
+  if (data.length === 0) return 0;
+  let sum = 0;
+  for (let i = 0; i < data.length; i++) {
+    const v = ((data[i] ?? 128) - 128) / 128;
+    sum += v * v;
+  }
+  const rms = Math.sqrt(sum / data.length);
+  return Math.min(100, Math.round(rms * 160));
+}
+
+export function vuBarHeightPx(
+  index: number,
+  barCount: number,
+  minPx = 8,
+  maxPx = 72,
+): number {
+  if (barCount <= 1) return maxPx;
+  const t = Math.min(1, Math.max(0, index / (barCount - 1)));
+  return Math.round(minPx + t * (maxPx - minPx));
+}
+
 export function microphoneErrorLabel(error: unknown): string {
   const name =
     error && typeof error === "object" && "name" in error

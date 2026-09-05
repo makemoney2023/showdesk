@@ -3,6 +3,8 @@ import {
   isUsableRecordingBlob,
   microphoneErrorLabel,
   pickRecordingMimeType,
+  vuBarHeightPx,
+  vuLevelFromTimeDomain,
 } from "./recording-readiness";
 
 describe("microphoneErrorLabel", () => {
@@ -34,6 +36,27 @@ describe("pickRecordingMimeType", () => {
 
   it("returns undefined when nothing is supported so MediaRecorder can use its default", () => {
     expect(pickRecordingMimeType(() => false)).toBeUndefined();
+  });
+});
+
+describe("vuLevelFromTimeDomain", () => {
+  it("is silent at the 8-bit midpoint", () => {
+    expect(vuLevelFromTimeDomain(Uint8Array.from({ length: 32 }, () => 128))).toBe(
+      0,
+    );
+  });
+
+  it("rises when the waveform has amplitude", () => {
+    const loud = Uint8Array.from({ length: 32 }, (_, i) => (i % 2 === 0 ? 255 : 1));
+    expect(vuLevelFromTimeDomain(loud)).toBeGreaterThan(50);
+  });
+});
+
+describe("vuBarHeightPx", () => {
+  it("grows across the meter so active bars are visible", () => {
+    expect(vuBarHeightPx(0, 24)).toBe(8);
+    expect(vuBarHeightPx(23, 24)).toBe(72);
+    expect(vuBarHeightPx(11, 24)).toBeGreaterThan(vuBarHeightPx(0, 24));
   });
 });
 
