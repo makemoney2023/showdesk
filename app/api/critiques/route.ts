@@ -13,7 +13,7 @@ import {
   openCritiqueForEntry,
   recordingBlockedReason,
 } from "@/lib/domain/entry-cascade";
-import { mergeSeIntoCritiqueDraft } from "@/lib/domain/se-to-critique";
+import { applySeFormwert } from "@/lib/domain/se-to-critique";
 import {
   requireApiSession,
   requireApiWrite,
@@ -156,9 +156,7 @@ export async function POST(request: Request) {
         evaluation.entry_id === body.entry_id &&
         evaluation.show_id === body.show_id,
     );
-    const draft = se
-      ? mergeSeIntoCritiqueDraft(result.draft, se.form)
-      : result.draft;
+    const draft = se ? applySeFormwert(result.draft, se.form) : result.draft;
 
     await updateStore((s) => ({
       ...s,
@@ -267,7 +265,6 @@ export async function PATCH(request: Request) {
       }
       const result = await processCritique({
         audioBase64,
-        liveTranscript: critique.transcript || undefined,
         entryId: critique.entry_id,
         showId: body.show_id,
       });

@@ -19,7 +19,7 @@ export async function POST() {
 
   try {
     // Ringside critiques can run several minutes; default grant is ~30s.
-    const token = await grantDeepgramTemporaryToken({ ttlSeconds: 600 });
+    const token = await grantDeepgramTemporaryToken({ ttlSeconds: 3600 });
     return NextResponse.json(token);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Token grant failed";

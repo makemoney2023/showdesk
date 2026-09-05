@@ -29,7 +29,10 @@ import {
 import { isReviewDraftDirty } from "@/lib/domain/review-dirty";
 import { catalogCompetitionLabel } from "@/lib/domain/catalog-competition";
 import {
+  critiqueLetterWithoutSeSection,
+  isSeFormReplacementDraft,
   seEvaluationForEntry,
+  spokenCritiqueTranscript,
   visibleReviewCritiques,
 } from "@/lib/domain/se-to-critique";
 import { seFormFormwert } from "@/lib/domain/tnrk-se-form";
@@ -146,13 +149,16 @@ export default function AdminReviewPage() {
     }
     const selectedEntry = entries.find((e) => e.id === selected.entry_id);
     const se = seEvaluationForEntry(evaluations, entries, selectedEntry);
+    const spokenOrDraft = isSeFormReplacementDraft(selected.draft)
+      ? selected.draft.narrative.trim()
+      : critiqueLetterWithoutSeSection(selected.draft.narrative) ||
+        spokenCritiqueTranscript(selected);
     const seeded = {
-      ...(selected.draft.narrative.trim()
-        ? selected.draft
-        : {
-            ...selected.draft,
-            narrative: selected.transcript.trim(),
-          }),
+      ...selected.draft,
+      narrative:
+        spokenOrDraft ||
+        selected.draft.narrative.trim() ||
+        selected.transcript.trim(),
       formwert: selected.draft.formwert ?? seFormFormwert(se?.form),
     };
     setDraft(seeded);

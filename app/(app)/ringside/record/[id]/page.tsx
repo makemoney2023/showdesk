@@ -24,7 +24,11 @@ import {
   requestScreenWakeLock,
   type ScreenWakeLock,
 } from "@/lib/client/screen-wake-lock";
-import { microphoneErrorLabel } from "@/lib/domain/recording-readiness";
+import {
+  isUsableRecordingBlob,
+  microphoneErrorLabel,
+  pickRecordingMimeType,
+} from "@/lib/domain/recording-readiness";
 import { recordingBlockedReason } from "@/lib/domain/entry-cascade";
 import type { CritiqueRecord, RosterEntryRecord, Show } from "@/lib/types";
 import {
@@ -81,6 +85,7 @@ export default function RecordPage() {
     ReturnType<typeof startDeepgramLiveSession>
   > | null>(null);
   const liveFinalRef = useRef("");
+  const recordingMimeRef = useRef("audio/webm");
   const wakeLockRef = useRef<ScreenWakeLock | null>(null);
   const recordingRef = useRef(recording);
   recordingRef.current = recording;
@@ -239,6 +244,7 @@ export default function RecordPage() {
     // that window would orphan the first stream with the mic still hot.
     if (startingRef.current || recordingRef.current) return;
     startingRef.current = true;
+    setStatus("Opening microphone…");
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -266,21 +272,28 @@ export default function RecordPage() {
 
       setLiveTranscript("");
       liveFinalRef.current = "";
-      liveSessionRef.current = await startDeepgramLiveSession({
-        onDisplay: (text) => {
-          setLiveTranscript(text);
-          if (text.trim()) setStatus("Transcribing…");
-        },
-        onStatus: setStatus,
-      });
-      if (liveSessionRef.current) {
-        await liveSessionRef.current.attachAudio({ stream, audioContext });
+      try {
+        liveSessionRef.current = await startDeepgramLiveSession({
+          onDisplay: (text) => {
+            setLiveTranscript(text);
+            if (text.trim()) setStatus("Transcribing…");
+          },
+          onStatus: setStatus,
+        });
+        if (liveSessionRef.current) {
+          await liveSessionRef.current.attachAudio({ stream, audioContext });
+        }
+      } catch {
+        void liveSessionRef.current?.stop();
+        liveSessionRef.current = null;
+        setStatus("Live STT unavailable — will transcribe on stop");
       }
 
-      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : "audio/webm";
-      const recorder = new MediaRecorder(stream, { mimeType: mime });
+      const mime = pickRecordingMimeType();
+      const recorder = mime
+        ? new MediaRecorder(stream, { mimeType: mime })
+        : new MediaRecorder(stream);
+      recordingMimeRef.current = recorder.mimeType || mime || "audio/webm";
       setSupportsPause(typeof recorder.pause === "function");
       chunksRef.current = [];
       recorder.ondataavailable = (e) => {
@@ -320,6 +333,7 @@ export default function RecordPage() {
     const rec = mediaRecorderRef.current;
     if (rec && rec.state === "recording" && typeof rec.pause === "function") {
       rec.pause();
+      liveSessionRef.current?.pause();
       const started = tickStartedAtRef.current ?? Date.now();
       elapsedBaseRef.current += Math.floor((Date.now() - started) / 1000);
       setElapsed(elapsedBaseRef.current);
@@ -332,6 +346,7 @@ export default function RecordPage() {
     const rec = mediaRecorderRef.current;
     if (rec && rec.state === "paused" && typeof rec.resume === "function") {
       rec.resume();
+      liveSessionRef.current?.resume();
       setPaused(false);
       setStatus("Recording…");
     }
@@ -345,7 +360,6 @@ export default function RecordPage() {
       mediaRecorderRef.current.stop();
     }
     if (animationRef.current) cancelAnimationFrame(animationRef.current);
-    streamRef.current?.getTracks().forEach((t) => t.stop());
     void releaseScreenWakeLock(wakeLockRef.current);
     wakeLockRef.current = null;
     setWakeLockActive(false);
@@ -412,10 +426,16 @@ export default function RecordPage() {
     };
   }, [acquireWakeLock, recording]);
 
-  async function handleStop() {
-    const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-    if (!showId || !entryId || !entry) return;
+  function releaseMic() {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  }
 
+  async function handleStop() {
+    const blob = new Blob(chunksRef.current, {
+      type: recordingMimeRef.current || "audio/webm",
+    });
+    releaseMic();
     const live = liveSessionRef.current
       ? await liveSessionRef.current.stop()
       : "";
@@ -423,6 +443,11 @@ export default function RecordPage() {
     liveFinalRef.current = live || liveTranscript.trim();
     void audioContextRef.current?.close().catch(() => undefined);
     audioContextRef.current = null;
+    if (!showId || !entryId || !entry) return;
+    if (!isUsableRecordingBlob(blob) && !liveFinalRef.current) {
+      setStatus("Recording was empty — tap start, speak, then stop");
+      return;
+    }
 
     async function queueRecording(message: string) {
       await enqueueRecording({
@@ -448,7 +473,9 @@ export default function RecordPage() {
 
     setStatus("Uploading & processing…");
     try {
-      const audioBase64 = await blobToBase64(blob);
+      const audioBase64 = isUsableRecordingBlob(blob)
+        ? await blobToBase64(blob)
+        : undefined;
       const res = await fetch("/api/critiques", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -1,6 +1,7 @@
 "use client";
 
 import { applyLiveResult } from "@/lib/deepgram/transcript";
+import { shouldOpenWebmFallback } from "@/lib/deepgram/live-fallback";
 
 export type LiveSession = {
   attachAudio: (opts: {
@@ -8,6 +9,8 @@ export type LiveSession = {
     audioContext: AudioContext;
   }) => Promise<void>;
   feedWebmChunk: (chunk: Blob) => void;
+  pause: () => void;
+  resume: () => void;
   stop: () => Promise<string>;
 };
 
@@ -148,7 +151,9 @@ export async function startDeepgramLiveSession(opts: {
 
   let state = { finals: [] as string[], interim: "" };
   let stopped = false;
+  let paused = false;
   let gotResult = false;
+  let pcmChunksSent = 0;
   let processor: ScriptProcessorNode | null = null;
   let source: MediaStreamAudioSourceNode | null = null;
   let processorSink: MediaStreamAudioDestinationNode | null = null;
@@ -180,7 +185,7 @@ export async function startDeepgramLiveSession(opts: {
       if (!transcript.trim()) return;
       gotResult = true;
       const next = applyLiveResult(state, {
-        is_final: Boolean(msg.is_final || msg.speech_final),
+        is_final: Boolean(msg.is_final),
         transcript,
       });
       state = { finals: next.finals, interim: next.interim };
@@ -192,12 +197,17 @@ export async function startDeepgramLiveSession(opts: {
 
   pcmWs.onmessage = handleMessage;
   pcmWs.onclose = () => {
-    // Do not kill the whole session — fall back to webm if still recording.
-    if (!stopped && !gotResult) {
+    if (
+      shouldOpenWebmFallback({
+        stopped,
+        gotResult,
+        webmStarted,
+        pcmOpen: false,
+        pcmChunksSent,
+        reason: "pcm-closed",
+      })
+    ) {
       opts.onStatus?.("PCM socket closed — trying webm…");
-      void ensureWebmSocket();
-    } else if (!stopped) {
-      opts.onStatus?.("PCM socket closed — webm fallback if needed");
       void ensureWebmSocket();
     }
   };
@@ -248,33 +258,78 @@ export async function startDeepgramLiveSession(opts: {
       keepAliveGain.connect(audioContext.destination);
       keepAliveOsc.start();
 
-      source = audioContext.createMediaStreamSource(stream);
-      processor = audioContext.createScriptProcessor(4096, 1, 1);
-      processorSink = audioContext.createMediaStreamDestination();
+      try {
+        source = audioContext.createMediaStreamSource(stream);
+        processor = audioContext.createScriptProcessor(4096, 1, 1);
+        processorSink = audioContext.createMediaStreamDestination();
 
-      let sentChunks = 0;
-      processor.onaudioprocess = (e) => {
-        if (stopped) return;
-        if (pcmWs.readyState !== WebSocket.OPEN) return;
-        const input = e.inputBuffer.getChannelData(0);
-        const pcm = downsampleTo16k(input, audioContext.sampleRate);
-        pcmWs.send(pcmChunkToArrayBuffer(pcm));
-        sentChunks += 1;
-        if (sentChunks === 1) {
-          opts.onStatus?.("Live transcription listening…");
-        }
-      };
+        processor.onaudioprocess = (e) => {
+          if (stopped || paused) return;
+          if (pcmWs.readyState !== WebSocket.OPEN) return;
+          const input = e.inputBuffer.getChannelData(0);
+          const pcm = downsampleTo16k(input, audioContext.sampleRate);
+          pcmWs.send(pcmChunkToArrayBuffer(pcm));
+          pcmChunksSent += 1;
+          if (pcmChunksSent === 1) {
+            opts.onStatus?.("Live transcription listening…");
+          }
+        };
 
-      source.connect(processor);
-      processor.connect(processorSink);
+        source.connect(processor);
+        processor.connect(processorSink);
+      } catch {
+        opts.onStatus?.("Live PCM unavailable — using webm");
+        void ensureWebmSocket();
+      }
 
       window.setTimeout(() => {
-        if (!gotResult && !stopped) void ensureWebmSocket();
+        if (
+          shouldOpenWebmFallback({
+            stopped,
+            gotResult,
+            webmStarted,
+            pcmOpen: pcmWs.readyState === WebSocket.OPEN,
+            pcmChunksSent,
+            reason: "processor-idle",
+          })
+        ) {
+          opts.onStatus?.("Live PCM idle — trying webm…");
+          void ensureWebmSocket();
+        }
       }, 3000);
+
+      window.setTimeout(() => {
+        if (
+          shouldOpenWebmFallback({
+            stopped,
+            gotResult,
+            webmStarted,
+            pcmOpen: pcmWs.readyState === WebSocket.OPEN,
+            pcmChunksSent,
+            reason: "pcm-silent",
+          })
+        ) {
+          opts.onStatus?.("Live PCM silent — switching to webm…");
+          try {
+            pcmWs.close();
+          } catch {
+            /* ignore */
+          }
+          void ensureWebmSocket();
+        }
+      }, 8000);
+    },
+
+    pause() {
+      paused = true;
+    },
+
+    resume() {
+      paused = false;
     },
 
     feedWebmChunk(chunk: Blob) {
-      if (stopped || chunk.size === 0) return;
+      if (stopped || paused || chunk.size === 0) return;
       if (webmWs?.readyState === WebSocket.OPEN) {
         void chunk.arrayBuffer().then((buf) => {
           if (webmWs?.readyState === WebSocket.OPEN) webmWs.send(buf);
@@ -311,7 +366,7 @@ export async function startDeepgramLiveSession(opts: {
       const finalize = async (ws: WebSocket | null) => {
         if (!ws || ws.readyState !== WebSocket.OPEN) return;
         ws.send(JSON.stringify({ type: "Finalize" }));
-        await new Promise((r) => setTimeout(r, 600));
+        await new Promise((r) => setTimeout(r, 1200));
         ws.send(JSON.stringify({ type: "CloseStream" }));
         try {
           ws.close();

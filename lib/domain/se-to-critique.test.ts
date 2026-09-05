@@ -4,6 +4,7 @@ import {
   canSyncSeIntoCritique,
   critiqueDraftFromSeForm,
   critiqueLetterForCertificate,
+  applySeFormwert,
   mergeSeIntoCritiqueDraft,
   SE_SYNC_NOTE,
   seEvaluationForEntry,
@@ -70,6 +71,24 @@ describe("se-to-critique", () => {
     expect(merged.narrative).toContain("— SE form —");
     expect(merged.narrative).toContain("SE steward notes");
     expect(merged.formwert).toBe("V");
+  });
+
+  it("copies Formwert onto spoken STT without appending SE prose", () => {
+    const form = createEmptyTnrkSeForm();
+    form.overall_appearance = "Very large male, strong bones.";
+    form.formwert = "Sg";
+    const next = applySeFormwert(
+      {
+        narrative: "Medium size, excellent gait.",
+        formwert: "V",
+        placement: null,
+        titles: [],
+        draftAssist: { note: "Draft assist only" },
+      },
+      form,
+    );
+    expect(next.narrative).toBe("Medium size, excellent gait.");
+    expect(next.formwert).toBe("Sg");
   });
 
   it("copies Formwert onto an existing audio draft even without SE notes", () => {

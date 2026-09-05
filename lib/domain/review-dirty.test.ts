@@ -25,4 +25,16 @@ describe("isReviewDraftDirty", () => {
       ),
     ).toBe(true);
   });
+
+  it("ignores an appended SE dump when comparing the spoken letter", () => {
+    expect(
+      isReviewDraftDirty(
+        {
+          narrative: "Strong male\n\n— SE form —\nSE steward notes",
+          formwert: "V",
+        },
+        { narrative: "Strong male", formwert: "V" },
+      ),
+    ).toBe(false);
+  });
 });
