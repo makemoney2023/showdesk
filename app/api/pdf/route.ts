@@ -8,6 +8,7 @@ import {
   canPrintCertificate,
   canServeDeskPdf,
 } from "@/lib/domain/print-documents";
+import { critiqueLetterForCertificate } from "@/lib/domain/se-to-critique";
 
 export async function GET(request: Request) {
   const auth = await requireApiSession();
@@ -63,10 +64,7 @@ export async function GET(request: Request) {
     entry,
     draft: {
       ...critique.draft,
-      narrative:
-        critique.draft.narrative.trim() ||
-        critique.transcript.trim() ||
-        critique.draft.narrative,
+      narrative: critiqueLetterForCertificate(critique),
       placement: placement?.placement ?? critique.draft.placement,
     },
   });

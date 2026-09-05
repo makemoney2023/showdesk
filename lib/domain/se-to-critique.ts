@@ -12,7 +12,47 @@ import {
 import type { CritiqueRecord } from "@/lib/types";
 
 export const SE_SYNC_NOTE = "Synced from ringside SE form";
-const SE_SECTION = "— SE form —";
+export const SE_SECTION = "— SE form —";
+
+/** Draft body was replaced by the ringside SE form (not spoken STT). */
+export function isSeFormReplacementDraft(
+  draft: { draftAssist?: { note?: string } } | null | undefined,
+): boolean {
+  return (draft?.draftAssist?.note ?? "").includes("SE form");
+}
+
+/** Spoken / STT text — never the "Ringside SE form" stub. */
+export function spokenCritiqueTranscript(
+  critique: Pick<CritiqueRecord, "transcript"> | null | undefined,
+): string {
+  const spoken = critique?.transcript?.trim() ?? "";
+  if (!spoken || spoken.startsWith("Ringside SE")) return "";
+  return spoken;
+}
+
+/** Drop the appended SE block; keep secretary-edited STT above it. */
+export function critiqueLetterWithoutSeSection(narrative: string): string {
+  return narrative.split(SE_SECTION)[0]?.trim() ?? "";
+}
+
+/**
+ * Critique certificate / public Richterbericht: spoken STT or a
+ * secretary-edited STT letter only. SE appearance, comments, and ratings
+ * stay on the Standard Evaluation certificate.
+ */
+export function critiqueLetterForCertificate(
+  critique:
+    | Pick<CritiqueRecord, "transcript" | "draft">
+    | null
+    | undefined,
+): string {
+  if (!critique) return "";
+  const spoken = spokenCritiqueTranscript(critique);
+  if (isSeFormReplacementDraft(critique.draft)) return spoken;
+  return (
+    critiqueLetterWithoutSeSection(critique.draft.narrative) || spoken
+  );
+}
 
 /** Build narrative text from steward SE fields. */
 export function narrativeFromSeForm(form: TnrkSeForm): string {

@@ -1,4 +1,5 @@
 import { catalogDivisionLabel } from "@/lib/domain/catalog-competition";
+import { critiqueLetterForCertificate } from "@/lib/domain/se-to-critique";
 import { seFormFormwert } from "@/lib/domain/tnrk-se-form";
 import { resolvePdfJudge } from "@/lib/domain/show-judges";
 import type {
@@ -7,10 +8,7 @@ import type {
   SeEvaluationRecord,
   Show,
 } from "@/lib/types";
-import {
-  buildTnrkCritiquePdf,
-  resolveCritiqueCertificateNarrative,
-} from "./tnrk-critique-pdf";
+import { buildTnrkCritiquePdf } from "./tnrk-critique-pdf";
 
 export function seNarrativeFromForm(
   se: SeEvaluationRecord | null | undefined,
@@ -36,13 +34,7 @@ export async function buildTnrkCritiquePdfForRecords(input: {
   se?: SeEvaluationRecord | null;
 }): Promise<Uint8Array> {
   const { show, entry, critique, se } = input;
-  const seSynced =
-    critique?.draft.draftAssist?.note?.includes("SE form") ?? false;
-  const narrative = resolveCritiqueCertificateNarrative({
-    draftNarrative: critique?.draft.narrative,
-    transcript: critique?.transcript,
-    seNarrative: seNarrativeFromForm(se),
-  });
+  const narrative = critiqueLetterForCertificate(critique);
   const dogName = se?.form.dog_name?.trim() || entry.dog_name;
 
   return buildTnrkCritiquePdf({
@@ -53,9 +45,6 @@ export async function buildTnrkCritiquePdfForRecords(input: {
     class_and_rating: [
       catalogDivisionLabel(entry),
       critique?.draft.formwert ?? seFormFormwert(se?.form) ?? "",
-      seSynced && se?.form.final_result
-        ? `SE ${se.form.final_result.toUpperCase()}`
-        : "",
     ]
       .filter(Boolean)
       .join(" — "),
