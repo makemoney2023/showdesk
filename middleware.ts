@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { PUBLIC_SITE_ORIGIN, isPrivateVercelHost } from "@/lib/site-url";
+import {
+  PUBLIC_SITE_ORIGIN,
+  shouldRedirectToPublicOrigin,
+} from "@/lib/site-url";
 
 const DEMO_COOKIE = "sss-demo-session";
 
@@ -19,7 +22,7 @@ export function middleware(request: NextRequest) {
   const host = request.headers.get("host") ?? request.nextUrl.host;
   if (
     process.env.VERCEL_ENV === "production" &&
-    isPrivateVercelHost(host)
+    shouldRedirectToPublicOrigin(host)
   ) {
     const publicUrl = new URL(
       `${request.nextUrl.pathname}${request.nextUrl.search}`,

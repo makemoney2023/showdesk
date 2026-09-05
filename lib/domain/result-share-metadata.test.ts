@@ -13,9 +13,13 @@ describe("resultShareMetadata", () => {
     expect(meta.openGraph?.url).toContain(
       "/results/tnrk-sieger-show-2026-2026-09-04/38-ason-von-haus-wilkerson",
     );
+    expect(String(meta.openGraph?.url)).toContain(
+      "https://www.showdesk-app.com/results/",
+    );
     expect(String(meta.openGraph?.url)).not.toContain(
       "makemoney2023s-projects.vercel.app",
     );
+    expect(String(meta.openGraph?.url)).not.toContain("showdesk-pi.vercel.app");
     expect(meta.twitter).toMatchObject({
       card: "summary_large_image",
       title: meta.title,

@@ -1,14 +1,40 @@
-/** Public origin for results shares, Open Graph, and sitemaps. */
-export const PUBLIC_SITE_ORIGIN = "https://showdesk-pi.vercel.app";
+/** Canonical public origin for marketing, results shares, Open Graph, and sitemaps. */
+export const PUBLIC_SITE_HOST = "www.showdesk-app.com";
+export const PUBLIC_SITE_ORIGIN = `https://${PUBLIC_SITE_HOST}`;
+
+const LEGACY_PUBLIC_HOSTS = new Set([
+  "showdesk-pi.vercel.app",
+  "showdesk-app.com",
+]);
+
+export function hostnameOf(host: string): string {
+  return host.split(":")[0]?.toLowerCase() ?? "";
+}
+
+export function isCanonicalPublicHost(host: string): boolean {
+  return hostnameOf(host) === PUBLIC_SITE_HOST;
+}
+
+export function isLegacyPublicHost(host: string): boolean {
+  return LEGACY_PUBLIC_HOSTS.has(hostnameOf(host));
+}
 
 /** Vercel deployment / team hosts that prompt a Vercel login. */
 export function isPrivateVercelHost(host: string): boolean {
-  const hostname = host.split(":")[0]?.toLowerCase() ?? "";
-  if (!hostname || hostname === "showdesk-pi.vercel.app") return false;
+  const hostname = hostnameOf(host);
+  if (!hostname || isCanonicalPublicHost(hostname)) return false;
+  if (isLegacyPublicHost(hostname)) return false;
   return (
     hostname.includes("makemoney2023s-projects.vercel.app") ||
     /^showdesk-[a-z0-9-]+\.vercel\.app$/.test(hostname)
   );
+}
+
+/** Production hosts that should 308 to www.showdesk-app.com. */
+export function shouldRedirectToPublicOrigin(host: string): boolean {
+  const hostname = hostnameOf(host);
+  if (!hostname || isCanonicalPublicHost(hostname)) return false;
+  return isLegacyPublicHost(hostname) || isPrivateVercelHost(hostname);
 }
 
 function normalizeOrigin(value?: string | null): string | null {
@@ -17,7 +43,9 @@ function normalizeOrigin(value?: string | null): string | null {
   const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
   try {
     const url = new URL(withProtocol);
-    if (isPrivateVercelHost(url.host)) return null;
+    if (isPrivateVercelHost(url.host) || isLegacyPublicHost(url.host)) {
+      return null;
+    }
     return `${url.protocol}//${url.host}`;
   } catch {
     return null;
@@ -51,9 +79,10 @@ export function publicPageUrl(pathOrUrl: string): string {
   }
 }
 
+const NON_CANONICAL_SHARE_HOST =
+  /https?:\/\/(?:[^\s/]*makemoney2023s-projects\.vercel\.app|showdesk-[a-z0-9-]+\.vercel\.app|showdesk-pi\.vercel\.app|showdesk-app\.com)[^\s]*/gi;
+
+/** Rewrite copied Vercel / apex / legacy hosts onto www.showdesk-app.com. */
 export function rewritePrivateShareText(text: string): string {
-  return text.replace(
-    /https?:\/\/[^\s]+makemoney2023s-projects\.vercel\.app[^\s]*/gi,
-    (match) => publicPageUrl(match),
-  );
+  return text.replace(NON_CANONICAL_SHARE_HOST, (match) => publicPageUrl(match));
 }
