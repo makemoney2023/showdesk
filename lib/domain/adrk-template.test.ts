@@ -12,6 +12,8 @@ import {
   getAdrkFormwertLabel,
   isValidAdrkClassId,
   isValidFormwert,
+  tnrkFormwertPrintCode,
+  tnrkRatingPlacementLabel,
 } from "./adrk-template";
 
 describe("adrk-template", () => {
@@ -68,7 +70,7 @@ describe("adrk-template", () => {
     expect(getAdrkFormwertLabel("vv", "puppy")).toBe("Very promising");
     expect(getAdrkFormwertLabel("V", "puppy")).toBe("Promising");
     expect(getAdrkFormwertLabel("V", "adult")).toBe("Excellent");
-    expect(formatAdrkFormwert("vv", "puppy")).toBe("vv (Very promising)");
+    expect(formatAdrkFormwert("vv", "puppy")).toBe("VP (Very promising)");
     expect(formwertSelectCodes("puppy")).toEqual([
       "vv",
       "V",
@@ -83,14 +85,27 @@ describe("adrk-template", () => {
   });
 
   it("formats a compact class-aware rating for certificates", () => {
-    expect(critiqueCertificateRating("vv", "puppy")).toBe("vv Very promising");
+    expect(critiqueCertificateRating("vv", "puppy")).toBe("VP Very promising");
     expect(critiqueCertificateRating("V", "adult")).toBe("V Excellent");
     expect(critiqueCertificateRating(null, "puppy")).toBe("");
     expect(
       critiqueCertificateNameLine("Der Norden's Aka Azure", "vv", "puppy"),
-    ).toBe("Der Norden's Aka Azure  ·  vv Very promising");
+    ).toBe("Der Norden's Aka Azure  ·  VP Very promising");
     expect(critiqueCertificateNameLine("Rex vom Test", null)).toBe(
       "Rex vom Test",
     );
+  });
+
+  it("prints TNRK puppy codes VP / P / LP with class placement", () => {
+    expect(tnrkFormwertPrintCode("vv", "puppy")).toBe("VP");
+    expect(tnrkFormwertPrintCode("V", "puppy")).toBe("P");
+    expect(tnrkFormwertPrintCode("wv", "puppy")).toBe("LP");
+    expect(tnrkFormwertPrintCode("V", "adult")).toBe("V");
+    expect(tnrkFormwertPrintCode("vv", "adult")).toBe("vv");
+    expect(tnrkRatingPlacementLabel("vv", 4, "puppy")).toBe("VP 4");
+    expect(tnrkRatingPlacementLabel("vv", 4, "puppy", true)).toBe("VP4");
+    expect(tnrkRatingPlacementLabel("V", 1, "adult")).toBe("V 1");
+    expect(tnrkRatingPlacementLabel("vv", null, "puppy")).toBe("VP");
+    expect(tnrkRatingPlacementLabel(null, 4, "puppy")).toBe("4");
   });
 });

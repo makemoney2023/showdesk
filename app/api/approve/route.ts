@@ -61,6 +61,7 @@ export async function POST(request: Request) {
     entry,
     critique,
     se,
+    placements: store.placements.filter((row) => row.show_id === body.show_id),
   });
 
   if (!entry.email) {

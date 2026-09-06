@@ -947,7 +947,7 @@ function StewardSeForm({
           </Select>
           <p className="text-xs text-sss-text-muted">
             {formwertScaleForEntry(entry ?? {}) === "puppy"
-              ? "Puppy classes: Very promising (vv), Promising (V), Little promising (wv)."
+              ? "Puppy classes: VP Very promising, P Promising, LP Little promising."
               : "Youth and older: V Excellent, SG Very good, G Good."}{" "}
             Copied onto Review and used to sort placements.
           </p>

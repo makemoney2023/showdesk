@@ -182,16 +182,45 @@ export function formatAdrkFormwert(
   scale: FormwertScale = "adult",
 ): string {
   if (!code) return "—";
-  return `${code} (${getAdrkFormwertLabel(code, scale)})`;
+  return `${tnrkFormwertPrintCode(code, scale)} (${getAdrkFormwertLabel(code, scale)})`;
 }
 
 /** Compact rating for the critique certificate (code + English gloss). */
+/**
+ * TNRK certificate / results print codes.
+ * Puppy I–III use VP / P / LP; stored ADRK codes stay vv / V / wv.
+ */
+export function tnrkFormwertPrintCode(
+  code: AdrkFormwertCode | null | undefined,
+  scale: FormwertScale = "adult",
+): string {
+  if (!code || !isValidFormwert(code)) return "";
+  if (scale === "puppy") {
+    if (code === "vv") return "VP";
+    if (code === "V") return "P";
+    if (code === "wv") return "LP";
+  }
+  return code;
+}
+
+/** Certificate Klass line: "VP 4". Public results stay compact ("VP4"). */
+export function tnrkRatingPlacementLabel(
+  code: AdrkFormwertCode | null | undefined,
+  placement: 1 | 2 | 3 | 4 | null | undefined,
+  scale: FormwertScale = "adult",
+  compact = false,
+): string {
+  const rating = tnrkFormwertPrintCode(code, scale);
+  if (rating && placement) return compact ? `${rating}${placement}` : `${rating} ${placement}`;
+  return rating || (placement ? String(placement) : "");
+}
+
 export function critiqueCertificateRating(
   code: AdrkFormwertCode | null | undefined,
   scale: FormwertScale = "adult",
 ): string {
   if (!code || !isValidFormwert(code)) return "";
-  return `${code} ${getAdrkFormwertLabel(code, scale)}`;
+  return `${tnrkFormwertPrintCode(code, scale)} ${getAdrkFormwertLabel(code, scale)}`;
 }
 
 /** Dog name with optional compact rating (legacy helper). */

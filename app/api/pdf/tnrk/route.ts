@@ -98,6 +98,9 @@ export async function GET(request: Request) {
             entry,
             critique,
             se,
+            placements: store.placements.filter(
+              (row) => row.show_id === showId,
+            ),
           }),
         );
       }
@@ -188,6 +191,7 @@ export async function GET(request: Request) {
       entry,
       critique,
       se,
+      placements: store.placements.filter((row) => row.show_id === showId),
     });
 
     return pdfResponse(

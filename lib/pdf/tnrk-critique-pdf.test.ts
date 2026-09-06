@@ -112,8 +112,8 @@ describe("tnrk-critique-pdf layout", () => {
       dob: "2026-04-02",
       armband: "8",
       narrative: "Very promising female.",
-      class_and_rating: "Puppy Class I Females — vv",
-      rating: "vv Very promising",
+      class_and_rating: "Puppy Class I — Females — VP 4",
+      rating: "VP Very promising",
       date: "2026-09-05",
       owner: "Christiane Poiré",
       co_owner: "",
@@ -122,7 +122,7 @@ describe("tnrk-critique-pdf layout", () => {
     const text = extractPdfText(bytes);
     expect(pdfContainsText(bytes, "Der Norden's Aka Azure")).toBe(true);
     expect(pdfContainsText(bytes, "Puppy Class I Females")).toBe(true);
-    expect(text).toMatch(/vv/);
-    expect(text.toLowerCase()).not.toContain("vv very promising");
+    expect(text).toMatch(/VP 4/);
+    expect(text.toLowerCase()).not.toContain("vp very promising");
   });
 });
