@@ -23,6 +23,7 @@ import {
   evaluationFromQueuedSeDraft,
   listOfflineQueue,
   queuedSeDraftForEntry,
+  rosterEntryFromQueuedSeDraft,
 } from "./queue";
 import { readRecoverableSeDraft, writeRecoverableSeDraft } from "./se-draft";
 
@@ -121,6 +122,9 @@ describe("queuedSeDraftForEntry", () => {
     const found = await queuedSeDraftForEntry("show-1", "entry-se");
     expect(found?.id).toBe("se-new");
     expect(found?.form.comments).toBe("second");
+    expect(await queuedSeDraftForEntry(null, "entry-se")).toMatchObject({
+      id: "se-new",
+    });
     expect(await queuedSeDraftForEntry("show-1", "other")).toBeNull();
   });
 });
@@ -144,6 +148,29 @@ describe("evaluationFromQueuedSeDraft", () => {
       entry_id: "entry-se",
       status: "draft",
       form,
+    });
+  });
+});
+
+describe("rosterEntryFromQueuedSeDraft", () => {
+  it("uses the queued dog name so the form can reopen offline", () => {
+    const form = createEmptyTnrkSeForm();
+    form.dog_name = "Rex Queue Review";
+    form.sex = "male";
+    const entry = rosterEntryFromQueuedSeDraft({
+      id: "se-1",
+      entryId: "entry-se",
+      showId: "show-1",
+      evaluationId: "eval-1",
+      form,
+      markComplete: false,
+      createdAt: "2026-09-06T12:00:00.000Z",
+    });
+    expect(entry).toMatchObject({
+      id: "entry-se",
+      show_id: "show-1",
+      dog_name: "Rex Queue Review",
+      sex: "R",
     });
   });
 });

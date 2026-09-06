@@ -63,6 +63,7 @@ import {
   evaluationFromQueuedSeDraft,
   queuedSeDraftForEntry,
   removeQueuedSeDraft,
+  rosterEntryFromQueuedSeDraft,
 } from "@/lib/offline/queue";
 import { shouldTreatAsOffline } from "@/lib/offline/reachability";
 import { cn } from "@/lib/utils";
@@ -158,9 +159,35 @@ function StewardSeForm({
     setAutosaveStatus("");
     setActionMsg("");
     setActionError(false);
-    const showRes = await fetch("/api/shows");
+
+    async function openFromQueue(showId?: string | null) {
+      const queued = await queuedSeDraftForEntry(showId ?? null, entryId);
+      if (generation !== loadGenerationRef.current) return true;
+      if (!queued) return false;
+      const localEvaluation = evaluationFromQueuedSeDraft(queued);
+      setShowId(queued.showId);
+      setEvaluation(localEvaluation);
+      setForm(normalizeTnrkSeForm(queued.form));
+      setEntry((prev) => prev ?? rosterEntryFromQueuedSeDraft(queued));
+      serverFingerprintRef.current = seFormFingerprint(queued.form);
+      serverUpdatedAtRef.current = localEvaluation.updated_at;
+      setStatus("Queued on this device");
+      setAutosaveStatus("Queued on this device");
+      setRecoveryReady(true);
+      return true;
+    }
+
+    let showRes: Response;
+    try {
+      showRes = await fetch("/api/shows");
+    } catch {
+      if (await openFromQueue()) return;
+      setStatus("Could not load show");
+      return;
+    }
     if (generation !== loadGenerationRef.current) return;
     if (!showRes.ok) {
+      if (showRes.status !== 401 && (await openFromQueue())) return;
       setStatus(
         showRes.status === 401
           ? "Session expired — sign in again"
@@ -185,11 +212,19 @@ function StewardSeForm({
     setJudges(names);
     setJudgePick(pick);
 
-    const entriesRes = await fetch(
-      `/api/entries?show_id=${showData.active_show_id}`,
-    );
+    let entriesRes: Response;
+    try {
+      entriesRes = await fetch(
+        `/api/entries?show_id=${showData.active_show_id}`,
+      );
+    } catch {
+      if (await openFromQueue(showData.active_show_id)) return;
+      setStatus("Could not load entry");
+      return;
+    }
     if (generation !== loadGenerationRef.current) return;
     if (!entriesRes.ok) {
+      if (await openFromQueue(showData.active_show_id)) return;
       setStatus("Could not load entry");
       return;
     }
@@ -201,59 +236,54 @@ function StewardSeForm({
     setRoster(entriesData.entries);
     setEntry(found);
     if (!found) {
+      if (await openFromQueue(showData.active_show_id)) return;
       setStatus("Entry not found");
       return;
     }
 
-    const createRes = await fetch("/api/evaluations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        show_id: showData.active_show_id,
-        entry_id: entryId,
-        judge: pick ?? undefined,
-      }),
-    });
+    let createRes: Response | null = null;
+    try {
+      createRes = await fetch("/api/evaluations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          show_id: showData.active_show_id,
+          entry_id: entryId,
+          judge: pick ?? undefined,
+        }),
+      });
+    } catch {
+      createRes = null;
+    }
     if (generation !== loadGenerationRef.current) return;
     let evaluation: SeEvaluationRecord | null = null;
-    if (createRes.ok) {
+    if (createRes?.ok) {
       evaluation = (
         (await createRes.json()) as { evaluation: SeEvaluationRecord }
       ).evaluation;
     } else {
-      const cachedRes = await fetch(
-        `/api/evaluations?show_id=${showData.active_show_id}&entry_id=${entryId}`,
-      );
-      if (generation !== loadGenerationRef.current) return;
-      if (cachedRes.ok) {
-        const cached = (await cachedRes.json()) as {
-          evaluations: SeEvaluationRecord[];
-        };
-        evaluation = cached.evaluations[0] ?? null;
+      try {
+        const cachedRes = await fetch(
+          `/api/evaluations?show_id=${showData.active_show_id}&entry_id=${entryId}`,
+        );
+        if (generation !== loadGenerationRef.current) return;
+        if (cachedRes.ok) {
+          const cached = (await cachedRes.json()) as {
+            evaluations: SeEvaluationRecord[];
+          };
+          evaluation = cached.evaluations[0] ?? null;
+        }
+      } catch {
+        evaluation = null;
       }
     }
     if (!evaluation) {
-      const queued = await queuedSeDraftForEntry(
-        showData.active_show_id,
-        entryId,
-      );
-      if (generation !== loadGenerationRef.current) return;
-      if (queued) {
-        evaluation = evaluationFromQueuedSeDraft(queued);
-        setEvaluation(evaluation);
-        setForm(normalizeTnrkSeForm(queued.form));
-        serverFingerprintRef.current = seFormFingerprint(queued.form);
-        serverUpdatedAtRef.current = evaluation.updated_at;
-        setStatus("Queued on this device");
-        setAutosaveStatus("Queued on this device");
-        setRecoveryReady(true);
-        return;
-      }
-      const data = createRes.ok
-        ? null
-        : ((await createRes.json().catch(() => null)) as {
+      if (await openFromQueue(showData.active_show_id)) return;
+      const data = createRes && !createRes.ok
+        ? ((await createRes.json().catch(() => null)) as {
             error?: string;
-          } | null);
+          } | null)
+        : null;
       if (generation !== loadGenerationRef.current) return;
       setStatus(data?.error ?? "Could not open SE evaluation");
       return;
