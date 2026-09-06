@@ -168,7 +168,7 @@ export async function buildTnrkCritiquePdf(
     form.dob,
     TNRK_CRITIQUE_FIELD_X.dob,
     yHeader,
-    10,
+    9,
     false,
     TNRK_TEMPLATE_LABELS.armbandNr.x0 - 3,
   );

@@ -85,7 +85,7 @@ describe("tnrk-critique-pdf layout", () => {
     const pdf = await PDFDocument.create();
     const font = await pdf.embedFont(StandardFonts.Helvetica);
     const widest = "12/31/2026";
-    const width = font.widthOfTextAtSize(widest, 10);
+    const width = font.widthOfTextAtSize(widest, 9);
     expect(TNRK_CRITIQUE_FIELD_X.dob + width).toBeLessThan(
       TNRK_TEMPLATE_LABELS.armbandNr.x0,
     );
