@@ -13,7 +13,11 @@ import {
   secretaryRingsideSwitch,
   shellForPath,
 } from "@/lib/domain/role-shell";
-import { labelQueuedItem } from "@/lib/domain/show-day";
+import {
+  labelQueuedItem,
+  queuedItemHref,
+  queuedItemReviewLabel,
+} from "@/lib/domain/show-day";
 import {
   discardOfflineQueueItem,
   listOfflineQueue,
@@ -174,8 +178,8 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
             </DialogHeader>
             {queueCount > 0 ? (
               <p className="text-sm text-sss-text-secondary">
-                Remove drops an item from this phone only. The dog stays on the
-                roster.
+                Review opens the dog so you can edit the queued draft. Remove
+                drops an item from this phone only. The dog stays on the roster.
               </p>
             ) : null}
             {queueCount === 0 ? (
@@ -197,23 +201,34 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
                           {labeled.subtitle}
                         </p>
                       </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={queueBusy}
-                        aria-label={`Remove ${labeled.title} from queue`}
-                        onClick={() => {
-                          void discardOfflineQueueItem(item).then(async () => {
-                            await refreshQueue();
-                            setQueueStatus(
-                              "Removed from this device — it will not sync",
-                            );
-                          });
-                        }}
-                      >
-                        Remove
-                      </Button>
+                      <div className="flex shrink-0 flex-col items-stretch gap-2">
+                        <Button asChild variant="outline" size="sm">
+                          <Link
+                            href={queuedItemHref(item)}
+                            aria-label={`${queuedItemReviewLabel()} ${labeled.title}`}
+                            onClick={() => setQueueOpen(false)}
+                          >
+                            {queuedItemReviewLabel()}
+                          </Link>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={queueBusy}
+                          aria-label={`Remove ${labeled.title} from queue`}
+                          onClick={() => {
+                            void discardOfflineQueueItem(item).then(async () => {
+                              await refreshQueue();
+                              setQueueStatus(
+                                "Removed from this device — it will not sync",
+                              );
+                            });
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </div>
                     </li>
                   );
                 })}

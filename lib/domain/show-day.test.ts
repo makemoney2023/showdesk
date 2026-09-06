@@ -8,6 +8,8 @@ import {
   labelQueuedItem,
   nextDogAfter,
   queueAgeLabel,
+  queuedItemHref,
+  queuedItemReviewLabel,
   seSectionProgress,
 } from "./show-day";
 
@@ -96,6 +98,26 @@ describe("labelQueuedItem", () => {
       Date.parse("2026-08-14T14:10:00.000Z"),
     );
     expect(labeled.subtitle).toBe("SE draft · 2 min ago");
+  });
+});
+
+describe("queuedItemHref", () => {
+  it("opens the SE form for a queued draft", () => {
+    expect(queuedItemHref({ entryId: "e1", kind: "se" })).toBe(
+      "/ringside/se/e1",
+    );
+  });
+
+  it("opens the record page for a queued recording", () => {
+    expect(queuedItemHref({ entryId: "e2", kind: "recording" })).toBe(
+      "/ringside/record/e2",
+    );
+  });
+});
+
+describe("queuedItemReviewLabel", () => {
+  it("names the queue action that reopens the draft", () => {
+    expect(queuedItemReviewLabel()).toBe("Back to review");
   });
 });
 

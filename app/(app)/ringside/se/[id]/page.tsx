@@ -58,7 +58,12 @@ import {
   shouldRestoreSeDraft,
   writeRecoverableSeDraft,
 } from "@/lib/offline/se-draft";
-import { enqueueSeDraft, removeQueuedSeDraft } from "@/lib/offline/queue";
+import {
+  enqueueSeDraft,
+  evaluationFromQueuedSeDraft,
+  queuedSeDraftForEntry,
+  removeQueuedSeDraft,
+} from "@/lib/offline/queue";
 import { shouldTreatAsOffline } from "@/lib/offline/reachability";
 import { cn } from "@/lib/utils";
 import type { RosterEntryRecord, SeEvaluationRecord, Show } from "@/lib/types";
@@ -210,26 +215,58 @@ function StewardSeForm({
       }),
     });
     if (generation !== loadGenerationRef.current) return;
-    if (!createRes.ok) {
-      const data = (await createRes.json().catch(() => null)) as {
-        error?: string;
-      } | null;
+    let evaluation: SeEvaluationRecord | null = null;
+    if (createRes.ok) {
+      evaluation = (
+        (await createRes.json()) as { evaluation: SeEvaluationRecord }
+      ).evaluation;
+    } else {
+      const cachedRes = await fetch(
+        `/api/evaluations?show_id=${showData.active_show_id}&entry_id=${entryId}`,
+      );
+      if (generation !== loadGenerationRef.current) return;
+      if (cachedRes.ok) {
+        const cached = (await cachedRes.json()) as {
+          evaluations: SeEvaluationRecord[];
+        };
+        evaluation = cached.evaluations[0] ?? null;
+      }
+    }
+    if (!evaluation) {
+      const queued = await queuedSeDraftForEntry(
+        showData.active_show_id,
+        entryId,
+      );
+      if (generation !== loadGenerationRef.current) return;
+      if (queued) {
+        evaluation = evaluationFromQueuedSeDraft(queued);
+        setEvaluation(evaluation);
+        setForm(normalizeTnrkSeForm(queued.form));
+        serverFingerprintRef.current = seFormFingerprint(queued.form);
+        serverUpdatedAtRef.current = evaluation.updated_at;
+        setStatus("Queued on this device");
+        setAutosaveStatus("Queued on this device");
+        setRecoveryReady(true);
+        return;
+      }
+      const data = createRes.ok
+        ? null
+        : ((await createRes.json().catch(() => null)) as {
+            error?: string;
+          } | null);
       if (generation !== loadGenerationRef.current) return;
       setStatus(data?.error ?? "Could not open SE evaluation");
       return;
     }
-    const createData = (await createRes.json()) as {
-      evaluation: SeEvaluationRecord;
-    };
     if (generation !== loadGenerationRef.current) return;
-    setEvaluation(createData.evaluation);
-    const nextForm = normalizeTnrkSeForm(createData.evaluation.form);
+    setEvaluation(evaluation);
+    const nextForm = normalizeTnrkSeForm(evaluation.form);
     const serverForm =
       pick && !nextForm.judge.trim()
         ? { ...nextForm, judge: pick }
         : nextForm;
     serverFingerprintRef.current = seFormFingerprint(serverForm);
-    serverUpdatedAtRef.current = createData.evaluation.updated_at;
+    serverUpdatedAtRef.current = evaluation.updated_at;
 
     const recoverable = await readRecoverableSeDraft(
       showData.active_show_id,
@@ -237,9 +274,9 @@ function StewardSeForm({
     );
     if (generation !== loadGenerationRef.current) return;
     if (
-      createData.evaluation.status === "draft" &&
+      evaluation.status === "draft" &&
       recoverable &&
-      shouldRestoreSeDraft(recoverable, createData.evaluation)
+      shouldRestoreSeDraft(recoverable, evaluation)
     ) {
       setForm(mergeSeFormPreferFilled(serverForm, recoverable.form));
       setStatus("Recovered unsaved changes");
@@ -247,7 +284,7 @@ function StewardSeForm({
     } else {
       setForm(serverForm);
       setStatus(
-        createData.evaluation.status === "complete" ? "Complete" : "Draft",
+        evaluation.status === "complete" ? "Complete" : "Draft",
       );
       if (recoverable) {
         await clearRecoverableSeDraft(showData.active_show_id, entryId);
