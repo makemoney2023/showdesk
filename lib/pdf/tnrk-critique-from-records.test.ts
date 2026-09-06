@@ -3,6 +3,7 @@ import { createEmptyTnrkSeForm } from "@/lib/domain/tnrk-se-form";
 import { extractPdfText } from "./pdf-text";
 import {
   buildTnrkCritiquePdfForRecords,
+  critiqueCertificateDate,
   critiqueCertificatePlacement,
   critiqueClassAndRatingLine,
   seNarrativeFromForm,
@@ -79,12 +80,42 @@ describe("critique certificate class line", () => {
     ).toBe(3);
   });
 
+  it("uses the competition day, not the Friday SE date", () => {
+    expect(
+      critiqueCertificateDate({
+        entry: {
+          event_kind: "conformation",
+          competition_day: "2026-09-05",
+        },
+        show: { date: "2026-09-04" },
+        seDate: "2026-09-04",
+      }),
+    ).toBe("2026-09-05");
+    expect(
+      critiqueCertificateDate({
+        entry: {
+          event_kind: "conformation",
+          competition_day: "2026-09-06",
+        },
+        show: { date: "2026-09-04" },
+        seDate: "2026-09-04",
+      }),
+    ).toBe("2026-09-06");
+    expect(
+      critiqueCertificateDate({
+        entry: { event_kind: "se", competition_day: "2026-09-04" },
+        show: { date: "2026-09-04" },
+        seDate: "2026-09-04",
+      }),
+    ).toBe("2026-09-04");
+  });
+
   it("writes VP 4 on the puppy #7 certificate, not the stored vv code", async () => {
     const bytes = await buildTnrkCritiquePdfForRecords({
       show: {
         id: "show-1",
         name: "TNRK Sieger Show 2026",
-        date: "2026-09-05",
+        date: "2026-09-04",
         venue: "Demo",
         judge: "Hamid Falah",
         rulebook: "adrk",
@@ -96,13 +127,28 @@ describe("critique certificate class line", () => {
         armband: "7",
         dog_name: "Epic Rr Femme Fatale Diva",
         zb_number: "",
-        wt: "2026-03-01",
+        wt: "2026-04-15",
         owner: "Owner",
         sex: "H",
         class_id: "babyklasse",
         event_kind: "conformation",
+        competition_day: "2026-09-05",
         catalog_class: "puppy-i",
         email: "",
+      },
+      se: {
+        id: "se-7",
+        show_id: "show-1",
+        entry_id: "entry-7",
+        status: "complete",
+        created_at: "t",
+        updated_at: "t",
+        form: {
+          ...createEmptyTnrkSeForm(),
+          date: "2026-09-04",
+          date_of_birth: "2026-04-15",
+          dog_name: "Epic Rr Femme Fatale Diva",
+        },
       },
       critique: {
         id: "crit-7",
@@ -122,6 +168,10 @@ describe("critique certificate class line", () => {
       },
       placements: [{ entry_id: "entry-7", placement: 4 }],
     });
-    expect(extractPdfText(bytes)).toMatch(/VP 4/);
+    const text = extractPdfText(bytes);
+    expect(text).toMatch(/VP 4/);
+    expect(text).toMatch(/Sep 5, 2026/);
+    expect(text).not.toMatch(/Sep 4, 2026/);
+    expect(text).not.toMatch(/2026-09-04/);
   });
 });
