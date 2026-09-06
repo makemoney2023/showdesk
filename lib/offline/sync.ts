@@ -202,7 +202,7 @@ export function formatQueueSyncStatus(result: QueueSyncResult): string {
     parts.push(
       result.unauthorized
         ? `${result.failed} waiting — session expired, sign in and sync again`
-        : `${result.failed} failed — retry when online`,
+        : `${result.failed} couldn't upload — tap Sync to retry`,
     );
   }
   return parts.join(" · ");

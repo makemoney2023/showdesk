@@ -59,6 +59,7 @@ import {
   writeRecoverableSeDraft,
 } from "@/lib/offline/se-draft";
 import { enqueueSeDraft, removeQueuedSeDraft } from "@/lib/offline/queue";
+import { shouldTreatAsOffline } from "@/lib/offline/reachability";
 import { cn } from "@/lib/utils";
 import type { RosterEntryRecord, SeEvaluationRecord, Show } from "@/lib/types";
 
@@ -384,7 +385,7 @@ function StewardSeForm({
       setAutosaveStatus("Queued on this device");
     }
 
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
+    if (await shouldTreatAsOffline()) {
       await queueOfflineSave("Offline — saved to sync queue");
       setSaving(false);
       return;

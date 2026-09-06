@@ -18,6 +18,7 @@ import {
   discardOfflineQueueItem,
   listOfflineQueue,
 } from "@/lib/offline/queue";
+import { probeDeskReachable } from "@/lib/offline/reachability";
 import {
   formatQueueSyncStatus,
   syncOfflineQueue,
@@ -94,14 +95,27 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void load();
     void refreshQueue();
-    setOnline(navigator.onLine);
-    const onOnline = () => setOnline(true);
-    const onOffline = () => setOnline(false);
-    window.addEventListener("online", onOnline);
-    window.addEventListener("offline", onOffline);
+    let cancelled = false;
+    const refreshOnline = async () => {
+      const reachable = await probeDeskReachable();
+      if (!cancelled) setOnline(reachable);
+    };
+    void refreshOnline();
+    const onChange = () => {
+      void refreshOnline();
+    };
+    window.addEventListener("online", onChange);
+    window.addEventListener("offline", onChange);
+    document.addEventListener("visibilitychange", onChange);
+    const timer = window.setInterval(() => {
+      void refreshOnline();
+    }, 15000);
     return () => {
-      window.removeEventListener("online", onOnline);
-      window.removeEventListener("offline", onOffline);
+      cancelled = true;
+      window.removeEventListener("online", onChange);
+      window.removeEventListener("offline", onChange);
+      document.removeEventListener("visibilitychange", onChange);
+      window.clearInterval(timer);
     };
   }, [load, refreshQueue]);
 
@@ -149,6 +163,7 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
           queueCount={queueCount}
           onQueue={() => {
             void refreshQueue();
+            void probeDeskReachable().then(setOnline);
             setQueueOpen(true);
           }}
         />
@@ -211,15 +226,16 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
               <Button
                 disabled={queueBusy || queueCount === 0}
                 onClick={() => {
-                  if (!navigator.onLine) {
-                    setQueueStatus("Still offline");
-                    return;
-                  }
                   setQueueBusy(true);
                   void syncOfflineQueue()
                     .then(async (result) => {
                       await refreshQueue();
                       setQueueStatus(formatQueueSyncStatus(result));
+                      if (result.synced > 0 || result.conflicts > 0) {
+                        setOnline(true);
+                      } else {
+                        setOnline(await probeDeskReachable());
+                      }
                     })
                     .finally(() => setQueueBusy(false));
                 }}

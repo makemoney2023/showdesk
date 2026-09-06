@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { enqueueRecording, listQueuedRecordings } from "@/lib/offline/queue";
+import { shouldTreatAsOffline } from "@/lib/offline/reachability";
 import {
   blobToBase64,
   formatQueueSyncStatus,
@@ -542,7 +543,7 @@ export default function RecordPage() {
       await refreshQueue();
     }
 
-    if (!navigator.onLine) {
+    if (await shouldTreatAsOffline()) {
       // Navigating offline would request the next dog's page from the server
       // and strand the steward on a browser error page. Stay here; the queue
       // count and Sync button keep the flow visible.
@@ -603,10 +604,6 @@ export default function RecordPage() {
   }
 
   async function syncQueue() {
-    if (!navigator.onLine) {
-      setStatus("Still offline");
-      return;
-    }
     const result = await syncQueuedRecordings();
     await refreshQueue();
     setStatus(formatQueueSyncStatus(result));

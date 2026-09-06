@@ -47,7 +47,7 @@ describe("formatQueueSyncStatus", () => {
         unauthorized: false,
         remaining: 1,
       }),
-    ).toBe("Synced 2 items · 1 failed — retry when online");
+    ).toBe("Synced 2 items · 1 couldn't upload — tap Sync to retry");
   });
 
   it("explains conflicts and expired sessions", () => {
