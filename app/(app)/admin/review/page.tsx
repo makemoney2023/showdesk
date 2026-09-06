@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -70,6 +70,14 @@ import type {
 } from "@/lib/types";
 
 export default function AdminReviewPage() {
+  return (
+    <Suspense fallback={<PageSkeleton rows={5} />}>
+      <AdminReviewPageInner />
+    </Suspense>
+  );
+}
+
+function AdminReviewPageInner() {
   const searchParams = useSearchParams();
   const focusEntryId = searchParams.get("entry");
   const [showId, setShowId] = useState<string | null>(null);
