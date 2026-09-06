@@ -84,7 +84,7 @@ test.describe("offline queue review", () => {
       page.getByRole("heading", { name: "Offline queue" }),
     ).toBeVisible();
     await expect(page.getByText("#301 Rex Queue Review")).toBeVisible();
-    await page.getByRole("link", { name: /Back to review/ }).click();
+    await page.getByRole("button", { name: /Back to review/ }).click();
     await expect(page).toHaveURL(new RegExp(`/ringside/se/${rex!.id}`));
     await expect(
       page.getByRole("heading", { name: "Rex Queue Review" }),
@@ -99,5 +99,105 @@ test.describe("offline queue review", () => {
     await expect(page.getByLabel("Comments")).toHaveValue(
       "Edited after Back to review",
     );
+  });
+
+  test("Back to review shows a queued recording critique", async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.addInitScript(() => {
+      localStorage.setItem("sss-pwa-install-dismissed", String(Date.now()));
+    });
+    await page.goto("/login");
+    await page.getByLabel("Email").fill("secretary@demo.local");
+    await page.getByLabel("Password").fill("demo1234");
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/admin\/entries/);
+
+    await page.getByRole("button", { name: "New show" }).click();
+    await page.getByLabel("Show name").fill("E2E Queued Critique Review");
+    await page.getByLabel("Date").fill("2026-09-05");
+    await page.getByLabel("Venue").fill("Demo Ground");
+    await page.getByLabel("Judge", { exact: true }).fill("Test Judge");
+    await page.getByRole("button", { name: "Add judge" }).click();
+    await page.getByRole("button", { name: "Create show" }).click();
+    await expect(page.getByText(/Show created/i)).toBeVisible();
+
+    await page.goto("/admin/entries");
+    await page.getByRole("button", { name: "Import CSV" }).click();
+    const tmpDir = mkdtempSync(path.join(os.tmpdir(), "sss-queued-crit-"));
+    const csvPath = path.join(tmpDir, `roster-${Date.now()}.csv`);
+    writeFileSync(
+      csvPath,
+      [
+        "armband,dog_name,zb_number,wt,owner,sex,class_id,email,event_kind,competition_day,catalog_class,dog_id",
+        "401,Bella Queued Critique,DE-QC-1,2024-02-01,Jane Example,H,zwischenklasse,bella@example.com,conformation,2026-09-05,youth-i,dog-bella-qc",
+      ].join("\n"),
+    );
+    await page.locator('input[type="file"]').setInputFiles(csvPath);
+    await page.getByRole("button", { name: "Import file" }).click();
+    await expect(
+      page
+        .getByRole("cell", { name: "Bella Queued Critique", exact: true })
+        .first(),
+    ).toBeVisible();
+
+    const showRes = await page.request.get("/api/shows");
+    const showData = (await showRes.json()) as { active_show_id: string };
+    createdShowId = showData.active_show_id;
+    const entryRes = await page.request.get(
+      `/api/entries?show_id=${showData.active_show_id}`,
+    );
+    const entryData = (await entryRes.json()) as {
+      entries: { id: string; dog_name: string }[];
+    };
+    const bella = entryData.entries.find(
+      (item) => item.dog_name === "Bella Queued Critique",
+    );
+    expect(bella).toBeTruthy();
+
+    await page.goto("/ringside");
+    await expect(page.getByRole("heading", { name: "Dogs" })).toBeVisible();
+    await page.evaluate(
+      async ({ showId, entryId }) => {
+        await new Promise<void>((resolve, reject) => {
+          const open = indexedDB.open("keyval-store", 1);
+          open.onupgradeneeded = () => {
+            if (!open.result.objectStoreNames.contains("keyval")) {
+              open.result.createObjectStore("keyval");
+            }
+          };
+          open.onerror = () => reject(open.error);
+          open.onsuccess = () => {
+            const db = open.result;
+            const tx = db.transaction("keyval", "readwrite");
+            tx.objectStore("keyval").put(
+              {
+                id: "offline-e2e",
+                entryId,
+                showId,
+                blob: new Blob(["e2e-audio"], { type: "audio/webm" }),
+                createdAt: new Date().toISOString(),
+                liveTranscript: "Queued critique letter for review",
+                judge: "Test Judge",
+              },
+              "sss-offline-offline-e2e",
+            );
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+          };
+        });
+      },
+      { showId: showData.active_show_id, entryId: bella!.id },
+    );
+    await page.reload();
+    await page.getByRole("button", { name: "Queue" }).click();
+    await expect(page.getByText("#401 Bella Queued Critique")).toBeVisible();
+    await page.getByRole("button", { name: /Back to review/ }).click();
+    await expect(page).toHaveURL(/\/admin\/review/);
+    await expect(
+      page.getByRole("button", { name: /Bella Queued Critique/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Queued critique letter for review"),
+    ).toBeVisible();
   });
 });

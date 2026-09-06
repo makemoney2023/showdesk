@@ -24,11 +24,33 @@ import {
   listOfflineQueue,
   queuedSeDraftForEntry,
   rosterEntryFromQueuedSeDraft,
+  updateQueuedRecordingTranscript,
 } from "./queue";
 import { readRecoverableSeDraft, writeRecoverableSeDraft } from "./se-draft";
 
 beforeEach(() => {
   store.clear();
+});
+
+describe("updateQueuedRecordingTranscript", () => {
+  it("rewrites the live transcript on a queued recording", async () => {
+    await enqueueRecording({
+      id: "rec-edit",
+      entryId: "entry-1",
+      showId: "show-1",
+      blob: new Blob(["audio"]),
+      createdAt: "2026-09-06T12:00:00.000Z",
+      liveTranscript: "Original letter",
+    });
+    expect(await updateQueuedRecordingTranscript("rec-edit", "Edited letter")).toBe(
+      true,
+    );
+    const remaining = await listOfflineQueue();
+    expect(remaining[0]).toMatchObject({
+      id: "rec-edit",
+      liveTranscript: "Edited letter",
+    });
+  });
 });
 
 describe("discardOfflineQueueItem", () => {

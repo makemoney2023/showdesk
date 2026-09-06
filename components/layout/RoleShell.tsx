@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Mic } from "lucide-react";
 import { deskAttentionCount } from "@/lib/domain/critique-status";
 import { visibleReviewCritiques } from "@/lib/domain/se-to-critique";
@@ -45,6 +45,7 @@ import { PwaInstallHost } from "@/components/pwa/PwaInstallHost";
 
 export function RoleShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "/";
+  const router = useRouter();
   const kind = shellForPath(pathname);
   const [show, setShow] = useState<Show | null>(null);
   const [entries, setEntries] = useState<RosterEntryRecord[]>([]);
@@ -178,8 +179,9 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
             </DialogHeader>
             {queueCount > 0 ? (
               <p className="text-sm text-sss-text-secondary">
-                Review opens the dog so you can edit the queued draft. Remove
-                drops an item from this phone only. The dog stays on the roster.
+                Review opens the critique (or SE form) so you can edit it.
+                Remove drops an item from this phone only. The dog stays on the
+                roster.
               </p>
             ) : null}
             {queueCount === 0 ? (
@@ -202,14 +204,25 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
                         </p>
                       </div>
                       <div className="flex shrink-0 flex-col items-stretch gap-2">
-                        <Button asChild variant="outline" size="sm">
-                          <Link
-                            href={queuedItemHref(item)}
-                            aria-label={`${queuedItemReviewLabel()} ${labeled.title}`}
-                            onClick={() => setQueueOpen(false)}
-                          >
-                            {queuedItemReviewLabel()}
-                          </Link>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={queueBusy}
+                          aria-label={`${queuedItemReviewLabel()} ${labeled.title}`}
+                          onClick={() => {
+                            setQueueBusy(true);
+                            void (async () => {
+                              if (item.kind === "recording") {
+                                await syncOfflineQueue();
+                                await refreshQueue();
+                              }
+                              setQueueOpen(false);
+                              router.push(queuedItemHref(item));
+                            })().finally(() => setQueueBusy(false));
+                          }}
+                        >
+                          {queuedItemReviewLabel()}
                         </Button>
                         <Button
                           type="button"

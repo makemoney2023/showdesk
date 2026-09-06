@@ -108,9 +108,9 @@ describe("queuedItemHref", () => {
     );
   });
 
-  it("opens the record page for a queued recording", () => {
+  it("opens Review for a queued recording so the critique can be edited", () => {
     expect(queuedItemHref({ entryId: "e2", kind: "recording" })).toBe(
-      "/ringside/record/e2",
+      "/admin/review?entry=e2",
     );
   });
 });

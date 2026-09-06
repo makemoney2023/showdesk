@@ -78,14 +78,14 @@ export function labelQueuedItem(
   };
 }
 
-/** Open the ringside form so a queued draft can be edited before sync. */
+/** Open Review for queued critiques; SE drafts stay on the ringside form. */
 export function queuedItemHref(item: {
   entryId: string;
   kind?: "recording" | "se";
 }): string {
   return item.kind === "se"
     ? `/ringside/se/${item.entryId}`
-    : `/ringside/record/${item.entryId}`;
+    : `/admin/review?entry=${encodeURIComponent(item.entryId)}`;
 }
 
 export function queuedItemReviewLabel(): string {
