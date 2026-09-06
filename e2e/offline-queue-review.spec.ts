@@ -196,8 +196,8 @@ test.describe("offline queue review", () => {
     await expect(
       page.getByRole("button", { name: /Bella Queued Critique/ }),
     ).toBeVisible();
-    await expect(
-      page.getByText("Queued critique letter for review"),
-    ).toBeVisible();
+    await expect(page.getByLabel("Narrative (draft)")).toHaveValue(
+      "Queued critique letter for review",
+    );
   });
 });
