@@ -14,7 +14,10 @@ import {
   shellForPath,
 } from "@/lib/domain/role-shell";
 import { labelQueuedItem } from "@/lib/domain/show-day";
-import { listOfflineQueue } from "@/lib/offline/queue";
+import {
+  discardOfflineQueueItem,
+  listOfflineQueue,
+} from "@/lib/offline/queue";
 import {
   formatQueueSyncStatus,
   syncOfflineQueue,
@@ -154,6 +157,12 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
             <DialogHeader>
               <DialogTitle>Offline queue</DialogTitle>
             </DialogHeader>
+            {queueCount > 0 ? (
+              <p className="text-sm text-sss-text-secondary">
+                Remove drops an item from this phone only. The dog stays on the
+                roster.
+              </p>
+            ) : null}
             {queueCount === 0 ? (
               <p className="text-sm text-sss-text-secondary">
                 Nothing waiting to sync.
@@ -163,11 +172,33 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
                 {queueItems.map((item) => {
                   const labeled = labelQueuedItem(item, entries, Date.now());
                   return (
-                    <li key={item.id} className="sss-tray px-3 py-2">
-                      <p className="font-medium">{labeled.title}</p>
-                      <p className="text-xs text-sss-text-muted">
-                        {labeled.subtitle}
-                      </p>
+                    <li
+                      key={`${item.kind}-${item.id}`}
+                      className="sss-tray flex items-start justify-between gap-3 px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium">{labeled.title}</p>
+                        <p className="text-xs text-sss-text-muted">
+                          {labeled.subtitle}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={queueBusy}
+                        aria-label={`Remove ${labeled.title} from queue`}
+                        onClick={() => {
+                          void discardOfflineQueueItem(item).then(async () => {
+                            await refreshQueue();
+                            setQueueStatus(
+                              "Removed from this device — it will not sync",
+                            );
+                          });
+                        }}
+                      >
+                        Remove
+                      </Button>
                     </li>
                   );
                 })}

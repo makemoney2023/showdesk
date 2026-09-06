@@ -1,5 +1,6 @@
 import { get, set, del, keys } from "idb-keyval";
 import type { TnrkSeForm } from "@/lib/domain/tnrk-se-form";
+import { clearRecoverableSeDraft } from "./se-draft";
 
 const QUEUE_PREFIX = "sss-offline-";
 const SE_QUEUE_PREFIX = "sss-offline-se-";
@@ -89,6 +90,18 @@ export async function listQueuedSeDrafts(): Promise<OfflineSeDraft[]> {
 
 export async function removeQueuedSeDraft(id: string): Promise<void> {
   await del(seQueueKey(id));
+}
+
+/** Drop one queued item from this device so it will not upload. */
+export async function discardOfflineQueueItem(
+  item: Pick<OfflineQueueItem, "id" | "kind" | "showId" | "entryId">,
+): Promise<void> {
+  if (item.kind === "se") {
+    await removeQueuedSeDraft(item.id);
+    await clearRecoverableSeDraft(item.showId, item.entryId);
+    return;
+  }
+  await removeQueuedRecording(item.id);
 }
 
 export async function listOfflineQueue(): Promise<OfflineQueueItem[]> {
