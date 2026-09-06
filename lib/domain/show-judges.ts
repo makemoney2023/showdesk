@@ -1,3 +1,8 @@
+import type { DogSex } from "./class-division";
+
+const MALE_JUDGE = /\b(hamid|hamill|falah)\b/i;
+const FEMALE_JUDGE = /\breck\b/i;
+
 export function normalizeJudgeNames(
   input: Iterable<string | null | undefined>,
 ): string[] {
@@ -21,6 +26,35 @@ export function syncShowJudges(input: {
   const judges =
     fromList.length > 0 ? fromList : normalizeJudgeNames([input.judge]);
   return { judges, judge: judges[0] ?? "" };
+}
+
+/** Conformation only: Reck judges females; Hamid / Falah judges males. SE forms keep their own judge. */
+export function judgeForDogSex(
+  sex: DogSex | null | undefined,
+  judges: Iterable<string>,
+): string | null {
+  const names = normalizeJudgeNames(judges);
+  if (sex === "R") {
+    return names.find((name) => MALE_JUDGE.test(name)) ?? null;
+  }
+  if (sex === "H") {
+    return names.find((name) => FEMALE_JUDGE.test(name)) ?? null;
+  }
+  return null;
+}
+
+/** Stamp a conformation critique judge from dog sex. Do not use for SE forms. */
+export function resolveAssignedJudge(input: {
+  sex?: DogSex | null;
+  judges: Iterable<string>;
+  requested?: string | null;
+  fallback?: string | null;
+}): string {
+  return (
+    judgeForDogSex(input.sex, input.judges) ||
+    (input.requested ?? "").trim() ||
+    (input.fallback ?? "").trim()
+  );
 }
 
 export function canRecordWithJudge(

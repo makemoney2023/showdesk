@@ -14,6 +14,7 @@ import {
   recordingBlockedReason,
 } from "@/lib/domain/entry-cascade";
 import { applySeFormwert } from "@/lib/domain/se-to-critique";
+import { resolveAssignedJudge, syncShowJudges } from "@/lib/domain/show-judges";
 import {
   requireApiSession,
   requireApiWrite,
@@ -89,7 +90,14 @@ export async function POST(request: Request) {
   );
   const critiqueId = existing?.id ?? newId("critique");
   const now = new Date().toISOString();
-  const judge = (body.judge ?? "").trim() || existing?.judge;
+  const show = store.shows.find((item) => item.id === body.show_id);
+  const judge =
+    resolveAssignedJudge({
+      sex: entry.sex,
+      judges: syncShowJudges(show ?? {}).judges,
+      requested: body.judge,
+      fallback: existing?.judge,
+    }) || existing?.judge;
 
   await updateStore((s) => {
     if (existing) {

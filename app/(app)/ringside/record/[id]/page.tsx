@@ -15,7 +15,12 @@ import {
   competitionPoolKey,
   nextDogInCompetitionPool,
 } from "@/lib/domain/catalog-competition";
-import { canRecordWithJudge, syncShowJudges } from "@/lib/domain/show-judges";
+import {
+  canRecordWithJudge,
+  judgeForDogSex,
+  resolveAssignedJudge,
+  syncShowJudges,
+} from "@/lib/domain/show-judges";
 import { stickyJudgeForShow } from "@/lib/client/sticky-judge";
 import { useRingsideJudge } from "@/components/ringside/RingsideJudgeContext";
 import { startDeepgramLiveSession } from "@/lib/client/deepgram-live";
@@ -123,7 +128,6 @@ export default function RecordPage() {
         showData.shows.find((s) => s.id === showData.active_show_id) ?? null;
       const names = syncShowJudges(active ?? {}).judges;
       setJudges(names);
-      setJudge(stickyJudgeForShow(showData.active_show_id, names));
       const res = await fetch(`/api/entries?show_id=${showData.active_show_id}`);
       if (!res.ok) {
         setEntryLoaded(true);
@@ -131,7 +135,15 @@ export default function RecordPage() {
       }
       const data = (await res.json()) as { entries: RosterEntryRecord[] };
       setEntries(data.entries);
-      setEntry(data.entries.find((e) => e.id === entryId) ?? null);
+      const found = data.entries.find((e) => e.id === entryId) ?? null;
+      setEntry(found);
+      setJudge(
+        resolveAssignedJudge({
+          sex: found?.sex,
+          judges: names,
+          fallback: stickyJudgeForShow(showData.active_show_id, names),
+        }) || null,
+      );
       const critRes = await fetch(
         `/api/critiques?show_id=${showData.active_show_id}`,
       );
@@ -175,9 +187,25 @@ export default function RecordPage() {
 
   useEffect(() => {
     if (!ringsideJudge.available) return;
-    setJudge(ringsideJudge.judge || null);
     setJudges(ringsideJudge.judges);
-  }, [ringsideJudge.available, ringsideJudge.judge, ringsideJudge.judges]);
+    const sexJudge = entry
+      ? judgeForDogSex(entry.sex, ringsideJudge.judges)
+      : null;
+    const pick =
+      sexJudge ||
+      ringsideJudge.judge ||
+      null;
+    setJudge(pick);
+    if (sexJudge && sexJudge !== ringsideJudge.judge) {
+      ringsideJudge.setJudge(sexJudge);
+    }
+  }, [
+    entry,
+    ringsideJudge.available,
+    ringsideJudge.judge,
+    ringsideJudge.judges,
+    ringsideJudge.setJudge,
+  ]);
 
   useEffect(() => {
     if (!recording || paused) return;

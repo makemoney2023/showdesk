@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   canRecordWithJudge,
   formatShowJudges,
+  judgeForDogSex,
   judgeStorageKey,
   normalizeJudgeNames,
+  resolveAssignedJudge,
   resolvePdfJudge,
   syncShowJudges,
 } from "./show-judges";
@@ -36,6 +38,42 @@ describe("syncShowJudges", () => {
       judges: [],
       judge: "",
     });
+  });
+});
+
+describe("judgeForDogSex", () => {
+  const judges = ["Sandra Reck (ADRK)", "Hamid Falah (FCI-France)"];
+
+  it("assigns Hamid to males and Reck to females", () => {
+    expect(judgeForDogSex("R", judges)).toBe("Hamid Falah (FCI-France)");
+    expect(judgeForDogSex("H", judges)).toBe("Sandra Reck (ADRK)");
+  });
+
+  it("matches Hamill as the male judge name", () => {
+    expect(judgeForDogSex("R", ["Sandra Reck", "Judge Hamill"])).toBe(
+      "Judge Hamill",
+    );
+  });
+
+  it("returns null when the sex or matching name is missing", () => {
+    expect(judgeForDogSex("R", ["Sandra Reck (ADRK)"])).toBeNull();
+    expect(judgeForDogSex("H", ["Hamid Falah (FCI-France)"])).toBeNull();
+    expect(judgeForDogSex(null, judges)).toBeNull();
+  });
+});
+
+describe("resolveAssignedJudge", () => {
+  const judges = ["Sandra Reck (ADRK)", "Hamid Falah (FCI-France)"];
+
+  it("prefers the sex assignment over a requested sticky pick for conformation", () => {
+    expect(
+      resolveAssignedJudge({
+        sex: "R",
+        judges,
+        requested: "Sandra Reck (ADRK)",
+        fallback: "Sandra Reck (ADRK)",
+      }),
+    ).toBe("Hamid Falah (FCI-France)");
   });
 });
 
