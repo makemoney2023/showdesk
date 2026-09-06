@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,12 +29,17 @@ import { critiqueNarrativeOverflowsCertificate } from "@/lib/domain/tnrk-critiqu
 import { reviewPrimaryAction } from "@/lib/domain/review-primary-action";
 import {
   buildReviewQueueRows,
+  isQueuedCritiqueId,
+  mergeQueuedRecordingsIntoReview,
   nextReviewItemId,
+  recordingIdFromQueuedCritique,
   reviewDogHeading,
   reviewPdfPreviewActions,
   reviewQueueMatchesSearch,
   reviewTranscriptPreview,
 } from "@/lib/domain/review-queue-layout";
+import { listQueuedRecordings, updateQueuedRecordingTranscript } from "@/lib/offline/queue";
+import { syncOfflineQueue } from "@/lib/offline/sync";
 import { isReviewDraftDirty } from "@/lib/domain/review-dirty";
 import { catalogCompetitionLabel } from "@/lib/domain/catalog-competition";
 import {
@@ -64,6 +70,8 @@ import type {
 } from "@/lib/types";
 
 export default function AdminReviewPage() {
+  const searchParams = useSearchParams();
+  const focusEntryId = searchParams.get("entry");
   const [showId, setShowId] = useState<string | null>(null);
   const [critiques, setCritiques] = useState<CritiqueRecord[]>([]);
   const [entries, setEntries] = useState<RosterEntryRecord[]>([]);
@@ -83,6 +91,7 @@ export default function AdminReviewPage() {
   const queueNavRef = useRef({ ids: [] as string[], index: -1 });
   const selectedIdRef = useRef<string | null>(null);
   const autoOpenedRef = useRef(false);
+  const pendingFocusEntryRef = useRef<string | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const [isDesktop, setIsDesktop] = useState(false);
 
@@ -120,7 +129,14 @@ export default function AdminReviewPage() {
     }
     const critData = (await critRes.json()) as { critiques: CritiqueRecord[] };
     const entryData = (await entryRes.json()) as { entries: RosterEntryRecord[] };
-    setCritiques(critData.critiques);
+    const queued = await listQueuedRecordings();
+    setCritiques(
+      mergeQueuedRecordingsIntoReview(
+        critData.critiques,
+        queued,
+        active,
+      ),
+    );
     setEntries(entryData.entries);
     if (seRes.ok) {
       const seData = (await seRes.json()) as {
@@ -136,6 +152,7 @@ export default function AdminReviewPage() {
   }, [load]);
 
   const selected = critiques.find((c) => c.id === selectedId);
+  const queuedLocal = Boolean(selected && isQueuedCritiqueId(selected.id));
   const entry = selected
     ? entries.find((e) => e.id === selected.entry_id)
     : undefined;
@@ -204,6 +221,30 @@ export default function AdminReviewPage() {
   async function saveDraft(): Promise<boolean> {
     if (!showId || !selectedId || !draft || busy) return false;
     setBusy(true);
+    if (isQueuedCritiqueId(selectedId)) {
+      const recordingId = recordingIdFromQueuedCritique(selectedId);
+      const ok = recordingId
+        ? await updateQueuedRecordingTranscript(recordingId, draft.narrative)
+        : false;
+      if (ok) {
+        setCritiques((prev) =>
+          prev.map((item) =>
+            item.id === selectedId
+              ? {
+                  ...item,
+                  transcript: draft.narrative,
+                  draft: { ...item.draft, narrative: draft.narrative },
+                  updated_at: new Date().toISOString(),
+                }
+              : item,
+          ),
+        );
+      }
+      setStatusMsg(ok ? "Draft saved on this device" : "Save failed");
+      pushToast(ok ? "Draft saved on this device" : "Save failed", ok ? "ok" : "error");
+      setBusy(false);
+      return ok;
+    }
     const res = await fetch("/api/critiques", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -220,6 +261,26 @@ export default function AdminReviewPage() {
     setBusy(false);
     if (ok) await load();
     return ok;
+  }
+
+  async function syncQueuedCritique() {
+    if (busy || !selected) return;
+    pendingFocusEntryRef.current = selected.entry_id;
+    setBusy(true);
+    setStatusMsg("Syncing queued critique…");
+    const result = await syncOfflineQueue();
+    autoOpenedRef.current = false;
+    setSelectedId(null);
+    await load();
+    const msg =
+      result.synced > 0
+        ? "Queued critique synced — it is now in review"
+        : result.unauthorized
+          ? "Sign in again, then sync"
+          : "Could not sync — the critique stays on this device";
+    setStatusMsg(msg);
+    pushToast(msg, result.synced > 0 ? "ok" : "error");
+    setBusy(false);
   }
 
   async function discardAndRerun() {
@@ -246,7 +307,7 @@ export default function AdminReviewPage() {
   }
 
   async function approve() {
-    if (!showId || !selectedId || busy) return;
+    if (!showId || !selectedId || busy || isQueuedCritiqueId(selectedId)) return;
     const selectAfter = nextReviewItemId(
       queue.map((item) => item.id),
       selectedId,
@@ -384,10 +445,21 @@ export default function AdminReviewPage() {
   selectedIdRef.current = selectedId;
 
   useEffect(() => {
-    if (!loaded || autoOpenedRef.current || selectedId || !firstQueueId) return;
+    if (!loaded || autoOpenedRef.current || selectedId) return;
+    const wantedEntry = focusEntryId || pendingFocusEntryRef.current;
+    if (wantedEntry) {
+      const match = critiques.find((item) => item.entry_id === wantedEntry);
+      if (match) {
+        pendingFocusEntryRef.current = null;
+        autoOpenedRef.current = true;
+        setSelectedId(match.id);
+        return;
+      }
+    }
+    if (!firstQueueId) return;
     autoOpenedRef.current = true;
     setSelectedId(firstQueueId);
-  }, [firstQueueId, loaded, selectedId]);
+  }, [critiques, firstQueueId, focusEntryId, loaded, selectedId]);
 
   useEffect(() => {
     const media = window.matchMedia("(min-width: 1024px)");
@@ -554,9 +626,11 @@ export default function AdminReviewPage() {
                     </p>
                   ) : null}
                   <p className="text-xs text-sss-text-muted">
-                    {draft.narrative.trim()
-                      ? "Pre-filled from speech-to-text — edit before approve."
-                      : "Type the judge’s letter here if speech-to-text came back empty."}
+                    {queuedLocal
+                      ? "This critique is still on this phone. Edit the letter, then Sync to desk."
+                      : draft.narrative.trim()
+                        ? "Pre-filled from speech-to-text — edit before approve."
+                        : "Type the judge’s letter here if speech-to-text came back empty."}
                   </p>
                   {selected.audio_path && !selected.transcript.trim() ? (
                     <Button
@@ -642,7 +716,7 @@ export default function AdminReviewPage() {
                         : "Tap the rating the judge announced."}
                   </p>
                 </div>
-                {showId && selectedId ? (
+                {showId && selectedId && !queuedLocal ? (
                   <div className="flex flex-wrap gap-2">
                     {reviewPdfPreviewActions({
                       showId,
@@ -685,7 +759,7 @@ export default function AdminReviewPage() {
                     >
                       Discard &amp; rerun
                     </Button>
-                    {showId && selectedId ? (
+                    {showId && selectedId && !queuedLocal ? (
                       <Button asChild variant="link">
                         <a
                           href={`/api/pdf?show_id=${showId}&critique_id=${selectedId}&preview=1`}
@@ -699,16 +773,28 @@ export default function AdminReviewPage() {
                   </div>
                 </details>
                 <StickyDeskBar
-                  primaryLabel={reviewPrimaryAction(selected.status).label}
+                  primaryLabel={
+                    queuedLocal
+                      ? "Sync to desk"
+                      : reviewPrimaryAction(selected.status).label
+                  }
                   primaryDisabled={
-                    busy || reviewPrimaryAction(selected.status).disabled
+                    busy ||
+                    (!queuedLocal &&
+                      reviewPrimaryAction(selected.status).disabled)
                   }
                   primaryHref={
-                    reviewPrimaryAction(selected.status).kind === "reports"
-                      ? "/admin/reports"
-                      : undefined
+                    queuedLocal
+                      ? undefined
+                      : reviewPrimaryAction(selected.status).kind === "reports"
+                        ? "/admin/reports"
+                        : undefined
                   }
                   onPrimary={() => {
+                    if (queuedLocal) {
+                      void syncQueuedCritique();
+                      return;
+                    }
                     const kind = reviewPrimaryAction(selected.status).kind;
                     if (kind === "approve") setConfirmOpen(true);
                     if (kind === "retry") void discardAndRerun();
@@ -885,7 +971,7 @@ export default function AdminReviewPage() {
                             {e
                               ? catalogCompetitionLabel(e)
                               : ""}
-                            {` · ${fromSe ? "SE form" : "Audio"}`}
+                            {` · ${isQueuedCritiqueId(c.id) ? "Queued" : fromSe ? "SE form" : "Audio"}`}
                             {se
                               ? ` · ${se.status === "complete" ? "SE complete" : "Draft"}`
                               : ""}
@@ -902,8 +988,16 @@ export default function AdminReviewPage() {
                         </div>
                       </div>
                       <StatusChip
-                        label={labelCritiqueStatus(c.status)}
-                        tone={critiqueChipTone(c.status)}
+                        label={
+                          isQueuedCritiqueId(c.id)
+                            ? "On this device"
+                            : labelCritiqueStatus(c.status)
+                        }
+                        tone={
+                          isQueuedCritiqueId(c.id)
+                            ? "warning"
+                            : critiqueChipTone(c.status)
+                        }
                       />
                     </div>
                   </button>

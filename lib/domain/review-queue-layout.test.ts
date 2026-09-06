@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   buildReviewQueueRows,
+  critiqueFromQueuedRecording,
+  isQueuedCritiqueId,
+  mergeQueuedRecordingsIntoReview,
   nextReviewItemId,
+  queuedCritiqueId,
+  reviewFocusHref,
   reviewQueueMatchesSearch,
   reviewDogHeading,
   reviewPdfPreviewActions,
@@ -116,6 +121,71 @@ describe("reviewTranscriptPreview", () => {
       text: "No speech was transcribed",
       empty: true,
     });
+  });
+});
+
+describe("queued critique review rows", () => {
+  it("builds a pending review item from a queued recording", () => {
+    const critique = critiqueFromQueuedRecording({
+      id: "offline-1",
+      entryId: "entry-1",
+      showId: "show-1",
+      createdAt: "2026-09-06T16:00:00.000Z",
+      liveTranscript: "Strong male, good movement.",
+      judge: "Hamid",
+    });
+    expect(critique.id).toBe(queuedCritiqueId("offline-1"));
+    expect(isQueuedCritiqueId(critique.id)).toBe(true);
+    expect(critique.status).toBe("PENDING_REVIEW");
+    expect(critique.transcript).toBe("Strong male, good movement.");
+    expect(critique.draft.narrative).toBe("Strong male, good movement.");
+    expect(reviewFocusHref("entry-1")).toBe("/admin/review?entry=entry-1");
+  });
+
+  it("keeps queued recordings that are not already on the desk", () => {
+    const desk = [
+      {
+        id: "crit-1",
+        show_id: "show-1",
+        entry_id: "entry-desk",
+        status: "PENDING_REVIEW" as const,
+        transcript: "Desk letter",
+        draft: {
+          narrative: "Desk letter",
+          formwert: null,
+          placement: null,
+          titles: [],
+        },
+        delivery_status: "pending" as const,
+        created_at: "2026-09-06T15:00:00.000Z",
+        updated_at: "2026-09-06T15:00:00.000Z",
+      },
+    ];
+    const merged = mergeQueuedRecordingsIntoReview(
+      desk,
+      [
+        {
+          id: "offline-new",
+          entryId: "entry-queued",
+          showId: "show-1",
+          createdAt: "2026-09-06T16:00:00.000Z",
+          liveTranscript: "Queued letter",
+        },
+        {
+          id: "offline-dup",
+          entryId: "entry-desk",
+          showId: "show-1",
+          createdAt: "2026-09-06T16:01:00.000Z",
+          liveTranscript: "Should hide",
+        },
+      ],
+      "show-1",
+    );
+    expect(merged.map((item) => item.entry_id)).toEqual([
+      "entry-queued",
+      "entry-desk",
+    ]);
+    expect(merged[0]?.transcript).toBe("Queued letter");
   });
 });
 

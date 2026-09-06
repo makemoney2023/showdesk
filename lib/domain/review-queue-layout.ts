@@ -3,15 +3,84 @@ import {
   dogSexLabel,
   type DogSex,
 } from "./class-division";
-import type { AdrkClassId } from "./adrk-template";
+import { createEmptyDraft, type AdrkClassId } from "./adrk-template";
 import {
   critiqueLetterWithoutSeSection,
   spokenCritiqueTranscript,
 } from "./se-to-critique";
+import type { CritiqueRecord } from "@/lib/types";
 
 export type ReviewQueueRow =
   | { kind: "critique"; critiqueId: string }
   | { kind: "editor"; critiqueId: string };
+
+export const QUEUED_CRITIQUE_PREFIX = "queued-";
+
+export function queuedCritiqueId(recordingId: string): string {
+  return `${QUEUED_CRITIQUE_PREFIX}${recordingId}`;
+}
+
+export function isQueuedCritiqueId(id: string): boolean {
+  return id.startsWith(QUEUED_CRITIQUE_PREFIX);
+}
+
+export function recordingIdFromQueuedCritique(id: string): string | null {
+  return isQueuedCritiqueId(id)
+    ? id.slice(QUEUED_CRITIQUE_PREFIX.length)
+    : null;
+}
+
+export function reviewFocusHref(entryId: string): string {
+  return `/admin/review?entry=${encodeURIComponent(entryId)}`;
+}
+
+/** Turn a device-queued recording into a review-queue row so it can be edited. */
+export function critiqueFromQueuedRecording(item: {
+  id: string;
+  entryId: string;
+  showId: string;
+  createdAt: string;
+  judge?: string;
+  liveTranscript?: string;
+}): CritiqueRecord {
+  const transcript = item.liveTranscript?.trim() ?? "";
+  return {
+    id: queuedCritiqueId(item.id),
+    show_id: item.showId,
+    entry_id: item.entryId,
+    status: "PENDING_REVIEW",
+    transcript,
+    draft: {
+      ...createEmptyDraft(),
+      narrative: transcript,
+      draftAssist: { queued: "1" },
+    },
+    delivery_status: "pending",
+    created_at: item.createdAt,
+    updated_at: item.createdAt,
+    judge: item.judge,
+  };
+}
+
+/** Keep unsynced recordings visible beside desk critiques, without duplicates. */
+export function mergeQueuedRecordingsIntoReview(
+  critiques: CritiqueRecord[],
+  queued: Array<{
+    id: string;
+    entryId: string;
+    showId: string;
+    createdAt: string;
+    judge?: string;
+    liveTranscript?: string;
+  }>,
+  showId: string,
+): CritiqueRecord[] {
+  const taken = new Set(critiques.map((critique) => critique.entry_id));
+  const extras = queued
+    .filter((item) => item.showId === showId && !taken.has(item.entryId))
+    .map(critiqueFromQueuedRecording);
+  return [...extras, ...critiques];
+}
 
 /** Queue card and editor heading: armband first so the ring book is obvious. */
 export function reviewDogHeading(entry: {

@@ -66,6 +66,16 @@ export async function removeQueuedRecording(id: string): Promise<void> {
   await del(queueKey(id));
 }
 
+export async function updateQueuedRecordingTranscript(
+  id: string,
+  liveTranscript: string,
+): Promise<boolean> {
+  const existing = await get<OfflineRecording>(queueKey(id));
+  if (!existing) return false;
+  await set(queueKey(id), { ...existing, liveTranscript });
+  return true;
+}
+
 export async function enqueueSeDraft(draft: OfflineSeDraft): Promise<void> {
   const existing = await listQueuedSeDrafts();
   for (const prev of existing) {
