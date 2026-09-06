@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, CircleDashed, RefreshCw } from "lucide-react";
+import { CheckCircle2, CircleDashed, Download, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CompetitionDayFilter } from "@/components/desk/CompetitionDayFilter";
@@ -44,6 +44,13 @@ import {
   tnrkPrintBundleHref,
 } from "@/lib/domain/print-documents";
 import {
+  buildPrintZipBytes,
+  collectPrintZipItems,
+  printZipArchiveName,
+  printZipDisabledReason,
+  saveBlobAsFile,
+} from "@/lib/domain/print-zip";
+import {
   reportBrowseDay,
   reportRowMatchesDay,
   reportRowMatchesFilter,
@@ -64,6 +71,7 @@ import type {
 
 export default function AdminReportsPage() {
   const [showId, setShowId] = useState<string | null>(null);
+  const [showName, setShowName] = useState("");
   const [critiques, setCritiques] = useState<CritiqueRecord[]>([]);
   const [entries, setEntries] = useState<RosterEntryRecord[]>([]);
   const [evaluations, setEvaluations] = useState<SeEvaluationRecord[]>([]);
@@ -76,6 +84,8 @@ export default function AdminReportsPage() {
   const [divisionFilter, setDivisionFilter] = useState("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [zipBusy, setZipBusy] = useState(false);
+  const [zipProgress, setZipProgress] = useState("");
 
   const load = useCallback(async () => {
     const showRes = await fetch("/api/shows");
@@ -88,10 +98,14 @@ export default function AdminReportsPage() {
       setLoaded(true);
       return;
     }
-    const showData = (await showRes.json()) as { active_show_id: string | null };
+    const showData = (await showRes.json()) as {
+      active_show_id: string | null;
+      shows?: { id: string; name: string }[];
+    };
     if (!showData.active_show_id) {
       setHasShow(false);
       setShowId(null);
+      setShowName("");
       setCritiques([]);
       setEntries([]);
       setEvaluations([]);
@@ -101,6 +115,10 @@ export default function AdminReportsPage() {
     }
     setHasShow(true);
     setShowId(showData.active_show_id);
+    setShowName(
+      showData.shows?.find((show) => show.id === showData.active_show_id)
+        ?.name ?? "",
+    );
     const [critRes, entryRes, seRes, placeRes] = await Promise.all([
       fetch(`/api/critiques?show_id=${showData.active_show_id}`),
       fetch(`/api/entries?show_id=${showData.active_show_id}`),
@@ -217,6 +235,52 @@ export default function AdminReportsPage() {
     selectedCertificateIds.length,
     "critique",
   );
+  const zipItems = collectPrintZipItems(
+    visibleRows.map((row) => ({
+      entryId: row.entry.id,
+      armband: row.entry.armband,
+      dogName: row.entry.dog_name,
+      documents: row.documents,
+    })),
+    selectedIds,
+  );
+  const zipReason = printZipDisabledReason(zipItems.length);
+
+  async function downloadPrintZip() {
+    if (zipItems.length === 0 || zipBusy) return;
+    setZipBusy(true);
+    setZipProgress(`0 of ${zipItems.length}`);
+    setMessage("");
+    try {
+      const { bytes, failed } = await buildPrintZipBytes({
+        items: zipItems,
+        fetchPdf: async (href) => {
+          const res = await fetch(href);
+          if (!res.ok) throw new Error(`Could not fetch ${href}`);
+          return new Uint8Array(await res.arrayBuffer());
+        },
+        onProgress: (done, total) => setZipProgress(`${done} of ${total}`),
+      });
+      if (failed.length === zipItems.length) {
+        setMessage("Could not download PDFs for the print ZIP.");
+        return;
+      }
+      saveBlobAsFile(
+        new Blob([Uint8Array.from(bytes)], { type: "application/zip" }),
+        printZipArchiveName(showName),
+      );
+      if (failed.length > 0) {
+        setMessage(
+          `ZIP saved with ${zipItems.length - failed.length} PDFs. ${failed.length} could not be included.`,
+        );
+      }
+    } catch {
+      setMessage("Could not build the print ZIP.");
+    } finally {
+      setZipBusy(false);
+      setZipProgress("");
+    }
+  }
 
   function toggleSelected(entryId: string, checked: boolean) {
     setSelectedIds((current) =>
@@ -236,7 +300,7 @@ export default function AdminReportsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Reports"
-        description="Filter by date, then view, download, or print approved SE forms and certificates."
+        description="Filter by date, then view, download, or print approved SE forms and certificates. Download a ZIP of individual PDFs to take to a print shop."
         actions={
           <Button variant="outline" onClick={() => void load()}>
             <RefreshCw className="h-4 w-4" />
@@ -344,6 +408,22 @@ export default function AdminReportsPage() {
               disabled={Boolean(certificatePrintReason)}
               title={certificatePrintReason ?? undefined}
             />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={Boolean(zipReason) || zipBusy}
+              title={
+                zipReason ??
+                "Individual PDFs for a print shop. Uses the current selection, or every printable dog in this list."
+              }
+              onClick={() => void downloadPrintZip()}
+            >
+              <Download className="h-4 w-4" />
+              {zipBusy
+                ? `Preparing ${zipProgress}`
+                : "Download ZIP for printer"}
+            </Button>
           </div>
         ) : null}
         </div>
