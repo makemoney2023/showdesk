@@ -1,10 +1,13 @@
 import {
-  ADRK_FORMWERT_LABELS,
   formatAdrkFormwert,
+  formwertScaleForEntry,
   getAdrkClassLabel,
+  getAdrkFormwertLabel,
+  tnrkFormwertPrintCode,
   type AdrkClassId,
   type AdrkFormwertCode,
   type AdrkTitleOption,
+  type FormwertScale,
 } from "./adrk-template";
 import { dogSexLabel, type DogSex } from "./class-division";
 import { publicDogPhotoHref } from "./dog-photo";
@@ -157,10 +160,12 @@ function placementForEntry(
 export function ratingPlacementLabel(
   formwert: AdrkFormwertCode | null,
   placement: 1 | 2 | 3 | 4 | null,
+  scale: FormwertScale = "adult",
 ): string | null {
-  if (!formwert && !placement) return null;
-  if (formwert && placement) return `${formwert}${placement}`;
-  if (formwert) return formwert;
+  const printed = tnrkFormwertPrintCode(formwert, scale);
+  if (!printed && !placement) return null;
+  if (printed && placement) return `${printed}${placement}`;
+  if (printed) return printed;
   return `Place ${placement}`;
 }
 
@@ -262,6 +267,7 @@ function toPublicDog(
 ): PublicDogResult | null {
   const formwert = critique?.draft.formwert ?? null;
   const rank = placement?.placement ?? critique?.draft.placement ?? null;
+  const scale = formwertScaleForEntry(entry);
   const narrative = critiqueLetterForCertificate(critique) || null;
   const hasResult = Boolean(formwert || rank || narrative || critique);
   if (!hasResult) return null;
@@ -286,9 +292,9 @@ function toPublicDog(
     sex: entry.sex,
     sexLabel: dogSexLabel(entry.sex, "full"),
     formwert,
-    formwertLabel: formwert ? ADRK_FORMWERT_LABELS[formwert] : null,
+    formwertLabel: formwert ? getAdrkFormwertLabel(formwert, scale) : null,
     placement: rank,
-    ratingPlacement: ratingPlacementLabel(formwert, rank),
+    ratingPlacement: ratingPlacementLabel(formwert, rank, scale),
     titles: critique?.draft.titles ?? [],
     narrative,
     judge: optionalPublicText(critique?.judge) ?? optionalPublicText(show.judge),

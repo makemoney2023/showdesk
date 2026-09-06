@@ -131,6 +131,9 @@ export async function readPublishedPdf(
       entry: found.entry,
       critique: found.critique,
       se: found.se,
+      placements: store.placements.filter(
+        (row) => row.show_id === found.show.id,
+      ),
     });
     return {
       bytes: Buffer.from(bytes),

@@ -12,6 +12,7 @@ import {
   formwertScaleForEntry,
   formwertSelectCodes,
   getAdrkFormwertLabel,
+  tnrkFormwertPrintCode,
 } from "@/lib/domain/adrk-template";
 import {
   divisionsWithDogs,
@@ -695,7 +696,8 @@ function AdminReviewPageInner() {
                             setDraft({ ...draft, formwert: code })
                           }
                         >
-                          {code} · {getAdrkFormwertLabel(code, ratingScale)}
+                          {tnrkFormwertPrintCode(code, ratingScale)} ·{" "}
+                          {getAdrkFormwertLabel(code, ratingScale)}
                         </Button>
                       );
                     })}

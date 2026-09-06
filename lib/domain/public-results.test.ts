@@ -37,6 +37,8 @@ describe("rating vs placement", () => {
     expect(ratingPlacementLabel("Sg", 2)).toBe("Sg2");
     expect(ratingPlacementLabel("V", null)).toBe("V");
     expect(ratingPlacementLabel(null, 3)).toBe("Place 3");
+    expect(ratingPlacementLabel("vv", 4, "puppy")).toBe("VP4");
+    expect(ratingPlacementLabel("V", 1, "puppy")).toBe("P1");
   });
 });
 
