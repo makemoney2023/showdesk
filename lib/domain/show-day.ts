@@ -78,6 +78,20 @@ export function labelQueuedItem(
   };
 }
 
+/** Open the ringside form so a queued draft can be edited before sync. */
+export function queuedItemHref(item: {
+  entryId: string;
+  kind?: "recording" | "se";
+}): string {
+  return item.kind === "se"
+    ? `/ringside/se/${item.entryId}`
+    : `/ringside/record/${item.entryId}`;
+}
+
+export function queuedItemReviewLabel(): string {
+  return "Back to review";
+}
+
 function filledCount(values: Array<string | null | undefined>): {
   filled: number;
   total: number;

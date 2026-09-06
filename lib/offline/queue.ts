@@ -1,5 +1,6 @@
 import { get, set, del, keys } from "idb-keyval";
 import type { TnrkSeForm } from "@/lib/domain/tnrk-se-form";
+import type { RosterEntryRecord, SeEvaluationRecord } from "@/lib/types";
 import { clearRecoverableSeDraft } from "./se-draft";
 
 const QUEUE_PREFIX = "sss-offline-";
@@ -86,6 +87,53 @@ export async function listQueuedSeDrafts(): Promise<OfflineSeDraft[]> {
     if (item) items.push(item);
   }
   return items.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+/** Latest queued SE draft for this show dog, if the steward is editing it again. */
+export async function queuedSeDraftForEntry(
+  showId: string | null,
+  entryId: string,
+): Promise<OfflineSeDraft | null> {
+  const drafts = await listQueuedSeDrafts();
+  const matches = drafts.filter(
+    (draft) =>
+      draft.entryId === entryId &&
+      (!showId || draft.showId === showId),
+  );
+  return matches[matches.length - 1] ?? null;
+}
+
+/** Enough roster fields to reopen the SE form when the desk fetch fails. */
+export function rosterEntryFromQueuedSeDraft(
+  draft: OfflineSeDraft,
+): RosterEntryRecord {
+  return {
+    id: draft.entryId,
+    show_id: draft.showId,
+    armband: "",
+    dog_name: draft.form.dog_name.trim() || "Queued dog",
+    zb_number: draft.form.registration_number,
+    wt: draft.form.date_of_birth,
+    owner: draft.form.owner_co_owner,
+    sex: draft.form.sex === "female" ? "H" : "R",
+    class_id: "zwischenklasse",
+    email: draft.form.email,
+  };
+}
+
+/** Reopen a queued SE on this device when the desk create call cannot run. */
+export function evaluationFromQueuedSeDraft(
+  draft: OfflineSeDraft,
+): SeEvaluationRecord {
+  return {
+    id: draft.evaluationId,
+    show_id: draft.showId,
+    entry_id: draft.entryId,
+    form: draft.form,
+    status: draft.markComplete ? "complete" : "draft",
+    created_at: draft.createdAt,
+    updated_at: draft.createdAt,
+  };
 }
 
 export async function removeQueuedSeDraft(id: string): Promise<void> {

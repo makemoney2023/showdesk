@@ -20,7 +20,10 @@ import {
   discardOfflineQueueItem,
   enqueueRecording,
   enqueueSeDraft,
+  evaluationFromQueuedSeDraft,
   listOfflineQueue,
+  queuedSeDraftForEntry,
+  rosterEntryFromQueuedSeDraft,
 } from "./queue";
 import { readRecoverableSeDraft, writeRecoverableSeDraft } from "./se-draft";
 
@@ -88,5 +91,86 @@ describe("discardOfflineQueueItem", () => {
 
     expect(await listOfflineQueue()).toEqual([]);
     expect(await readRecoverableSeDraft("show-1", "entry-se")).toBeNull();
+  });
+});
+
+describe("queuedSeDraftForEntry", () => {
+  it("returns the latest queued SE for that dog", async () => {
+    const older = createEmptyTnrkSeForm();
+    older.comments = "first";
+    const newer = createEmptyTnrkSeForm();
+    newer.comments = "second";
+    await enqueueSeDraft({
+      id: "se-old",
+      entryId: "entry-se",
+      showId: "show-1",
+      evaluationId: "eval-1",
+      form: older,
+      markComplete: false,
+      createdAt: "2026-09-06T12:00:00.000Z",
+    });
+    await enqueueSeDraft({
+      id: "se-new",
+      entryId: "entry-se",
+      showId: "show-1",
+      evaluationId: "eval-1",
+      form: newer,
+      markComplete: false,
+      createdAt: "2026-09-06T12:05:00.000Z",
+    });
+
+    const found = await queuedSeDraftForEntry("show-1", "entry-se");
+    expect(found?.id).toBe("se-new");
+    expect(found?.form.comments).toBe("second");
+    expect(await queuedSeDraftForEntry(null, "entry-se")).toMatchObject({
+      id: "se-new",
+    });
+    expect(await queuedSeDraftForEntry("show-1", "other")).toBeNull();
+  });
+});
+
+describe("evaluationFromQueuedSeDraft", () => {
+  it("rebuilds a draft evaluation the SE page can edit", () => {
+    const form = createEmptyTnrkSeForm();
+    form.dog_name = "Rex";
+    const evaluation = evaluationFromQueuedSeDraft({
+      id: "se-1",
+      entryId: "entry-se",
+      showId: "show-1",
+      evaluationId: "eval-1",
+      form,
+      markComplete: false,
+      createdAt: "2026-09-06T12:00:00.000Z",
+    });
+    expect(evaluation).toMatchObject({
+      id: "eval-1",
+      show_id: "show-1",
+      entry_id: "entry-se",
+      status: "draft",
+      form,
+    });
+  });
+});
+
+describe("rosterEntryFromQueuedSeDraft", () => {
+  it("uses the queued dog name so the form can reopen offline", () => {
+    const form = createEmptyTnrkSeForm();
+    form.dog_name = "Rex Queue Review";
+    form.sex = "male";
+    const entry = rosterEntryFromQueuedSeDraft({
+      id: "se-1",
+      entryId: "entry-se",
+      showId: "show-1",
+      evaluationId: "eval-1",
+      form,
+      markComplete: false,
+      createdAt: "2026-09-06T12:00:00.000Z",
+    });
+    expect(entry).toMatchObject({
+      id: "entry-se",
+      show_id: "show-1",
+      dog_name: "Rex Queue Review",
+      sex: "R",
+    });
   });
 });
