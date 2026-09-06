@@ -6,7 +6,7 @@ import {
 import { catalogDivisionLabel } from "@/lib/domain/catalog-competition";
 import { critiqueLetterForCertificate } from "@/lib/domain/se-to-critique";
 import { seFormFormwert } from "@/lib/domain/tnrk-se-form";
-import { formatDisplayDate } from "@/lib/domain/show-day";
+import { formatCertificateDob, formatDisplayDate } from "@/lib/domain/show-day";
 import { resolvePdfJudge } from "@/lib/domain/show-judges";
 import type {
   CritiqueRecord,
@@ -104,7 +104,7 @@ export async function buildTnrkCritiquePdfForRecords(input: {
 
   return buildTnrkCritiquePdf({
     dog_name: dogName,
-    dob: formatDisplayDate(se?.form.date_of_birth?.trim() || entry.wt),
+    dob: formatCertificateDob(se?.form.date_of_birth?.trim() || entry.wt),
     armband: entry.armband,
     narrative,
     class_and_rating: critiqueClassAndRatingLine(entry, formwert, placement),
