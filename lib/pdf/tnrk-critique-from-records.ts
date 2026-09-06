@@ -6,6 +6,7 @@ import {
 import { catalogDivisionLabel } from "@/lib/domain/catalog-competition";
 import { critiqueLetterForCertificate } from "@/lib/domain/se-to-critique";
 import { seFormFormwert } from "@/lib/domain/tnrk-se-form";
+import { formatDisplayDate } from "@/lib/domain/show-day";
 import { resolvePdfJudge } from "@/lib/domain/show-judges";
 import type {
   CritiqueRecord,
@@ -60,6 +61,24 @@ export function critiqueClassAndRatingLine(
   return [catalogDivisionLabel(entry), rating].filter(Boolean).join(" — ");
 }
 
+/**
+ * Certificate DATE is the day this dog was judged.
+ * Never use the SE form date on a conformation critique — that is Friday.
+ */
+export function critiqueCertificateDate(input: {
+  entry: Pick<RosterEntryRecord, "competition_day" | "event_kind">;
+  show: Pick<Show, "date">;
+  seDate?: string | null;
+}): string {
+  const competitionDay = input.entry.competition_day?.trim();
+  if (competitionDay) return competitionDay;
+  if (input.entry.event_kind === "se") {
+    const seDate = input.seDate?.trim();
+    if (seDate) return seDate;
+  }
+  return input.show.date?.trim() ?? "";
+}
+
 /** Same TNRK critique certificate as `/api/pdf/tnrk?kind=critique`. */
 export async function buildTnrkCritiquePdfForRecords(input: {
   show: Show;
@@ -77,14 +96,19 @@ export async function buildTnrkCritiquePdfForRecords(input: {
     critique,
     placements,
   );
+  const date = critiqueCertificateDate({
+    entry,
+    show,
+    seDate: se?.form.date,
+  });
 
   return buildTnrkCritiquePdf({
     dog_name: dogName,
-    dob: se?.form.date_of_birth?.trim() || entry.wt,
+    dob: formatDisplayDate(se?.form.date_of_birth?.trim() || entry.wt),
     armband: entry.armband,
     narrative,
     class_and_rating: critiqueClassAndRatingLine(entry, formwert, placement),
-    date: se?.form.date?.trim() || entry.competition_day || show.date,
+    date: formatDisplayDate(date),
     owner: se?.form.owner_co_owner?.trim() || entry.owner,
     co_owner: "",
     judge_signature:
