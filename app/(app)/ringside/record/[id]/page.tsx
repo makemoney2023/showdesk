@@ -18,6 +18,7 @@ import {
 } from "@/lib/domain/catalog-competition";
 import {
   canRecordWithJudge,
+  isSundayConformationDay,
   judgeForDogSex,
   resolveAssignedJudge,
   syncShowJudges,
@@ -143,6 +144,8 @@ export default function RecordPage() {
           sex: found?.sex,
           judges: names,
           fallback: stickyJudgeForShow(showData.active_show_id, names),
+          competitionDay: found?.competition_day,
+          showDate: active?.date,
         }) || null,
       );
       const critRes = await fetch(
@@ -190,7 +193,11 @@ export default function RecordPage() {
     if (!ringsideJudge.available) return;
     setJudges(ringsideJudge.judges);
     const sexJudge = entry
-      ? judgeForDogSex(entry.sex, ringsideJudge.judges)
+      ? judgeForDogSex(entry.sex, ringsideJudge.judges, {
+          sunday: isSundayConformationDay({
+            competitionDay: entry.competition_day,
+          }),
+        })
       : null;
     const pick =
       sexJudge ||

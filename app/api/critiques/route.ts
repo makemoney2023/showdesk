@@ -97,6 +97,8 @@ export async function POST(request: Request) {
       judges: syncShowJudges(show ?? {}).judges,
       requested: body.judge,
       fallback: existing?.judge,
+      competitionDay: entry.competition_day,
+      showDate: show?.date,
     }) || existing?.judge;
 
   await updateStore((s) => {

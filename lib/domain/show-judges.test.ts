@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   canRecordWithJudge,
   formatShowJudges,
+  isSundayConformationDay,
   judgeForDogSex,
   judgeStorageKey,
   normalizeJudgeNames,
@@ -41,15 +42,44 @@ describe("syncShowJudges", () => {
   });
 });
 
+describe("isSundayConformationDay", () => {
+  it("treats 2026-09-06 as Sunday of the National Show weekend", () => {
+    expect(
+      isSundayConformationDay({
+        competitionDay: "2026-09-06",
+        showDate: "2026-09-05",
+      }),
+    ).toBe(true);
+    expect(
+      isSundayConformationDay({
+        competitionDay: "2026-09-05",
+        showDate: "2026-09-05",
+      }),
+    ).toBe(false);
+  });
+});
+
 describe("judgeForDogSex", () => {
   const judges = ["Sandra Reck (ADRK)", "Hamid Falah (FCI-France)"];
 
-  it("assigns Hamid to males and Reck to females", () => {
+  it("assigns Hamid to males and Reck to females on Saturday", () => {
     expect(judgeForDogSex("R", judges)).toBe("Hamid Falah (FCI-France)");
     expect(judgeForDogSex("H", judges)).toBe("Sandra Reck (ADRK)");
   });
 
-  it("matches Hamill as the male judge name", () => {
+  it("swaps Sunday: Reck males and Hamid / Hamill females", () => {
+    expect(judgeForDogSex("R", judges, { sunday: true })).toBe(
+      "Sandra Reck (ADRK)",
+    );
+    expect(judgeForDogSex("H", judges, { sunday: true })).toBe(
+      "Hamid Falah (FCI-France)",
+    );
+    expect(
+      judgeForDogSex("H", ["Sandra Reck", "Judge Hamill"], { sunday: true }),
+    ).toBe("Judge Hamill");
+  });
+
+  it("matches Hamill as the Saturday male judge name", () => {
     expect(judgeForDogSex("R", ["Sandra Reck", "Judge Hamill"])).toBe(
       "Judge Hamill",
     );
@@ -72,6 +102,27 @@ describe("resolveAssignedJudge", () => {
         judges,
         requested: "Sandra Reck (ADRK)",
         fallback: "Sandra Reck (ADRK)",
+      }),
+    ).toBe("Hamid Falah (FCI-France)");
+  });
+
+  it("uses the Sunday swap when the entry is a Sunday dog", () => {
+    expect(
+      resolveAssignedJudge({
+        sex: "R",
+        judges,
+        requested: "Hamid Falah (FCI-France)",
+        competitionDay: "2026-09-06",
+        showDate: "2026-09-05",
+      }),
+    ).toBe("Sandra Reck (ADRK)");
+    expect(
+      resolveAssignedJudge({
+        sex: "H",
+        judges,
+        requested: "Sandra Reck (ADRK)",
+        competitionDay: "2026-09-06",
+        showDate: "2026-09-05",
       }),
     ).toBe("Hamid Falah (FCI-France)");
   });
