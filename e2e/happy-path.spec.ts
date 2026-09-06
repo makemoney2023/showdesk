@@ -486,6 +486,9 @@ test.describe("happy path", () => {
     await expect(
       page.getByRole("link", { name: "Print selected certificates" }),
     ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Download ZIP for printer" }),
+    ).toBeEnabled();
     await page
       .locator("details")
       .filter({ hasText: "Rex Happy Path" })
