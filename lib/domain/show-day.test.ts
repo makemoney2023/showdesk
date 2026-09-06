@@ -3,6 +3,7 @@ import { createEmptyTnrkSeForm } from "./tnrk-se-form";
 import {
   accountRoleLabel,
   classesWithDogs,
+  formatCertificateDob,
   formatDisplayDate,
   formatElapsed,
   labelQueuedItem,
@@ -155,6 +156,15 @@ describe("formatDisplayDate", () => {
     expect(formatDisplayDate("2026-08-21")).toBe("Aug 21, 2026");
     expect(formatDisplayDate("")).toBe("");
     expect(formatDisplayDate("not-a-date")).toBe("not-a-date");
+  });
+});
+
+describe("formatCertificateDob", () => {
+  it("formats compact M/D/YYYY for the tight TNRK DOB slot", () => {
+    expect(formatCertificateDob("2026-04-02")).toBe("4/2/2026");
+    expect(formatCertificateDob("2026-12-31")).toBe("12/31/2026");
+    expect(formatCertificateDob("")).toBe("");
+    expect(formatCertificateDob("not-a-date")).toBe("not-a-date");
   });
 });
 

@@ -171,6 +171,8 @@ describe("critique certificate class line", () => {
     const text = extractPdfText(bytes);
     expect(text).toMatch(/VP 4/);
     expect(text).toMatch(/Sep 5, 2026/);
+    expect(text).toMatch(/4\/15\/2026/);
+    expect(text).not.toMatch(/Apr 15, 2026/);
     expect(text).not.toMatch(/Sep 4, 2026/);
     expect(text).not.toMatch(/2026-09-04/);
   });

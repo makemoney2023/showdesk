@@ -5,6 +5,7 @@ import {
   TNRK_CRITIQUE_FIELD_TOP,
   TNRK_CRITIQUE_FIELD_X,
   TNRK_CRITIQUE_NARRATIVE_SIZE,
+  TNRK_TEMPLATE_LABELS,
   buildTnrkCritiquePdf,
   centeredTextX,
   resolveCritiqueCertificateNarrative,
@@ -69,7 +70,25 @@ describe("tnrk-critique-pdf layout", () => {
     );
     expect(TNRK_CRITIQUE_FIELD_TOP.class_and_rating).toBeGreaterThan(440);
     expect(TNRK_CRITIQUE_FIELD_X.dog_name).toBeGreaterThan(184);
-    expect(TNRK_CRITIQUE_FIELD_X.dob).toBeGreaterThan(648);
+    expect(TNRK_CRITIQUE_FIELD_X.dob).toBeGreaterThan(
+      TNRK_TEMPLATE_LABELS.gebDatum.x1,
+    );
+    expect(TNRK_CRITIQUE_FIELD_X.dob).toBeLessThan(
+      TNRK_TEMPLATE_LABELS.armbandNr.x0,
+    );
+    expect(TNRK_CRITIQUE_FIELD_X.armband).toBeGreaterThan(
+      TNRK_TEMPLATE_LABELS.armbandNr.x1,
+    );
+  });
+
+  it("keeps a compact DOB inside the gap before ARMBAND-NR", async () => {
+    const pdf = await PDFDocument.create();
+    const font = await pdf.embedFont(StandardFonts.Helvetica);
+    const widest = "12/31/2026";
+    const width = font.widthOfTextAtSize(widest, 9);
+    expect(TNRK_CRITIQUE_FIELD_X.dob + width).toBeLessThan(
+      TNRK_TEMPLATE_LABELS.armbandNr.x0,
+    );
   });
 
   it("shifts the critique 20% lower to clear certificate print", () => {

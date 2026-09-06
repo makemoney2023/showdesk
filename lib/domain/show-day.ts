@@ -41,6 +41,22 @@ export function formatDisplayDate(iso: string): string {
   });
 }
 
+/**
+ * Compact M/D/YYYY for the TNRK header slot after GEB.-DATUM.
+ * `Apr 2, 2026` is wider than the ~51pt gap before ARMBAND-NR.
+ */
+export function formatCertificateDob(iso: string): string {
+  const trimmed = iso.trim();
+  if (!trimmed) return "";
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})/.exec(trimmed);
+  if (dateOnly) {
+    return `${Number(dateOnly[2])}/${Number(dateOnly[3])}/${dateOnly[1]}`;
+  }
+  const date = new Date(trimmed);
+  if (Number.isNaN(date.getTime())) return iso;
+  return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+}
+
 export function formatElapsed(totalSeconds: number): string {
   const safe = Math.max(0, Math.floor(totalSeconds));
   const minutes = Math.floor(safe / 60);

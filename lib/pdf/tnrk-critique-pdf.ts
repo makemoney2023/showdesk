@@ -48,10 +48,21 @@ export const TNRK_CRITIQUE_FIELD_TOP = {
   judge_signature: 556,
 } as const;
 
+/**
+ * Printed label boxes on page-01.pdf (pdftotext -bbox, origin = page top-left).
+ * Overlay values sit immediately after their label — never on the next one.
+ */
+export const TNRK_TEMPLATE_LABELS = {
+  gebDatum: { x0: 585.59, x1: 648.58 },
+  armbandNr: { x0: 699.35, x1: 770.39 },
+} as const;
+
 export const TNRK_CRITIQUE_FIELD_X = {
   dog_name: 195,
-  dob: 655,
-  armband: 710,
+  /** Just after GEB.-DATUM; must stay left of ARMBAND-NR. */
+  dob: 652,
+  /** Just after ARMBAND-NR. */
+  armband: 778,
   narrative: 55,
   class_and_rating: 290,
   date: 655,
@@ -113,13 +124,27 @@ export async function buildTnrkCritiquePdf(
     y: number,
     size = 10,
     useBold = false,
+    maxX?: number,
   ) => {
     if (!text?.trim()) return;
-    page.drawText(text.slice(0, 140), {
+    const face = useBold ? bold : font;
+    let out = text.slice(0, 140);
+    let used = size;
+    if (maxX != null) {
+      const maxW = Math.max(0, maxX - x);
+      while (used > 7 && face.widthOfTextAtSize(out, used) > maxW) {
+        used -= 0.5;
+      }
+      while (out.length > 0 && face.widthOfTextAtSize(out, used) > maxW) {
+        out = out.slice(0, -1);
+      }
+    }
+    if (!out) return;
+    page.drawText(out, {
       x,
       y,
-      size,
-      font: useBold ? bold : font,
+      size: used,
+      font: face,
       color: rgb(0.05, 0.05, 0.05),
     });
   };
@@ -139,7 +164,14 @@ export async function buildTnrkCritiquePdf(
   // Header form fields (template NAME DES HUNDES / DOB / armband row)
   const yHeader = baseline(TNRK_CRITIQUE_FIELD_TOP.dog_name);
   draw(form.dog_name, TNRK_CRITIQUE_FIELD_X.dog_name, yHeader, 12, true);
-  draw(form.dob, TNRK_CRITIQUE_FIELD_X.dob, yHeader, 10);
+  draw(
+    form.dob,
+    TNRK_CRITIQUE_FIELD_X.dob,
+    yHeader,
+    9,
+    false,
+    TNRK_TEMPLATE_LABELS.armbandNr.x0 - 3,
+  );
   draw(form.armband, TNRK_CRITIQUE_FIELD_X.armband, yHeader, 10);
 
   const lines = wrapCritiqueNarrative(form.narrative);
