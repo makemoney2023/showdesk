@@ -4,12 +4,14 @@ import {
   catalogMetadataError,
   competitionDaysWithEntries,
   defaultCompetitionDay,
+  entryMatchesCompetitionDay,
   localCalendarIso,
   competitionDayLabel,
   competitionPoolKey,
   competitionPoolsWithDogs,
   nextDogInCompetitionPool,
   resolvedCatalogClass,
+  resolvedCompetitionDayFilter,
 } from "./catalog-competition";
 
 describe("catalog competition pools", () => {
@@ -104,6 +106,18 @@ describe("catalog competition pools", () => {
     expect(defaultCompetitionDay(days, "2026-09-05")).toBe("2026-09-05");
     expect(defaultCompetitionDay(days, "2026-09-01")).toBe("2026-09-04");
     expect(defaultCompetitionDay(days, "2026-09-10")).toBe("2026-09-06");
+    expect(entryMatchesCompetitionDay({ competition_day: "2026-09-06" }, "all")).toBe(
+      true,
+    );
+    expect(
+      entryMatchesCompetitionDay({ competition_day: "2026-09-06" }, "2026-09-06"),
+    ).toBe(true);
+    expect(
+      entryMatchesCompetitionDay({ competition_day: "2026-09-05" }, "2026-09-06"),
+    ).toBe(false);
+    expect(resolvedCompetitionDayFilter("all", days)).toBe("all");
+    expect(resolvedCompetitionDayFilter("2026-09-05", days)).toBe("2026-09-05");
+    expect(resolvedCompetitionDayFilter("2026-09-10", days)).toBe("all");
   });
 
   it("uses the browser-local date near midnight", () => {

@@ -1,3 +1,5 @@
+import { entryMatchesCompetitionDay } from "./catalog-competition";
+
 export type ReportDeskFilter =
   | "all"
   | "ready"
@@ -41,8 +43,7 @@ export function reportRowMatchesDay(
   entry: { competition_day?: string },
   selectedDay: string,
 ): boolean {
-  if (!selectedDay || selectedDay === "all") return true;
-  return (entry.competition_day ?? "") === selectedDay;
+  return entryMatchesCompetitionDay(entry, selectedDay);
 }
 
 /** Search looks across the weekend; date chips apply only while browsing. */

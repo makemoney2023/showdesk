@@ -201,6 +201,24 @@ export function competitionPoolsWithDogs(
     );
 }
 
+/** Date chips. `"all"` keeps every competition day visible. */
+export function entryMatchesCompetitionDay(
+  entry: { competition_day?: string },
+  selectedDay: string,
+): boolean {
+  if (!selectedDay || selectedDay === "all") return true;
+  return (entry.competition_day ?? "") === selectedDay;
+}
+
+export function resolvedCompetitionDayFilter(
+  selectedDay: string,
+  days: CompetitionDaySummary[],
+  fallback = "all",
+): string {
+  if (selectedDay === fallback) return fallback;
+  return days.some((day) => day.day === selectedDay) ? selectedDay : fallback;
+}
+
 export function competitionDaysWithEntries(
   entries: CatalogEntryMetadata[],
 ): CompetitionDaySummary[] {

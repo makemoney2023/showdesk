@@ -2,15 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { CompetitionDayFilter } from "@/components/desk/CompetitionDayFilter";
 import { FormwertSelect } from "@/components/ringside/FormwertSelect";
 import {
   formwertScaleForEntry,
   type AdrkFormwertCode,
 } from "@/lib/domain/adrk-template";
 import {
+  competitionDaysWithEntries,
   competitionPoolKey,
   competitionPoolsWithDogs,
+  entryMatchesCompetitionDay,
   isConformationEntry,
+  resolvedCompetitionDayFilter,
 } from "@/lib/domain/catalog-competition";
 import {
   assignClassPlacement,
@@ -49,6 +53,7 @@ export default function PlacementsPage() {
   const [savingRatingId, setSavingRatingId] = useState<string | null>(null);
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
+  const [selectedDay, setSelectedDay] = useState("all");
 
   const seedRatings = useCallback(
     (
@@ -142,15 +147,28 @@ export default function PlacementsPage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const requestedDay = new URLSearchParams(window.location.search).get(
+      "date",
+    );
+    if (requestedDay) setSelectedDay(requestedDay);
+  }, []);
+
   const formwertByEntry = useMemo(() => {
     const resolved = resolveFormwertByEntryId(critiques, evaluations, entries);
     return { ...resolved, ...ratings };
   }, [critiques, entries, evaluations, ratings]);
 
-  const byPool = competitionPoolsWithDogs(entries).map((pool) => ({
+  const conformationEntries = entries.filter(isConformationEntry);
+  const days = competitionDaysWithEntries(conformationEntries);
+  const activeDay = resolvedCompetitionDayFilter(selectedDay, days);
+  const visibleEntries = conformationEntries.filter((entry) =>
+    entryMatchesCompetitionDay(entry, activeDay),
+  );
+  const byPool = competitionPoolsWithDogs(visibleEntries).map((pool) => ({
     ...pool,
     dogs: sortDogsForPlacement(
-      entries.filter(
+      visibleEntries.filter(
         (entry) => competitionPoolKey(entry) === pool.key,
       ),
       formwertByEntry,
@@ -167,7 +185,10 @@ export default function PlacementsPage() {
   );
 
   function applySortByRating() {
-    const suggested = placementsSuggestedFromFormwert(entries, formwertByEntry);
+    const suggested = placementsSuggestedFromFormwert(
+      visibleEntries,
+      formwertByEntry,
+    );
     setPlacements((current) => {
       const next = { ...current };
       for (const row of suggested) {
@@ -277,7 +298,7 @@ export default function PlacementsPage() {
   }
 
   const conformationIds = new Set(
-    entries.filter(isConformationEntry).map((entry) => entry.id),
+    visibleEntries.map((entry) => entry.id),
   );
   const ratedCount = Object.entries(formwertByEntry).filter(
     ([entryId, rating]) => conformationIds.has(entryId) && Boolean(rating),
@@ -304,6 +325,15 @@ export default function PlacementsPage() {
           </>
         }
       />
+      {days.length > 0 ? (
+        <CompetitionDayFilter
+          days={days}
+          value={activeDay}
+          allCount={conformationEntries.length}
+          allDetail="Conformation"
+          onChange={setSelectedDay}
+        />
+      ) : null}
       {status ? <p className="text-sm text-sss-accent-deep">{status}</p> : null}
       {ratedCount === 0 ? (
         <p className="text-xs text-sss-text-muted">

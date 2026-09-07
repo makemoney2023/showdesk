@@ -28,6 +28,7 @@ import {
 import {
   catalogCompetitionLabel,
   competitionDaysWithEntries,
+  resolvedCompetitionDayFilter,
 } from "@/lib/domain/catalog-competition";
 import {
   compareRosterEntries,
@@ -213,10 +214,7 @@ function AdminReportsPageInner() {
   }, [showId, entries, critiques, evaluations, placements]);
 
   const days = competitionDaysWithEntries(entries);
-  const activeDay =
-    selectedDay === "all" || days.some((day) => day.day === selectedDay)
-      ? selectedDay
-      : "all";
+  const activeDay = resolvedCompetitionDayFilter(selectedDay, days);
   const browseDay = reportBrowseDay(activeDay, search);
   const dayEntries =
     browseDay === "all"
