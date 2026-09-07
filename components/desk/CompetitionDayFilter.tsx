@@ -8,12 +8,15 @@ export function CompetitionDayFilter({
   value,
   onChange,
   allCount,
+  allDetail = "SE and conformation",
 }: {
   days: CompetitionDaySummary[];
   value: string;
   onChange: (day: string) => void;
-  /** When set, show an All dates chip so SE stays visible with Sat/Sun. */
+  /** When set, show an All dates chip so every day stays reachable. */
   allCount?: number;
+  /** Caption under All dates. Reports keeps SE + conformation. */
+  allDetail?: string;
 }) {
   return (
     <div
@@ -26,7 +29,7 @@ export function CompetitionDayFilter({
           pressed={value === "all"}
           onClick={() => onChange("all")}
           label="All dates"
-          detail={`SE and conformation · ${allCount}`}
+          detail={`${allDetail} · ${allCount}`}
         />
       ) : null}
       {days.map((day) => (

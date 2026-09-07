@@ -330,6 +330,7 @@ export default function PlacementsPage() {
           days={days}
           value={activeDay}
           allCount={conformationEntries.length}
+          allDetail="Conformation"
           onChange={setSelectedDay}
         />
       ) : null}
