@@ -453,6 +453,69 @@ describe("se-to-critique", () => {
     ).toBe("c-se");
   });
 
+  it("prints Saturday's approved certificate on Sunday when Sunday has none", () => {
+    const saturday = baseCritique({
+      id: "c-sat",
+      entry_id: "sat-1",
+      status: "APPROVED",
+      transcript: "Scissor bite in progress. Very good bone.",
+    });
+    const entries = [
+      {
+        id: "sat-1",
+        show_id: "s1",
+        dog_id: "entry-sat",
+        dog_name: "Fukutsu No Umi Vom Cama Wabak",
+        event_kind: "conformation" as const,
+      },
+      {
+        id: "sun-1",
+        show_id: "s1",
+        dog_id: "entry-sun",
+        dog_name: "Fukutsu No Umi Vom Cama Wabak",
+        zb_number: "AKC-WS89200707",
+        event_kind: "conformation" as const,
+      },
+    ];
+    expect(
+      critiqueForReportEntry([saturday], entries, entries[1], "s1")?.id,
+    ).toBe("c-sat");
+  });
+
+  it("keeps Sunday's own letter instead of Saturday's approved sibling", () => {
+    const saturday = baseCritique({
+      id: "c-sat",
+      entry_id: "sat-1",
+      status: "APPROVED",
+      transcript: "Saturday letter",
+    });
+    const sunday = baseCritique({
+      id: "c-sun",
+      entry_id: "sun-1",
+      status: "PENDING_REVIEW",
+      transcript: "Sunday take",
+      audio_path: "show/c-sun.webm",
+    });
+    const entries = [
+      {
+        id: "sat-1",
+        show_id: "s1",
+        dog_id: "dog-1",
+        event_kind: "conformation" as const,
+      },
+      {
+        id: "sun-1",
+        show_id: "s1",
+        dog_id: "dog-1",
+        event_kind: "conformation" as const,
+      },
+    ];
+    expect(
+      critiqueForReportEntry([saturday, sunday], entries, entries[1], "s1")
+        ?.id,
+    ).toBe("c-sun");
+  });
+
   it("replaces an unused Saturday SE clone with the real SE critique", () => {
     const seCritique = baseCritique({
       id: "c-se",

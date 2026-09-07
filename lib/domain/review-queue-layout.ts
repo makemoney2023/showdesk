@@ -235,7 +235,7 @@ export function tnrkCritiquePdfLabel(printable = false): string {
 export function tnrkCritiquePdfHref(
   showId: string,
   critiqueId: string,
-  opts?: { preview?: boolean },
+  opts?: { preview?: boolean; entryId?: string },
 ): string {
   const params = new URLSearchParams({
     kind: "critique",
@@ -243,6 +243,7 @@ export function tnrkCritiquePdfHref(
     critique_id: critiqueId,
   });
   if (opts?.preview) params.set("preview", "1");
+  if (opts?.entryId) params.set("entry_id", opts.entryId);
   return `/api/pdf/tnrk?${params.toString()}`;
 }
 

@@ -78,7 +78,7 @@ export function buildReportDocumentsForDog(input: {
     Boolean(critiqueId) && canPrintCertificate(input.critiqueStatus);
   const sePrintable = Boolean(seEvaluationId) && canPrintSe(input.seStatus);
   const critiqueHref = critiqueId
-    ? tnrkCritiquePdfHref(showId, critiqueId)
+    ? tnrkCritiquePdfHref(showId, critiqueId, { entryId })
     : "";
   const seHref = seEvaluationId ? tnrkSePdfHref(showId, seEvaluationId) : "";
   const adrkHref = critiqueId ? adrkCritiquePdfHref(showId, critiqueId) : "";

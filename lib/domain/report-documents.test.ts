@@ -38,6 +38,9 @@ describe("buildReportDocumentsForDog", () => {
     expect(docs.find((d) => d.kind === "tnrk_critique")?.href).toContain(
       "kind=critique",
     );
+    expect(docs.find((d) => d.kind === "tnrk_critique")?.href).toContain(
+      "entry_id=entry-1",
+    );
     expect(docs.find((d) => d.kind === "tnrk_se")?.href).toContain("kind=se");
     expect(docs.find((d) => d.kind === "adrk")?.href).toContain(
       "/api/pdf?show_id=show-1",
