@@ -259,6 +259,11 @@ describe("TNRK PDF preview affordance", () => {
     expect(tnrkCritiquePdfHref("show-1", "crit-9", { preview: true })).toBe(
       "/api/pdf/tnrk?kind=critique&show_id=show-1&critique_id=crit-9&preview=1",
     );
+    expect(
+      tnrkCritiquePdfHref("show-1", "crit-9", { entryId: "entry-sun" }),
+    ).toBe(
+      "/api/pdf/tnrk?kind=critique&show_id=show-1&critique_id=crit-9&entry_id=entry-sun",
+    );
   });
 });
 

@@ -174,8 +174,8 @@ export function isUnusedSeCloneCritique(
 }
 
 /**
- * Reports / print: this appearance's critique, or the dog's SE critique
- * when Saturday/Sunday has no spoken certificate of its own.
+ * Reports / print: this appearance's critique, an approved Sat/Sun
+ * sibling certificate, or the dog's SE critique when this day has none.
  */
 export function critiqueForReportEntry<
   TCritique extends CritiqueRecord,
@@ -200,6 +200,14 @@ export function critiqueForReportEntry<
     | undefined;
   if (own && !isUnusedSeCloneCritique(own)) return own;
 
+  const fromSibling = approvedConformationSiblingCritique(
+    critiques,
+    entries,
+    entry,
+    showId,
+  );
+  if (fromSibling) return fromSibling;
+
   const seEntry = entriesForDog(entries, entry).find(
     (item) => item.event_kind === "se",
   );
@@ -210,6 +218,39 @@ export function critiqueForReportEntry<
     if (fromSe) return fromSe;
   }
   return own;
+}
+
+function approvedConformationSiblingCritique<
+  TCritique extends CritiqueRecord,
+  TEntry extends {
+    id: string;
+    show_id: string;
+    dog_id?: string;
+    zb_number?: string;
+    microchip?: string;
+    dog_name?: string;
+    event_kind?: "se" | "conformation";
+  },
+>(
+  critiques: TCritique[],
+  entries: TEntry[],
+  entry: TEntry,
+  showId: string,
+): TCritique | undefined {
+  for (const sibling of entriesForDog(entries, entry)) {
+    if (sibling.id === entry.id || sibling.event_kind === "se") continue;
+    const critique = primaryCritiqueForEntry(critiques, sibling.id, showId) as
+      | TCritique
+      | undefined;
+    if (
+      critique &&
+      critique.status === "APPROVED" &&
+      !isUnusedSeCloneCritique(critique)
+    ) {
+      return critique;
+    }
+  }
+  return undefined;
 }
 
 export function seEvaluationForEntry<
