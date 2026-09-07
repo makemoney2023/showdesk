@@ -456,15 +456,15 @@ function AdminReportsPageInner() {
               (doc) =>
                 doc.kind === "tnrk_critique" && doc.printable && doc.href,
             );
+            const autoOpen =
+              Boolean(search.trim()) &&
+              visibleRows.length === 1 &&
+              visibleRows[0]?.entry.id === entry.id;
             return (
             <li key={entry.id}>
               <details
                 className="sss-paper group p-4"
-                defaultOpen={
-                  Boolean(search.trim()) &&
-                  visibleRows.length === 1 &&
-                  visibleRows[0]?.entry.id === entry.id
-                }
+                {...(autoOpen ? { open: true } : {})}
               >
                 <summary className="flex cursor-pointer list-none flex-wrap items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
