@@ -26,10 +26,10 @@ describe("reviewPrimaryAction", () => {
     });
   });
 
-  it("points approved items at reports", () => {
+  it("prints the approved certificate", () => {
     expect(reviewPrimaryAction("APPROVED")).toEqual({
-      label: "View in reports",
-      kind: "reports",
+      label: "Print certificate",
+      kind: "print",
       disabled: false,
     });
   });

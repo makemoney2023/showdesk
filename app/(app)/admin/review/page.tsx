@@ -25,19 +25,22 @@ import {
   canRelease,
   deskAttentionCount,
   needsDeskAttention,
+  type CritiqueStatus,
 } from "@/lib/domain/critique-status";
 import { critiqueNarrativeOverflowsCertificate } from "@/lib/domain/tnrk-critique-wrap";
 import { reviewPrimaryAction } from "@/lib/domain/review-primary-action";
 import {
   buildReviewQueueRows,
+  critiquesVisibleInReviewQueue,
   isQueuedCritiqueId,
   mergeQueuedRecordingsIntoReview,
-  nextReviewItemId,
   recordingIdFromQueuedCritique,
   reviewDogHeading,
   reviewPdfPreviewActions,
   reviewQueueMatchesSearch,
+  reviewReportsHref,
   reviewTranscriptPreview,
+  tnrkCritiquePdfHref,
 } from "@/lib/domain/review-queue-layout";
 import { listQueuedRecordings, updateQueuedRecordingTranscript } from "@/lib/offline/queue";
 import { syncOfflineQueue } from "@/lib/offline/sync";
@@ -317,10 +320,6 @@ function AdminReviewPageInner() {
 
   async function approve() {
     if (!showId || !selectedId || busy || isQueuedCritiqueId(selectedId)) return;
-    const selectAfter = nextReviewItemId(
-      queue.map((item) => item.id),
-      selectedId,
-    );
     if (dirty) {
       const saved = await saveDraft();
       if (!saved) {
@@ -345,13 +344,10 @@ function AdminReviewPageInner() {
       setConfirmOpen(false);
       return;
     }
-    await releaseCritique(true, selectAfter);
+    await releaseCritique(true);
   }
 
-  async function releaseCritique(
-    afterApprove: boolean,
-    selectAfter?: string | null,
-  ) {
+  async function releaseCritique(afterApprove: boolean) {
     if (!showId || !selectedId) return;
     setBusy(true);
     const release = await fetch("/api/approve", {
@@ -386,7 +382,6 @@ function AdminReviewPageInner() {
     setBusy(false);
     setConfirmOpen(false);
     await load();
-    if (afterApprove) setSelectedId(selectAfter ?? null);
   }
 
   async function recallCritique() {
@@ -417,8 +412,11 @@ function AdminReviewPageInner() {
   const attentionCount = deskAttentionCount(
     reviewCritiques.map((c) => c.status),
   );
-  const attention = reviewCritiques.filter((c) => needsDeskAttention(c.status));
-  const visible = pendingOnly ? attention : reviewCritiques;
+  const visible = critiquesVisibleInReviewQueue(reviewCritiques, {
+    pendingOnly,
+    selectedId,
+    needsAttention: (status) => needsDeskAttention(status as CritiqueStatus),
+  });
   const divisions = divisionsWithDogs(entries);
   const activeDivisionFilter = sanitizeRosterDivisionFilter(
     divisionFilter,
@@ -733,6 +731,7 @@ function AdminReviewPageInner() {
                       critiqueId: selectedId,
                       seEvaluationId: seForSelected?.id ?? null,
                       seUpdatedAt: seForSelected?.updated_at,
+                      critiqueStatus: selected.status,
                     }).map((action) => (
                       <Button key={action.kind} asChild>
                         <a
@@ -744,6 +743,18 @@ function AdminReviewPageInner() {
                         </a>
                       </Button>
                     ))}
+                    {selected.status === "APPROVED" ? (
+                      <Button asChild variant="outline">
+                        <a
+                          href={reviewReportsHref({
+                            armband: entry?.armband,
+                            entryId: selected.entry_id,
+                          })}
+                        >
+                          View in reports
+                        </a>
+                      </Button>
+                    ) : null}
                   </div>
                 ) : null}
                 <details className="text-sm">
@@ -794,11 +805,22 @@ function AdminReviewPageInner() {
                       reviewPrimaryAction(selected.status).disabled)
                   }
                   primaryHref={
-                    queuedLocal
+                    queuedLocal || !showId || !selectedId
                       ? undefined
-                      : reviewPrimaryAction(selected.status).kind === "reports"
-                        ? "/admin/reports"
-                        : undefined
+                      : reviewPrimaryAction(selected.status).kind === "print"
+                        ? tnrkCritiquePdfHref(showId, selectedId)
+                        : reviewPrimaryAction(selected.status).kind ===
+                            "reports"
+                          ? reviewReportsHref({
+                              armband: entry?.armband,
+                              entryId: selected.entry_id,
+                            })
+                          : undefined
+                  }
+                  primaryTarget={
+                    reviewPrimaryAction(selected.status).kind === "print"
+                      ? "_blank"
+                      : undefined
                   }
                   onPrimary={() => {
                     if (queuedLocal) {

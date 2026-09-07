@@ -52,3 +52,18 @@ export function reportBrowseDay(
 ): string {
   return search.trim() ? "all" : selectedDay;
 }
+
+/** Review and other desk screens can open Reports on one dog. */
+export function reportSearchFromParams(input: {
+  q?: string | null;
+  entryId?: string | null;
+  entries: Array<{ id: string; armband?: string }>;
+}): string {
+  const query = input.q?.trim() ?? "";
+  if (query) return query;
+  if (!input.entryId) return "";
+  return (
+    input.entries.find((entry) => entry.id === input.entryId)?.armband?.trim() ??
+    ""
+  );
+}

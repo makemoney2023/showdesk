@@ -4,6 +4,7 @@ import {
   type DogSex,
 } from "./class-division";
 import { createEmptyDraft, type AdrkClassId } from "./adrk-template";
+import { canPrintCertificate } from "./print-documents";
 import {
   critiqueLetterWithoutSeSection,
   spokenCritiqueTranscript,
@@ -32,6 +33,46 @@ export function recordingIdFromQueuedCritique(id: string): string | null {
 
 export function reviewFocusHref(entryId: string): string {
   return `/admin/review?entry=${encodeURIComponent(entryId)}`;
+}
+
+/** Reports deep-link so an approved critique is still findable after it leaves the queue. */
+export function reviewReportsHref(input: {
+  armband?: string | null;
+  entryId?: string | null;
+}): string {
+  const params = new URLSearchParams();
+  const armband = input.armband?.trim();
+  if (armband) params.set("q", armband);
+  else if (input.entryId) params.set("entry", input.entryId);
+  const query = params.toString();
+  return query ? `/admin/reports?${query}` : "/admin/reports";
+}
+
+/**
+ * Needs-attention mode hides approved certificates. Keep the open item so
+ * Print stays available right after Approve.
+ */
+export function critiquesVisibleInReviewQueue<
+  T extends { id: string; status: string },
+>(
+  critiques: T[],
+  options: {
+    pendingOnly: boolean;
+    selectedId?: string | null;
+    needsAttention: (status: string) => boolean;
+  },
+): T[] {
+  if (!options.pendingOnly) return critiques;
+  const attention = critiques.filter((critique) =>
+    options.needsAttention(critique.status),
+  );
+  const selected = options.selectedId
+    ? critiques.find((critique) => critique.id === options.selectedId)
+    : undefined;
+  if (selected && !attention.some((critique) => critique.id === selected.id)) {
+    return [selected, ...attention];
+  }
+  return attention;
 }
 
 /** Turn a device-queued recording into a review-queue row so it can be edited. */
@@ -187,8 +228,8 @@ export function buildReviewQueueRows(
   return rows;
 }
 
-export function tnrkCritiquePdfLabel(): string {
-  return "TNRK PDF Preview";
+export function tnrkCritiquePdfLabel(printable = false): string {
+  return printable ? "Print TNRK certificate" : "TNRK PDF Preview";
 }
 
 export function tnrkCritiquePdfHref(
@@ -233,19 +274,21 @@ export type ReviewPdfPreviewAction = {
   href: string;
 };
 
-/** Primary PDF preview buttons for the open review editor. */
+/** Primary PDF preview / print buttons for the open review editor. */
 export function reviewPdfPreviewActions(input: {
   showId: string;
   critiqueId: string;
   seEvaluationId: string | null;
   seUpdatedAt?: string | null;
+  critiqueStatus?: string | null;
 }): ReviewPdfPreviewAction[] {
+  const printable = canPrintCertificate(input.critiqueStatus);
   const actions: ReviewPdfPreviewAction[] = [
     {
       kind: "critique",
-      label: tnrkCritiquePdfLabel(),
+      label: tnrkCritiquePdfLabel(printable),
       href: tnrkCritiquePdfHref(input.showId, input.critiqueId, {
-        preview: true,
+        preview: !printable,
       }),
     },
   ];
