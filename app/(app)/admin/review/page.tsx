@@ -203,7 +203,7 @@ function AdminReviewPageInner() {
       narrative:
         spokenOrDraft ||
         selected.draft.narrative.trim() ||
-        selected.transcript.trim(),
+        spokenCritiqueTranscript(selected),
       formwert: selected.draft.formwert ?? seFormFormwert(se?.form),
     };
     setDraft(seeded);
