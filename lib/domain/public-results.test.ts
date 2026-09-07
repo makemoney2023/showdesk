@@ -131,6 +131,38 @@ describe("projection", () => {
     expect(JSON.stringify(rex)).not.toContain("secret@kennel.test");
   });
 
+  it("uses the ringside SE rating when the critique is not approved yet", () => {
+    const form = createEmptyTnrkSeForm();
+    form.formwert = "V";
+    const unpublishedLetter = {
+      ...store,
+      critiques: store.critiques.map((critique, index) =>
+        index === 0
+          ? { ...critique, status: "PENDING_REVIEW" as const }
+          : critique,
+      ),
+      se_evaluations: [
+        {
+          id: "sample-se-rex",
+          show_id: "sample-show",
+          entry_id: "sample-rex",
+          status: "draft" as const,
+          form,
+          created_at: "2026-09-04T14:00:00.000Z",
+          updated_at: "2026-09-04T16:00:00.000Z",
+        },
+      ],
+    };
+    const rex = getPublishedDog(
+      unpublishedLetter,
+      "tnrk-rcc-national-sieger-show-2026-09-04",
+      "101-rex-vom-blacksage",
+    );
+    expect(rex?.dog.narrative).toBeNull();
+    expect(rex?.dog.formwert).toBe("V");
+    expect(rex?.dog.ratingPlacement).toBe("V1");
+  });
+
   it("omits a missing class place from the share description", () => {
     const found = getPublishedDog(
       store,

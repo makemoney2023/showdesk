@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { readStore, updateStore, newId } from "@/lib/store";
 import { filterByShow } from "@/lib/domain/show-scope";
 import {
+  applyFormwertUpdates,
   incompletePlacementScopeError,
+  resolveFormwertInputs,
   resolvePlacementInputs,
   upsertPlacements,
+  type FormwertInput,
   type PlacementInput,
 } from "@/lib/domain/placements";
 import {
@@ -34,50 +37,98 @@ export async function PUT(request: Request) {
 
   const body = await readJsonBody<{
     show_id: string;
-    placements: PlacementInput[];
+    placements?: PlacementInput[];
+    ratings?: FormwertInput[];
   }>(request);
-  if (!body?.show_id || !Array.isArray(body.placements)) {
+  const placements = Array.isArray(body?.placements) ? body.placements : null;
+  const ratings = Array.isArray(body?.ratings) ? body.ratings : null;
+  if (!body?.show_id || (!placements && !ratings)) {
     return NextResponse.json(
-      { error: "show_id and placements[] required" },
+      { error: "show_id and placements[] or ratings[] required" },
+      { status: 400 },
+    );
+  }
+  const placementRows = placements ?? [];
+  const ratingRows = ratings ?? [];
+  if (placementRows.length === 0 && ratingRows.length === 0) {
+    return NextResponse.json(
+      { error: "placements[] or ratings[] must include at least one row" },
       { status: 400 },
     );
   }
 
   const current = await readStore();
-  if (body.placements.length === 0) {
-    return NextResponse.json(
-      { error: "placements[] must include at least one division" },
-      { status: 400 },
+  let resolvedPlacements: ReturnType<typeof resolvePlacementInputs> | null =
+    null;
+  if (placementRows.length > 0) {
+    resolvedPlacements = resolvePlacementInputs(
+      placementRows,
+      current.entries,
+      body.show_id,
     );
+    if (!resolvedPlacements.valid) {
+      return NextResponse.json(
+        { error: resolvedPlacements.error },
+        { status: 400 },
+      );
+    }
+    const scopeError = incompletePlacementScopeError(
+      resolvedPlacements.rows,
+      current.entries,
+      body.show_id,
+    );
+    if (scopeError) {
+      return NextResponse.json({ error: scopeError }, { status: 400 });
+    }
   }
-  const resolved = resolvePlacementInputs(
-    body.placements,
-    current.entries,
-    body.show_id,
-  );
-  if (!resolved.valid) {
-    return NextResponse.json({ error: resolved.error }, { status: 400 });
-  }
-  const scopeError = incompletePlacementScopeError(
-    resolved.rows,
-    current.entries,
-    body.show_id,
-  );
-  if (scopeError) {
-    return NextResponse.json({ error: scopeError }, { status: 400 });
+
+  let resolvedRatings: ReturnType<typeof resolveFormwertInputs> | null = null;
+  if (ratingRows.length > 0) {
+    resolvedRatings = resolveFormwertInputs(
+      ratingRows,
+      current.entries,
+      body.show_id,
+    );
+    if (!resolvedRatings.valid) {
+      return NextResponse.json({ error: resolvedRatings.error }, { status: 400 });
+    }
   }
 
   let store: Awaited<ReturnType<typeof updateStore>>;
   try {
-    store = await updateStore((s) => ({
-      ...s,
-      placements: upsertPlacements(
-        s.placements,
-        body.show_id,
-        resolved.rows,
-        () => newId("placement"),
-      ),
-    }));
+    store = await updateStore((s) => {
+      const nextPlacements =
+        resolvedPlacements && resolvedPlacements.valid
+          ? upsertPlacements(
+              s.placements,
+              body.show_id,
+              resolvedPlacements.rows,
+              () => newId("placement"),
+            )
+          : s.placements;
+      const rated =
+        resolvedRatings && resolvedRatings.valid
+          ? applyFormwertUpdates({
+              showId: body.show_id,
+              entries: s.entries,
+              evaluations: s.se_evaluations ?? [],
+              critiques: s.critiques,
+              show: s.shows.find((show) => show.id === body.show_id),
+              rows: resolvedRatings.rows,
+              newEvaluationId: () => newId("se"),
+              newCritiqueId: () => newId("critique"),
+            })
+          : {
+              evaluations: s.se_evaluations ?? [],
+              critiques: s.critiques,
+            };
+      return {
+        ...s,
+        placements: nextPlacements,
+        se_evaluations: rated.evaluations,
+        critiques: rated.critiques,
+      };
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Could not save placements";
@@ -94,5 +145,7 @@ export async function PUT(request: Request) {
 
   return NextResponse.json({
     placements: filterByShow(store.placements, body.show_id),
+    evaluations: filterByShow(store.se_evaluations ?? [], body.show_id),
+    critiques: filterByShow(store.critiques, body.show_id),
   });
 }

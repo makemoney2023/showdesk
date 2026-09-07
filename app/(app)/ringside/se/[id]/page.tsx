@@ -14,19 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  formatAdrkFormwert,
-  formwertScaleForEntry,
-  formwertSelectCodes,
-  type AdrkFormwertCode,
-} from "@/lib/domain/adrk-template";
+import { FormwertSelect } from "@/components/ringside/FormwertSelect";
+import { formwertScaleForEntry } from "@/lib/domain/adrk-template";
 import { seFieldId, seRadioName } from "@/lib/domain/se-form-fields";
 import {
   BEHAVIOR_OPTIONS,
@@ -918,33 +907,13 @@ function StewardSeForm({
           >
             Rating (Formwert)
           </Label>
-          <Select
-            value={form.formwert ?? "none"}
-            onValueChange={(value) =>
-              patchForm(
-                "formwert",
-                value === "none" ? null : (value as AdrkFormwertCode),
-              )
-            }
-          >
-            <SelectTrigger
-              id={seFieldId(entryId, "rating formwert")}
-              aria-label="Rating (Formwert)"
-            >
-              <SelectValue placeholder="Select rating" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">—</SelectItem>
-              {formwertSelectCodes(
-                formwertScaleForEntry(entry ?? {}),
-                form.formwert,
-              ).map((code) => (
-                <SelectItem key={code} value={code}>
-                  {formatAdrkFormwert(code, formwertScaleForEntry(entry ?? {}))}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <FormwertSelect
+            id={seFieldId(entryId, "rating formwert")}
+            aria-label="Rating (Formwert)"
+            value={form.formwert}
+            scale={formwertScaleForEntry(entry ?? {})}
+            onChange={(value) => patchForm("formwert", value)}
+          />
           <p className="text-xs text-sss-text-muted">
             {formwertScaleForEntry(entry ?? {}) === "puppy"
               ? "Puppy classes: VP Very promising, P Promising, LP Little promising."

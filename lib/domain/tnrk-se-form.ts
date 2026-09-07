@@ -253,6 +253,19 @@ export function mergeSeFormPreferFilled(
   return merged;
 }
 
+/** New SE form seeded from the roster row and optional show header. */
+export function seedSeFormForEntry(
+  entry: SeEntrySeed,
+  show?: { date?: string; judge?: string } | null,
+): TnrkSeForm {
+  const form = mergeEntryIntoSeForm(createEmptyTnrkSeForm(), entry);
+  return {
+    ...form,
+    date: show?.date?.trim() || form.date,
+    judge: show?.judge?.trim() || form.judge,
+  };
+}
+
 export function mergeEntryIntoSeForm(
   form: TnrkSeForm,
   entry: SeEntrySeed,
