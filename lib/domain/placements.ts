@@ -1,5 +1,6 @@
 import {
   ADRK_FORMWERT_CODES,
+  isValidFormwert,
   type AdrkClassId,
   type AdrkFormwertCode,
 } from "./adrk-template";
@@ -11,8 +12,23 @@ import {
   type CatalogClassId,
   type CatalogEntryMetadata,
 } from "./catalog-competition";
-import { seFormFormwert, type TnrkSeForm } from "./tnrk-se-form";
-import type { PlacementRecord } from "@/lib/types";
+import { entriesForDog } from "./dog-identity";
+import {
+  canSyncSeIntoCritique,
+  syncSeIntoDogCritiques,
+} from "./se-to-critique";
+import {
+  normalizeTnrkSeForm,
+  seedSeFormForEntry,
+  seFormFormwert,
+  type TnrkSeForm,
+} from "./tnrk-se-form";
+import type {
+  CritiqueRecord,
+  PlacementRecord,
+  RosterEntryRecord,
+  SeEvaluationRecord,
+} from "@/lib/types";
 
 export interface PlacementInput {
   entry_id: string;
@@ -295,6 +311,15 @@ export function resolveFormwertByEntryId(
     entry_id: string;
     form: Pick<TnrkSeForm, "formwert">;
   }> = [],
+  entries: Array<{
+    id: string;
+    show_id: string;
+    dog_id?: string;
+    zb_number?: string;
+    microchip?: string;
+    dog_name?: string;
+    event_kind?: "se" | "conformation";
+  }> = [],
 ): Record<string, AdrkFormwertCode | null> {
   const newest = new Map<
     string,
@@ -319,7 +344,236 @@ export function resolveFormwertByEntryId(
     const seRating = seFormFormwert(evaluation.form);
     if (seRating) out[evaluation.entry_id] = seRating;
   }
-  return out;
+  if (entries.length === 0) return out;
+
+  // Friday SE and Saturday/Sunday appearances share one official rating.
+  const filled = { ...out };
+  for (const entry of entries) {
+    if (filled[entry.id]) continue;
+    const siblings = entriesForDog(entries, entry);
+    const ordered = [
+      ...siblings.filter((item) => item.event_kind === "se"),
+      ...siblings.filter((item) => item.event_kind !== "se"),
+    ];
+    const shared = ordered
+      .map((item) => out[item.id])
+      .find((code): code is AdrkFormwertCode => Boolean(code));
+    if (shared) filled[entry.id] = shared;
+  }
+  return filled;
+}
+
+export interface FormwertInput {
+  entry_id: string;
+  formwert: AdrkFormwertCode | null;
+}
+
+export function resolveFormwertInputs(
+  rows: FormwertInput[],
+  entries: Array<{ id: string; show_id: string }>,
+  showId: string,
+):
+  | { valid: true; rows: FormwertInput[] }
+  | { valid: false; error: string } {
+  const byId = new Map(
+    entries
+      .filter((entry) => entry.show_id === showId)
+      .map((entry) => [entry.id, entry]),
+  );
+  const seen = new Set<string>();
+  const resolved: FormwertInput[] = [];
+  for (const row of rows) {
+    if (!byId.has(row.entry_id)) {
+      return { valid: false, error: `Unknown entry for this show: ${row.entry_id}` };
+    }
+    if (seen.has(row.entry_id)) {
+      return {
+        valid: false,
+        error: `Duplicate rating row for entry ${row.entry_id}`,
+      };
+    }
+    seen.add(row.entry_id);
+    if (row.formwert !== null && !isValidFormwert(row.formwert)) {
+      return { valid: false, error: "formwert must be a valid Formwert code or null" };
+    }
+    resolved.push({
+      entry_id: row.entry_id,
+      formwert: row.formwert,
+    });
+  }
+  return { valid: true, rows: resolved };
+}
+
+export function dirtyFormwertEntryIds(
+  current: Record<string, AdrkFormwertCode | null | undefined>,
+  saved: Record<string, AdrkFormwertCode | null | undefined>,
+  entryIds: Iterable<string>,
+): string[] {
+  const dirty: string[] = [];
+  for (const id of entryIds) {
+    if ((current[id] ?? null) !== (saved[id] ?? null)) dirty.push(id);
+  }
+  return dirty;
+}
+
+function stampCritiqueFormwert(
+  critiques: CritiqueRecord[],
+  entryIds: Set<string>,
+  formwert: AdrkFormwertCode | null,
+  now: string,
+): CritiqueRecord[] {
+  return critiques.map((critique) => {
+    if (!entryIds.has(critique.entry_id)) return critique;
+    if (!canSyncSeIntoCritique(critique)) return critique;
+    if (critique.draft.formwert === formwert) return critique;
+    return {
+      ...critique,
+      draft: {
+        ...critique.draft,
+        formwert,
+        draftAssist: {
+          ...critique.draft.draftAssist,
+          se_formwert: formwert ?? "",
+        },
+      },
+      updated_at: now,
+    };
+  });
+}
+
+function upsertEvaluationFormwert(
+  evaluations: SeEvaluationRecord[],
+  entry: RosterEntryRecord,
+  showId: string,
+  formwert: AdrkFormwertCode | null,
+  show: { date?: string; judge?: string } | null | undefined,
+  newId: () => string,
+  now: string,
+): { evaluations: SeEvaluationRecord[]; evaluation: SeEvaluationRecord } {
+  const existing = evaluations.find(
+    (evaluation) =>
+      evaluation.entry_id === entry.id && evaluation.show_id === showId,
+  );
+  if (existing) {
+    const next: SeEvaluationRecord = {
+      ...existing,
+      form: { ...normalizeTnrkSeForm(existing.form), formwert },
+      updated_at: now,
+    };
+    return {
+      evaluations: evaluations.map((evaluation) =>
+        evaluation.id === existing.id ? next : evaluation,
+      ),
+      evaluation: next,
+    };
+  }
+  const created: SeEvaluationRecord = {
+    id: newId(),
+    show_id: showId,
+    entry_id: entry.id,
+    form: { ...seedSeFormForEntry(entry, show), formwert },
+    status: "draft",
+    created_at: now,
+    updated_at: now,
+  };
+  return { evaluations: [...evaluations, created], evaluation: created };
+}
+
+/**
+ * Write a ringside Formwert onto the dog's SE form(s) and open critiques
+ * so placements, SE, Review, certificates, and public results stay aligned.
+ */
+export function applyFormwertUpdates(
+  input: {
+    showId: string;
+    entries: RosterEntryRecord[];
+    evaluations: SeEvaluationRecord[];
+    critiques: CritiqueRecord[];
+    show?: { date?: string; judge?: string } | null;
+    rows: FormwertInput[];
+    newEvaluationId: () => string;
+    newCritiqueId: () => string;
+    now?: string;
+  },
+): { evaluations: SeEvaluationRecord[]; critiques: CritiqueRecord[] } {
+  const now = input.now ?? new Date().toISOString();
+  let evaluations = input.evaluations;
+  let critiques = input.critiques;
+
+  for (const row of input.rows) {
+    const entry = input.entries.find(
+      (item) => item.id === row.entry_id && item.show_id === input.showId,
+    );
+    if (!entry) continue;
+
+    const siblings = entriesForDog(input.entries, entry);
+    const seEntry = siblings.find((item) => item.event_kind === "se");
+    const createIds = new Set(
+      [entry.id, seEntry?.id].filter((id): id is string => Boolean(id)),
+    );
+    const updateExisting = siblings.filter(
+      (item) =>
+        !createIds.has(item.id) &&
+        evaluations.some(
+          (evaluation) =>
+            evaluation.entry_id === item.id &&
+            evaluation.show_id === input.showId,
+        ),
+    );
+
+    const targets = siblings.filter(
+      (item) =>
+        createIds.has(item.id) ||
+        updateExisting.some((other) => other.id === item.id),
+    );
+    let syncForm: TnrkSeForm | null = null;
+    for (const target of targets) {
+      const next = upsertEvaluationFormwert(
+        evaluations,
+        target,
+        input.showId,
+        row.formwert,
+        input.show,
+        input.newEvaluationId,
+        now,
+      );
+      evaluations = next.evaluations;
+      if (target.id === (seEntry?.id ?? entry.id)) {
+        syncForm = next.evaluation.form;
+      }
+    }
+
+    const syncEntryId = seEntry?.id ?? entry.id;
+    if (syncForm) {
+      critiques = syncSeIntoDogCritiques(
+        critiques,
+        input.entries,
+        input.showId,
+        syncEntryId,
+        syncForm,
+        {
+          force: true,
+          newId: input.newCritiqueId,
+          now,
+        },
+      );
+    }
+
+    const stampIds = new Set(targets.map((item) => item.id));
+    if (seEntry) {
+      for (const sibling of siblings) {
+        if (sibling.event_kind === "conformation") stampIds.add(sibling.id);
+      }
+    }
+    critiques = stampCritiqueFormwert(
+      critiques,
+      stampIds,
+      row.formwert,
+      now,
+    );
+  }
+
+  return { evaluations, critiques };
 }
 
 /** Sort dogs best Formwert first; ties by numeric armband; unrated last. */

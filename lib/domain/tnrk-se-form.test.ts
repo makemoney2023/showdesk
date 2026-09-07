@@ -10,6 +10,7 @@ import {
   mergeEntryIntoSeForm,
   mergeSeFormPreferFilled,
   normalizeTnrkSeForm,
+  seedSeFormForEntry,
   seFormHasPrintableOverlay,
   formatSeMissingFields,
   seCompletionGaps,
@@ -52,6 +53,25 @@ describe("tnrk-se-form", () => {
     expect(form.overall_appearance).toBe("Very large male, strong bones.");
     expect(seFormHasPrintableOverlay(form)).toBe(true);
     expect(seFormHasPrintableOverlay(createEmptyTnrkSeForm())).toBe(false);
+  });
+
+  it("seeds a new SE form from the roster row and show header", () => {
+    const form = seedSeFormForEntry(
+      {
+        dog_name: "Rex",
+        armband: "101",
+        owner: "Blacksage",
+        email: "owner@test.local",
+        sex: "R",
+        zb_number: "ADRK-1",
+        wt: "2024-06-12",
+      },
+      { date: "2026-09-04", judge: "Sandra Reck" },
+    );
+    expect(form.dog_name).toBe("Rex");
+    expect(form.date).toBe("2026-09-04");
+    expect(form.judge).toBe("Sandra Reck");
+    expect(form.formwert).toBeNull();
   });
 
   it("keeps saved measurements and appearance when the client form is blank", () => {

@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import { readStore, updateStore, newId } from "@/lib/store";
 import { filterByShow } from "@/lib/domain/show-scope";
 import {
-  createEmptyTnrkSeForm,
-  mergeEntryIntoSeForm,
   mergeSeFormPreferFilled,
+  seedSeFormForEntry,
   validateTnrkSeFormForPass,
   type TnrkSeForm,
 } from "@/lib/domain/tnrk-se-form";
@@ -61,14 +60,10 @@ export async function POST(request: Request) {
 
   const show = store.shows.find((s) => s.id === body.show_id);
   const now = new Date().toISOString();
-  let form = mergeEntryIntoSeForm(createEmptyTnrkSeForm(), entry);
-  if (show) {
-    form = {
-      ...form,
-      date: show.date || form.date,
-      judge: (body.judge ?? "").trim() || show.judge || form.judge,
-    };
-  }
+  const form = seedSeFormForEntry(entry, {
+    date: show?.date,
+    judge: (body.judge ?? "").trim() || show?.judge,
+  });
 
   const evaluation = {
     id: newId("se"),

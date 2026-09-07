@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyFormwertUpdates,
   assignClassPlacement,
+  dirtyFormwertEntryIds,
   dirtyPlacementPoolKeys,
   formwertSortRank,
   incompletePlacementScopeError,
@@ -8,12 +10,19 @@ import {
   placementEntriesBelongToShow,
   placementRowsForPools,
   placementsSuggestedFromFormwert,
+  resolveFormwertInputs,
   resolvePlacementInputs,
   resolveFormwertByEntryId,
   sortDogsForPlacement,
   upsertPlacements,
 } from "./placements";
-import type { PlacementRecord } from "@/lib/types";
+import { createEmptyTnrkSeForm } from "./tnrk-se-form";
+import type {
+  CritiqueRecord,
+  PlacementRecord,
+  RosterEntryRecord,
+  SeEvaluationRecord,
+} from "@/lib/types";
 
 describe("upsertPlacements", () => {
   it("replaces placement for same entry in show", () => {
@@ -349,6 +358,32 @@ describe("resolveFormwertByEntryId", () => {
       resolveFormwertByEntryId([], [{ entry_id: "e1", form: { formwert: "V" } }]),
     ).toEqual({ e1: "V" });
   });
+
+  it("copies a Friday SE rating onto Saturday and Sunday appearances", () => {
+    const entries = [
+      {
+        id: "se",
+        show_id: "s1",
+        dog_id: "rex",
+        event_kind: "se" as const,
+        dog_name: "Rex",
+      },
+      {
+        id: "sat",
+        show_id: "s1",
+        dog_id: "rex",
+        event_kind: "conformation" as const,
+        dog_name: "Rex",
+      },
+    ];
+    expect(
+      resolveFormwertByEntryId(
+        [],
+        [{ entry_id: "se", form: { formwert: "Sg" } }],
+        entries,
+      ),
+    ).toEqual({ se: "Sg", sat: "Sg" });
+  });
 });
 
 describe("placementsSuggestedFromFormwert", () => {
@@ -637,5 +672,222 @@ describe("assignClassPlacement", () => {
     );
     expect(swapped.e1).toBe(3);
     expect(swapped.e2).toBe(1);
+  });
+});
+
+function testEntry(
+  overrides: Partial<RosterEntryRecord> & Pick<RosterEntryRecord, "id">,
+): RosterEntryRecord {
+  return {
+    show_id: "s1",
+    armband: "101",
+    dog_name: "Rex",
+    zb_number: "ADRK-1",
+    wt: "2024-06-12",
+    owner: "Owner",
+    sex: "R",
+    class_id: "jugendklasse-i",
+    email: "",
+    event_kind: "conformation",
+    competition_day: "2026-09-05",
+    catalog_class: "youth-i",
+    ...overrides,
+  };
+}
+
+describe("resolveFormwertInputs", () => {
+  it("rejects unknown entries and invalid codes", () => {
+    const entries = [testEntry({ id: "sat" })];
+    expect(
+      resolveFormwertInputs([{ entry_id: "missing", formwert: "V" }], entries, "s1")
+        .valid,
+    ).toBe(false);
+    expect(
+      resolveFormwertInputs(
+        [{ entry_id: "sat", formwert: "nope" as never }],
+        entries,
+        "s1",
+      ).valid,
+    ).toBe(false);
+  });
+
+  it("accepts a valid rating or a clear", () => {
+    const entries = [testEntry({ id: "sat" })];
+    expect(
+      resolveFormwertInputs([{ entry_id: "sat", formwert: "V" }], entries, "s1"),
+    ).toEqual({ valid: true, rows: [{ entry_id: "sat", formwert: "V" }] });
+    expect(
+      resolveFormwertInputs([{ entry_id: "sat", formwert: null }], entries, "s1")
+        .valid,
+    ).toBe(true);
+  });
+});
+
+describe("dirtyFormwertEntryIds", () => {
+  it("lists entries whose rating changed", () => {
+    expect(
+      dirtyFormwertEntryIds({ a: "V", b: "Sg" }, { a: "V", b: null }, ["a", "b"]),
+    ).toEqual(["b"]);
+  });
+});
+
+describe("applyFormwertUpdates", () => {
+  it("creates an SE form and review draft for a conformation-only dog", () => {
+    const sat = testEntry({ id: "sat" });
+    const next = applyFormwertUpdates({
+      showId: "s1",
+      entries: [sat],
+      evaluations: [],
+      critiques: [],
+      show: { date: "2026-09-05", judge: "Sandra Reck" },
+      rows: [{ entry_id: "sat", formwert: "V" }],
+      newEvaluationId: () => "se-1",
+      newCritiqueId: () => "c-1",
+      now: "2026-09-05T12:00:00.000Z",
+    });
+    expect(next.evaluations).toHaveLength(1);
+    expect(next.evaluations[0]?.form.formwert).toBe("V");
+    expect(next.evaluations[0]?.form.dog_name).toBe("Rex");
+    expect(next.evaluations[0]?.form.judge).toBe("Sandra Reck");
+    expect(next.critiques).toHaveLength(1);
+    expect(next.critiques[0]?.draft.formwert).toBe("V");
+    expect(next.critiques[0]?.entry_id).toBe("sat");
+  });
+
+  it("writes the rating onto Friday SE and an existing Saturday critique", () => {
+    const se = testEntry({
+      id: "se",
+      event_kind: "se",
+      catalog_class: "standard-evaluation",
+      competition_day: "2026-09-04",
+      dog_id: "rex",
+    });
+    const sat = testEntry({ id: "sat", dog_id: "rex" });
+    const existingSe: SeEvaluationRecord = {
+      id: "eval-se",
+      show_id: "s1",
+      entry_id: "se",
+      form: { ...createEmptyTnrkSeForm(), dog_name: "Rex", comments: "Steady" },
+      status: "draft",
+      created_at: "2026-09-04T10:00:00.000Z",
+      updated_at: "2026-09-04T10:00:00.000Z",
+    };
+    const existingCritique: CritiqueRecord = {
+      id: "c-sat",
+      show_id: "s1",
+      entry_id: "sat",
+      status: "PENDING_REVIEW",
+      transcript: "Spoken letter",
+      draft: {
+        narrative: "Spoken letter",
+        formwert: "Sg",
+        placement: null,
+        titles: [],
+      },
+      delivery_status: "pending",
+      created_at: "2026-09-05T11:00:00.000Z",
+      updated_at: "2026-09-05T11:00:00.000Z",
+    };
+    const next = applyFormwertUpdates({
+      showId: "s1",
+      entries: [se, sat],
+      evaluations: [existingSe],
+      critiques: [existingCritique],
+      rows: [{ entry_id: "sat", formwert: "V" }],
+      newEvaluationId: () => "se-sat",
+      newCritiqueId: () => "c-new",
+      now: "2026-09-05T12:00:00.000Z",
+    });
+    expect(
+      next.evaluations.find((evaluation) => evaluation.entry_id === "se")?.form
+        .formwert,
+    ).toBe("V");
+    expect(
+      next.evaluations.find((evaluation) => evaluation.entry_id === "se")?.form
+        .comments,
+    ).toBe("Steady");
+    expect(
+      next.evaluations.find((evaluation) => evaluation.entry_id === "sat")?.form
+        .formwert,
+    ).toBe("V");
+    expect(
+      next.critiques.find((critique) => critique.entry_id === "sat")?.draft
+        .formwert,
+    ).toBe("V");
+  });
+
+  it("does not overwrite an approved certificate", () => {
+    const sat = testEntry({ id: "sat" });
+    const approved: CritiqueRecord = {
+      id: "c-sat",
+      show_id: "s1",
+      entry_id: "sat",
+      status: "APPROVED",
+      transcript: "Spoken letter",
+      draft: {
+        narrative: "Spoken letter",
+        formwert: "Sg",
+        placement: 1,
+        titles: [],
+      },
+      delivery_status: "pending",
+      created_at: "2026-09-05T11:00:00.000Z",
+      updated_at: "2026-09-05T11:00:00.000Z",
+      approved_at: "2026-09-05T11:30:00.000Z",
+    };
+    const next = applyFormwertUpdates({
+      showId: "s1",
+      entries: [sat],
+      evaluations: [],
+      critiques: [approved],
+      rows: [{ entry_id: "sat", formwert: "V" }],
+      newEvaluationId: () => "se-1",
+      newCritiqueId: () => "c-1",
+      now: "2026-09-05T12:00:00.000Z",
+    });
+    expect(next.evaluations[0]?.form.formwert).toBe("V");
+    expect(next.critiques[0]?.draft.formwert).toBe("Sg");
+    expect(next.critiques[0]?.status).toBe("APPROVED");
+  });
+
+  it("clears the rating on the SE form and open critique", () => {
+    const sat = testEntry({ id: "sat" });
+    const evaluation: SeEvaluationRecord = {
+      id: "eval-sat",
+      show_id: "s1",
+      entry_id: "sat",
+      form: { ...createEmptyTnrkSeForm(), formwert: "V" },
+      status: "draft",
+      created_at: "2026-09-05T11:00:00.000Z",
+      updated_at: "2026-09-05T11:00:00.000Z",
+    };
+    const critique: CritiqueRecord = {
+      id: "c-sat",
+      show_id: "s1",
+      entry_id: "sat",
+      status: "PENDING_REVIEW",
+      transcript: "Ringside SE form",
+      draft: {
+        narrative: "",
+        formwert: "V",
+        placement: null,
+        titles: [],
+      },
+      delivery_status: "pending",
+      created_at: "2026-09-05T11:00:00.000Z",
+      updated_at: "2026-09-05T11:00:00.000Z",
+    };
+    const next = applyFormwertUpdates({
+      showId: "s1",
+      entries: [sat],
+      evaluations: [evaluation],
+      critiques: [critique],
+      rows: [{ entry_id: "sat", formwert: null }],
+      newEvaluationId: () => "se-x",
+      newCritiqueId: () => "c-x",
+      now: "2026-09-05T12:00:00.000Z",
+    });
+    expect(next.evaluations[0]?.form.formwert).toBeNull();
+    expect(next.critiques[0]?.draft.formwert).toBeNull();
   });
 });
