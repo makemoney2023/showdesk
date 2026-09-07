@@ -5,12 +5,14 @@ export function StickyDeskBar({
   primaryDisabled,
   onPrimary,
   primaryHref,
+  primaryTarget,
   secondary,
 }: {
   primaryLabel: string;
   primaryDisabled?: boolean;
   onPrimary?: () => void;
   primaryHref?: string;
+  primaryTarget?: "_blank";
   secondary?: React.ReactNode;
 }) {
   return (
@@ -18,7 +20,13 @@ export function StickyDeskBar({
       {secondary}
       {primaryHref ? (
         <Button asChild disabled={primaryDisabled}>
-          <a href={primaryHref}>{primaryLabel}</a>
+          <a
+            href={primaryHref}
+            target={primaryTarget}
+            rel={primaryTarget === "_blank" ? "noreferrer" : undefined}
+          >
+            {primaryLabel}
+          </a>
         </Button>
       ) : (
         <Button

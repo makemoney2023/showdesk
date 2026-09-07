@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle2, CircleDashed, Download, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,7 @@ import {
   reportBrowseDay,
   reportRowMatchesDay,
   reportRowMatchesFilter,
+  reportSearchFromParams,
   type ReportDeskFilter,
 } from "@/lib/domain/report-filters";
 import {
@@ -70,6 +72,15 @@ import type {
 } from "@/lib/types";
 
 export default function AdminReportsPage() {
+  return (
+    <Suspense fallback={<PageSkeleton rows={4} />}>
+      <AdminReportsPageInner />
+    </Suspense>
+  );
+}
+
+function AdminReportsPageInner() {
+  const searchParams = useSearchParams();
   const [showId, setShowId] = useState<string | null>(null);
   const [showName, setShowName] = useState("");
   const [critiques, setCritiques] = useState<CritiqueRecord[]>([]);
@@ -86,6 +97,7 @@ export default function AdminReportsPage() {
   const [loaded, setLoaded] = useState(false);
   const [zipBusy, setZipBusy] = useState(false);
   const [zipProgress, setZipProgress] = useState("");
+  const appliedUrlSearch = useRef(false);
 
   const load = useCallback(async () => {
     const showRes = await fetch("/api/shows");
@@ -159,6 +171,17 @@ export default function AdminReportsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!loaded || appliedUrlSearch.current) return;
+    const fromUrl = reportSearchFromParams({
+      q: searchParams.get("q"),
+      entryId: searchParams.get("entry"),
+      entries,
+    });
+    if (fromUrl) setSearch(fromUrl);
+    appliedUrlSearch.current = true;
+  }, [loaded, entries, searchParams]);
 
   const rows = useMemo(() => {
     if (!showId) return [];
@@ -428,9 +451,21 @@ export default function AdminReportsPage() {
         ) : null}
         </div>
         <ul className="space-y-3">
-          {visibleRows.map(({ entry, critique, se, placement, documents }) => (
+          {visibleRows.map(({ entry, critique, se, placement, documents }) => {
+            const printableCritique = documents.find(
+              (doc) =>
+                doc.kind === "tnrk_critique" && doc.printable && doc.href,
+            );
+            return (
             <li key={entry.id}>
-              <details className="sss-paper group p-4">
+              <details
+                className="sss-paper group p-4"
+                defaultOpen={
+                  Boolean(search.trim()) &&
+                  visibleRows.length === 1 &&
+                  visibleRows[0]?.entry.id === entry.id
+                }
+              >
                 <summary className="flex cursor-pointer list-none flex-wrap items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
                     {rowHasPrintableDocument({
@@ -483,6 +518,20 @@ export default function AdminReportsPage() {
                         Delivery: {labelDeliveryStatus(critique.delivery_status)}
                       </span>
                     ) : null}
+                    {printableCritique ? (
+                      <Button asChild size="sm">
+                        <a
+                          href={printableCritique.href}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={`Print certificate for #${entry.armband} ${entry.dog_name}`}
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          Print
+                        </a>
+                      </Button>
+                    ) : null}
                   </div>
                 </summary>
                 <div className="mt-3">
@@ -490,7 +539,8 @@ export default function AdminReportsPage() {
                 </div>
               </details>
             </li>
-          ))}
+            );
+          })}
           {rows.length === 0 ? (
             <li className="sss-tray p-5 text-sm text-sss-text-muted">
               No dogs on the roster yet. Import entries, then record or complete

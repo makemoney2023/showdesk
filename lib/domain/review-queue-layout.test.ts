@@ -6,7 +6,9 @@ import {
   mergeQueuedRecordingsIntoReview,
   nextReviewItemId,
   queuedCritiqueId,
+  critiquesVisibleInReviewQueue,
   reviewFocusHref,
+  reviewReportsHref,
   reviewQueueMatchesSearch,
   reviewDogHeading,
   reviewPdfPreviewActions,
@@ -140,6 +142,11 @@ describe("queued critique review rows", () => {
     expect(critique.transcript).toBe("Strong male, good movement.");
     expect(critique.draft.narrative).toBe("Strong male, good movement.");
     expect(reviewFocusHref("entry-1")).toBe("/admin/review?entry=entry-1");
+    expect(reviewReportsHref({ armband: "31" })).toBe("/admin/reports?q=31");
+    expect(reviewReportsHref({ entryId: "entry-1" })).toBe(
+      "/admin/reports?entry=entry-1",
+    );
+    expect(reviewReportsHref({})).toBe("/admin/reports");
   });
 
   it("keeps queued recordings that are not already on the desk", () => {
@@ -214,9 +221,38 @@ describe("buildReviewQueueRows", () => {
   });
 });
 
+describe("critiquesVisibleInReviewQueue", () => {
+  const rows = [
+    { id: "pending", status: "PENDING_REVIEW" },
+    { id: "approved", status: "APPROVED" },
+  ];
+  const needsAttention = (status: string) => status !== "APPROVED";
+
+  it("keeps the selected approved certificate in needs-attention mode", () => {
+    expect(
+      critiquesVisibleInReviewQueue(rows, {
+        pendingOnly: true,
+        selectedId: "approved",
+        needsAttention,
+      }).map((row) => row.id),
+    ).toEqual(["approved", "pending"]);
+  });
+
+  it("hides approved certificates when nothing is selected", () => {
+    expect(
+      critiquesVisibleInReviewQueue(rows, {
+        pendingOnly: true,
+        selectedId: null,
+        needsAttention,
+      }).map((row) => row.id),
+    ).toEqual(["pending"]);
+  });
+});
+
 describe("TNRK PDF preview affordance", () => {
   it("exposes a prominent preview label and critique PDF href", () => {
     expect(tnrkCritiquePdfLabel()).toBe("TNRK PDF Preview");
+    expect(tnrkCritiquePdfLabel(true)).toBe("Print TNRK certificate");
     expect(tnrkCritiquePdfHref("show-1", "crit-9")).toBe(
       "/api/pdf/tnrk?kind=critique&show_id=show-1&critique_id=crit-9",
     );
@@ -275,6 +311,23 @@ describe("SE PDF preview affordance", () => {
         kind: "critique",
         label: "TNRK PDF Preview",
         href: "/api/pdf/tnrk?kind=critique&show_id=show-1&critique_id=crit-9&preview=1",
+      },
+    ]);
+  });
+
+  it("switches the critique action to print after approve", () => {
+    expect(
+      reviewPdfPreviewActions({
+        showId: "show-1",
+        critiqueId: "crit-9",
+        seEvaluationId: null,
+        critiqueStatus: "APPROVED",
+      }),
+    ).toEqual([
+      {
+        kind: "critique",
+        label: "Print TNRK certificate",
+        href: "/api/pdf/tnrk?kind=critique&show_id=show-1&critique_id=crit-9",
       },
     ]);
   });

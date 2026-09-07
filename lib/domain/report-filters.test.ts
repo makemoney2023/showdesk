@@ -3,6 +3,7 @@ import {
   reportBrowseDay,
   reportRowMatchesDay,
   reportRowMatchesFilter,
+  reportSearchFromParams,
 } from "./report-filters";
 
 describe("reportRowMatchesFilter", () => {
@@ -62,5 +63,32 @@ describe("reportRowMatchesDay", () => {
   it("ignores the date chip while a search is active", () => {
     expect(reportBrowseDay("2026-09-05", "")).toBe("2026-09-05");
     expect(reportBrowseDay("2026-09-05", "rex")).toBe("all");
+  });
+});
+
+describe("reportSearchFromParams", () => {
+  const entries = [{ id: "entry-1", armband: "31" }];
+
+  it("prefers an explicit search query", () => {
+    expect(
+      reportSearchFromParams({
+        q: " 33 ",
+        entryId: "entry-1",
+        entries,
+      }),
+    ).toBe("33");
+  });
+
+  it("falls back to the linked entry armband", () => {
+    expect(
+      reportSearchFromParams({
+        q: "",
+        entryId: "entry-1",
+        entries,
+      }),
+    ).toBe("31");
+    expect(
+      reportSearchFromParams({ q: null, entryId: "missing", entries }),
+    ).toBe("");
   });
 });

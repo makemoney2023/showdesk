@@ -1,6 +1,11 @@
 import type { CritiqueStatus } from "./critique-status";
 
-export type ReviewPrimaryKind = "approve" | "processing" | "retry" | "reports";
+export type ReviewPrimaryKind =
+  | "approve"
+  | "processing"
+  | "retry"
+  | "print"
+  | "reports";
 
 export function reviewPrimaryAction(status: CritiqueStatus): {
   label: string;
@@ -16,5 +21,5 @@ export function reviewPrimaryAction(status: CritiqueStatus): {
   if (status === "ERROR") {
     return { label: "Retry processing", kind: "retry", disabled: false };
   }
-  return { label: "View in reports", kind: "reports", disabled: false };
+  return { label: "Print certificate", kind: "print", disabled: false };
 }
