@@ -176,4 +176,89 @@ describe("critique certificate class line", () => {
     expect(text).not.toMatch(/Sep 4, 2026/);
     expect(text).not.toMatch(/2026-09-04/);
   });
+
+  it("prints only the registered name, not prefix or suffix titles", async () => {
+    const bytes = await buildTnrkCritiquePdfForRecords({
+      show: {
+        id: "show-1",
+        name: "TNRK Sieger Show 2026",
+        date: "2026-09-04",
+        venue: "Demo",
+        judge: "Hamid Falah",
+        rulebook: "adrk",
+        created_at: "t",
+      },
+      entry: {
+        id: "entry-20",
+        show_id: "show-1",
+        armband: "20",
+        dog_name:
+          "CANCH GRCHB, AMCH Eiriens Calendar Girl CGN SDIN FDC ATT 2025 GRUETS QUALIFIER",
+        prefix_titles: "CAN CH GRCHB, AM CH",
+        suffix_titles: "CGN SDIN FDC ATT 2025 GRUETS QUALIFIER",
+        zb_number: "",
+        wt: "2020-01-01",
+        owner: "Dianna Contin",
+        sex: "H",
+        class_id: "championklasse",
+        event_kind: "conformation",
+        competition_day: "2026-09-05",
+        catalog_class: "champion",
+        email: "",
+      },
+      se: {
+        id: "se-20",
+        show_id: "show-1",
+        entry_id: "entry-20",
+        status: "complete",
+        created_at: "t",
+        updated_at: "t",
+        form: {
+          ...createEmptyTnrkSeForm(),
+          dog_name:
+            "CANCH GRCHB, AMCH Eiriens Calendar Girl CGN SDIN FDC ATT 2025 GRUETS QUALIFIER",
+        },
+      },
+    });
+    const text = extractPdfText(bytes);
+    expect(text).toContain("Eiriens Calendar Girl");
+    expect(text).not.toContain("CANCH GRCHB");
+    expect(text).not.toContain("Eiriens Calendar Girl CGN");
+    expect(text).not.toContain("GRUETS QUALIFIER");
+  });
+
+  it("prints only the registered name when a Youth CH kennel prefix is attached", async () => {
+    const bytes = await buildTnrkCritiquePdfForRecords({
+      show: {
+        id: "show-1",
+        name: "TNRK Sieger Show 2026",
+        date: "2026-09-04",
+        venue: "Demo",
+        judge: "Hamid Falah",
+        rulebook: "adrk",
+        created_at: "t",
+      },
+      entry: {
+        id: "entry-8",
+        show_id: "show-1",
+        armband: "8",
+        dog_name: "Urka Inc. Youth Ch. Ynes von der Wasserbödstädt",
+        prefix_titles: "Urka Inc. Youth Ch.",
+        suffix_titles: "",
+        zb_number: "",
+        wt: "2024-12-07",
+        owner: "Owner",
+        sex: "H",
+        class_id: "jugendklasse",
+        event_kind: "conformation",
+        competition_day: "2026-09-05",
+        catalog_class: "youth",
+        email: "",
+      },
+    });
+    const text = extractPdfText(bytes);
+    expect(text).toContain("Ynes von der Wasserb");
+    expect(text).not.toContain("Youth Ch");
+    expect(text).not.toContain("Urka Inc");
+  });
 });
