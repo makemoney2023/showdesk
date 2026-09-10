@@ -8,6 +8,7 @@ import {
   getAdrkClassLabel,
 } from "@/lib/domain/adrk-template";
 import type { AdrkClassId } from "@/lib/domain/adrk-template";
+import { registeredDogName } from "@/lib/domain/registered-name";
 import type { RosterEntryRecord, Show } from "@/lib/types";
 
 export interface RichterberichtInput {
@@ -53,7 +54,15 @@ export async function buildAdrkRichterberichtPdf(
     `Sex: ${entry.sex === "R" ? "[x] Male (R)" : "[ ] Male (R)"}  ${entry.sex === "H" ? "[x] Female (H)" : "[ ] Female (H)"}`,
   );
   draw(`Catalog / armband: ${entry.armband}`);
-  draw(entry.dog_name, 16, true);
+  draw(
+    registeredDogName({
+      dog_name: entry.dog_name,
+      prefix_titles: entry.prefix_titles,
+      suffix_titles: entry.suffix_titles,
+    }),
+    16,
+    true,
+  );
   draw(`Registration (ZB): ${entry.zb_number}`);
   draw(`DOB (WT): ${entry.wt}`);
   draw(`Owner: ${entry.owner}`);

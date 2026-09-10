@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatTitlesLine,
   normalizeRegisteredName,
+  registeredDogName,
   splitRegisteredName,
 } from "./registered-name";
 
@@ -68,5 +69,59 @@ describe("registered name", () => {
       formatTitlesLine({ prefix_titles: "AM CH", suffix_titles: "IGP1" }),
     ).toBe("AM CH IGP1");
     expect(formatTitlesLine({ prefix_titles: "", suffix_titles: "" })).toBe("");
+  });
+
+  it("strips compacted North American titles and qualifier suffixes", () => {
+    expect(
+      splitRegisteredName({
+        dog_name:
+          "CANCH GRCHB, AMCH Eiriens Calendar Girl CGN SDIN FDC ATT 2025 GRUETS QUALIFIER",
+      }),
+    ).toMatchObject({
+      dog_name: "Eiriens Calendar Girl",
+    });
+  });
+
+  it("strips a kennel phrase in front of Youth CH", () => {
+    expect(
+      splitRegisteredName({
+        dog_name: "Urka Inc. Youth Ch. Ynes von der Wasserbödstädt",
+      }),
+    ).toMatchObject({
+      dog_name: "Ynes von der Wasserbödstädt",
+    });
+  });
+
+  it("strips a compacted kennel prefix that is repeated in front of the name", () => {
+    expect(
+      registeredDogName({
+        dog_name:
+          "URKA INC. YOUTHCH Urka Inc. Youth Ch. Ynes von der Wasserbödstädt",
+      }),
+    ).toBe("Ynes von der Wasserbödstädt");
+  });
+
+  it("returns the registered name for certificates", () => {
+    expect(
+      registeredDogName({
+        dog_name:
+          "CAN CH GRCHB, AM CH Eiriens Calendar Girl CGN SDIN FDC ATT 2025 GRUETS QUALIFIER",
+        prefix_titles: "CAN CH GRCHB, AM CH",
+        suffix_titles: "CGN SDIN FDC ATT 2025 GRUETS QUALIFIER",
+      }),
+    ).toBe("Eiriens Calendar Girl");
+  });
+
+  it("strips stored custom prefix and suffix even when they are not known titles", () => {
+    expect(
+      splitRegisteredName({
+        dog_name:
+          "Urka Inc. Youth Ch. Ynes von der Wasserbödstädt CGN SDIN FDC ATT 2025 GRUETS QUALIFIER",
+        prefix_titles: "Urka Inc. Youth Ch.",
+        suffix_titles: "CGN SDIN FDC ATT 2025 GRUETS QUALIFIER",
+      }),
+    ).toMatchObject({
+      dog_name: "Ynes von der Wasserbödstädt",
+    });
   });
 });

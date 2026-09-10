@@ -7,6 +7,7 @@ import { catalogDivisionLabel } from "@/lib/domain/catalog-competition";
 import { critiqueLetterForCertificate } from "@/lib/domain/se-to-critique";
 import { seFormFormwert } from "@/lib/domain/tnrk-se-form";
 import { formatCertificateDob, formatDisplayDate } from "@/lib/domain/show-day";
+import { registeredDogName } from "@/lib/domain/registered-name";
 import { resolvePdfJudge } from "@/lib/domain/show-judges";
 import type {
   CritiqueRecord,
@@ -89,7 +90,11 @@ export async function buildTnrkCritiquePdfForRecords(input: {
 }): Promise<Uint8Array> {
   const { show, entry, critique, se, placements } = input;
   const narrative = critiqueLetterForCertificate(critique);
-  const dogName = se?.form.dog_name?.trim() || entry.dog_name;
+  const dogName = registeredDogName({
+    dog_name: entry.dog_name?.trim() || se?.form.dog_name,
+    prefix_titles: entry.prefix_titles,
+    suffix_titles: entry.suffix_titles,
+  });
   const formwert = critique?.draft.formwert ?? seFormFormwert(se?.form) ?? null;
   const placement = critiqueCertificatePlacement(
     entry.id,
