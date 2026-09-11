@@ -35,6 +35,19 @@ export function reviewFocusHref(entryId: string): string {
   return `/admin/review?entry=${encodeURIComponent(entryId)}`;
 }
 
+/** Open the critique that belongs to this reports row (own or sibling certificate). */
+export function reportsReviewHref(input: {
+  entryId: string;
+  critiqueEntryId?: string | null;
+}): string {
+  const id = input.critiqueEntryId?.trim() || input.entryId;
+  return reviewFocusHref(id);
+}
+
+export function reportsReviewLabel(): string {
+  return "Back to review";
+}
+
 /** Reports deep-link so an approved critique is still findable after it leaves the queue. */
 export function reviewReportsHref(input: {
   armband?: string | null;

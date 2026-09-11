@@ -35,6 +35,10 @@ import {
   sanitizeRosterDivisionFilter,
 } from "@/lib/domain/roster-view";
 import {
+  reportsReviewHref,
+  reportsReviewLabel,
+} from "@/lib/domain/review-queue-layout";
+import {
   critiqueForReportEntry,
   seEvaluationForEntry,
 } from "@/lib/domain/se-to-critique";
@@ -515,6 +519,21 @@ function AdminReportsPageInner() {
                       <span className="self-center text-xs text-sss-text-secondary">
                         Delivery: {labelDeliveryStatus(critique.delivery_status)}
                       </span>
+                    ) : null}
+                    {critique ? (
+                      <Button asChild size="sm" variant="outline">
+                        <Link
+                          href={reportsReviewHref({
+                            entryId: entry.id,
+                            critiqueEntryId: critique.entry_id,
+                          })}
+                          aria-label={`${reportsReviewLabel()} for #${entry.armband} ${entry.dog_name}`}
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          {reportsReviewLabel()}
+                        </Link>
+                      </Button>
                     ) : null}
                     {printableCritique ? (
                       <Button asChild size="sm">
