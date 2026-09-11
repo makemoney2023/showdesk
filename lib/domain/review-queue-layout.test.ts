@@ -7,6 +7,8 @@ import {
   nextReviewItemId,
   queuedCritiqueId,
   critiquesVisibleInReviewQueue,
+  reportsReviewHref,
+  reportsReviewLabel,
   reviewFocusHref,
   reviewReportsHref,
   reviewQueueMatchesSearch,
@@ -142,6 +144,16 @@ describe("queued critique review rows", () => {
     expect(critique.transcript).toBe("Strong male, good movement.");
     expect(critique.draft.narrative).toBe("Strong male, good movement.");
     expect(reviewFocusHref("entry-1")).toBe("/admin/review?entry=entry-1");
+    expect(reportsReviewLabel()).toBe("Back to review");
+    expect(reportsReviewHref({ entryId: "entry-sun" })).toBe(
+      "/admin/review?entry=entry-sun",
+    );
+    expect(
+      reportsReviewHref({
+        entryId: "entry-sun",
+        critiqueEntryId: "entry-sat",
+      }),
+    ).toBe("/admin/review?entry=entry-sat");
     expect(reviewReportsHref({ armband: "31" })).toBe("/admin/reports?q=31");
     expect(reviewReportsHref({ entryId: "entry-1" })).toBe(
       "/admin/reports?entry=entry-1",
