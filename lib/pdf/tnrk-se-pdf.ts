@@ -1,12 +1,15 @@
 import fs from "fs/promises";
 import path from "path";
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import { formatDisplayDate } from "@/lib/domain/show-day";
 import {
   normalizeTnrkSeForm,
   type TnrkSeForm,
   type TnrkSeMeasurements,
 } from "@/lib/domain/tnrk-se-form";
+import { drawSignatureBox } from "./signature-box";
+
+export { drawSignatureBox } from "./signature-box";
 
 const TEMPLATE = path.join(
   process.cwd(),
@@ -103,31 +106,6 @@ export const TNRK_SE_SIGNATURE_BOX = {
   judge: { x: 318, fromTop: 736, width: 248, height: 24 },
   secretary: { x: 318, fromTop: 768, width: 116, height: 24 },
 } as const;
-
-/** Draw a printable signature pad (border + baseline) for wet-ink or e-sign. */
-export function drawSignatureBox(
-  page: PDFPage,
-  box: { x: number; width: number; height: number },
-  yBottom: number,
-): void {
-  const border = rgb(0.12, 0.12, 0.12);
-  page.drawRectangle({
-    x: box.x,
-    y: yBottom,
-    width: box.width,
-    height: box.height,
-    borderColor: border,
-    borderWidth: 1,
-    color: rgb(1, 1, 1),
-  });
-  const inset = 8;
-  page.drawLine({
-    start: { x: box.x + inset, y: yBottom + 7 },
-    end: { x: box.x + box.width - inset, y: yBottom + 7 },
-    thickness: 0.6,
-    color: rgb(0.45, 0.45, 0.45),
-  });
-}
 
 /** Shrink, then ellipsize, so overlay text stays inside a template cell. */
 export function fitOverlayText(

@@ -10,6 +10,7 @@ import {
   TNRK_CRITIQUE_MAX_NARRATIVE_LINES,
   wrapCritiqueNarrative,
 } from "@/lib/domain/tnrk-critique-wrap";
+import { drawSignatureBox } from "./signature-box";
 
 export {
   TNRK_CRITIQUE_MAX_NARRATIVE_LINES,
@@ -69,6 +70,20 @@ export const TNRK_CRITIQUE_FIELD_X = {
   owner: 185,
   co_owner: 255,
   judge_signature: 385,
+} as const;
+
+/**
+ * E-signature pads on the JUDGE'S SIGNATURE row (fromTop = box bottom).
+ * Judge box sits after the typed name; secretary box is on the right
+ * with a small EVENT SECRETARY caption (the blank has no secretary line).
+ */
+export const TNRK_CRITIQUE_SIGNATURE_BOX = {
+  judge: { x: 500, fromTop: 568, width: 150, height: 22 },
+  secretary: { x: 668, fromTop: 568, width: 150, height: 22 },
+} as const;
+
+export const TNRK_CRITIQUE_SIGNATURE_LABEL = {
+  secretary: { x: 668, fromTop: 540, size: 7 },
 } as const;
 
 export const TNRK_CRITIQUE_NARRATIVE_SIZE = 10;
@@ -208,11 +223,24 @@ export async function buildTnrkCritiquePdf(
     baseline(TNRK_CRITIQUE_FIELD_TOP.co_owner),
     10,
   );
+
+  const judgeBox = TNRK_CRITIQUE_SIGNATURE_BOX.judge;
+  const secretaryBox = TNRK_CRITIQUE_SIGNATURE_BOX.secretary;
+  drawSignatureBox(page, judgeBox, yFromTop(judgeBox.fromTop));
+  drawSignatureBox(page, secretaryBox, yFromTop(secretaryBox.fromTop));
+  draw(
+    "EVENT SECRETARY",
+    TNRK_CRITIQUE_SIGNATURE_LABEL.secretary.x,
+    yFromTop(TNRK_CRITIQUE_SIGNATURE_LABEL.secretary.fromTop),
+    TNRK_CRITIQUE_SIGNATURE_LABEL.secretary.size,
+  );
   draw(
     form.judge_signature,
     TNRK_CRITIQUE_FIELD_X.judge_signature,
     baseline(TNRK_CRITIQUE_FIELD_TOP.judge_signature),
     10,
+    false,
+    judgeBox.x - 6,
   );
 
   return pdf.save();
