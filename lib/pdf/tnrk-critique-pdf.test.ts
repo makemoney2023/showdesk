@@ -6,10 +6,10 @@ import {
   TNRK_CRITIQUE_FIELD_X,
   TNRK_CRITIQUE_NARRATIVE_SIZE,
   TNRK_CRITIQUE_SIGNATURE_BOX,
-  TNRK_CRITIQUE_SIGNATURE_LABEL,
   TNRK_TEMPLATE_LABELS,
   buildTnrkCritiquePdf,
   centeredTextX,
+  critiqueJudgeSignatureBox,
   resolveCritiqueCertificateNarrative,
 } from "./tnrk-critique-pdf";
 
@@ -147,20 +147,24 @@ describe("tnrk-critique-pdf layout", () => {
     expect(text.toLowerCase()).not.toContain("vp very promising");
   });
 
-  it("places judge and secretary signature boxes on the judge row", () => {
-    const judge = TNRK_CRITIQUE_SIGNATURE_BOX.judge;
-    const secretary = TNRK_CRITIQUE_SIGNATURE_BOX.secretary;
-    expect(judge.x).toBeGreaterThan(TNRK_CRITIQUE_FIELD_X.judge_signature);
-    expect(judge.x + judge.width).toBeLessThan(secretary.x);
-    expect(secretary.x + secretary.width).toBeLessThan(830);
-    expect(judge.fromTop).toBe(secretary.fromTop);
-    expect(TNRK_CRITIQUE_SIGNATURE_LABEL.secretary.x).toBe(secretary.x);
-    expect(TNRK_CRITIQUE_SIGNATURE_LABEL.secretary.fromTop).toBeLessThan(
-      secretary.fromTop - secretary.height + 1,
+  it("places only a judge signature box on the same row as the name", async () => {
+    const pdf = await PDFDocument.create();
+    const font = await pdf.embedFont(StandardFonts.Helvetica);
+    const name = "Sandra Reck (ADRK)";
+    const box = critiqueJudgeSignatureBox(name, font, 10);
+    const nameWidth = font.widthOfTextAtSize(name, 10);
+    expect(TNRK_CRITIQUE_SIGNATURE_BOX).not.toHaveProperty("secretary");
+    expect(box.fromTop).toBe(TNRK_CRITIQUE_FIELD_TOP.judge_signature - 3);
+    expect(box.x).toBeGreaterThan(
+      TNRK_CRITIQUE_FIELD_X.judge_signature + nameWidth,
     );
+    expect(box.x).toBeLessThan(
+      TNRK_CRITIQUE_FIELD_X.judge_signature + nameWidth + 12,
+    );
+    expect(box.x + box.width).toBeLessThan(830);
   });
 
-  it("prints the event secretary caption next to the signature pads", async () => {
+  it("prints the judge name and does not add an event secretary pad", async () => {
     const bytes = await buildTnrkCritiquePdf({
       dog_name: "Rex Happy Path",
       dob: "2024-01-01",
@@ -174,6 +178,6 @@ describe("tnrk-critique-pdf layout", () => {
     });
     const text = extractPdfText(bytes);
     expect(text).toContain("Sandra Reck (ADRK)");
-    expect(text).toContain("EVENT SECRETARY");
+    expect(text).not.toContain("EVENT SECRETARY");
   });
 });
