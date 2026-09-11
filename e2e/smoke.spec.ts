@@ -69,4 +69,12 @@ test.describe("smoke", () => {
     ).toBeVisible();
     await expect(page.getByLabel("Email")).toBeVisible();
   });
+
+  test("club-branded login loads for the demo club", async ({ page }) => {
+    await page.goto("/c/blacksage/login");
+    await expect(
+      page.getByRole("heading", { name: "Blacksage Kennels login" }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Email")).toBeVisible();
+  });
 });

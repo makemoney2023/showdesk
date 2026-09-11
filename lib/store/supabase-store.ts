@@ -1,9 +1,11 @@
+import { scopeStoreToOrg } from "@/lib/domain/org-scope";
 import { EMPTY_STORE, type AppStore } from "@/lib/types";
 import type {
   AppStateRow,
   CritiqueRow,
   DogDocumentRow,
   EntryRow,
+  OrgStateRow,
   PlacementRow,
   SeEvaluationRow,
   ShowRow,
@@ -64,6 +66,13 @@ export interface StoreWritePlan {
   deleteShowIds: string[];
   /** Null when `active_show_id` is unchanged. */
   appState: AppStateRow | null;
+}
+
+export function toOrgStateRow(
+  orgId: string,
+  active_show_id: string | null,
+): OrgStateRow {
+  return { org_id: orgId, active_show_id };
 }
 
 export function toAppStateRow(active_show_id: string | null): AppStateRow {
@@ -171,9 +180,16 @@ function throwIfError(error: QueryError, context: string): void {
 async function applyPlan(
   client: SupabaseStoreClient,
   plan: StoreWritePlan,
+  orgId?: string,
 ): Promise<void> {
   if (plan.upsertShows.length > 0) {
-    const { error } = await client.from("shows").upsert(plan.upsertShows);
+    const shows = orgId
+      ? plan.upsertShows.map((show) => ({
+          ...show,
+          org_id: show.org_id ?? orgId,
+        }))
+      : plan.upsertShows;
+    const { error } = await client.from("shows").upsert(shows);
     throwIfError(error, "upsert shows");
   }
   if (plan.upsertEntries.length > 0) {
@@ -230,8 +246,15 @@ async function applyPlan(
 
   // Update active show after parent rows exist and before deleting the old show.
   if (plan.appState) {
-    const { error } = await client.from("app_state").upsert(plan.appState);
-    throwIfError(error, "upsert app_state");
+    if (orgId) {
+      const { error } = await client
+        .from("org_state")
+        .upsert(toOrgStateRow(orgId, plan.appState.active_show_id));
+      throwIfError(error, "upsert org_state");
+    } else {
+      const { error } = await client.from("app_state").upsert(plan.appState);
+      throwIfError(error, "upsert app_state");
+    }
   }
 
   if (plan.deleteEntryIds.length > 0) {
@@ -264,6 +287,8 @@ export const STORE_BUSY_MESSAGE =
 
 const ACQUIRE_STORE_LOCK = "acquire_store_lock";
 const RELEASE_STORE_LOCK = "release_store_lock";
+const ACQUIRE_ORG_STORE_LOCK = "acquire_org_store_lock";
+const RELEASE_ORG_STORE_LOCK = "release_org_store_lock";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -280,6 +305,7 @@ async function withStoreWriteLock<T>(
   client: SupabaseStoreClient,
   fn: () => Promise<T>,
   options?: StoreLockOptions,
+  orgId?: string,
 ): Promise<T> {
   const rpc = client.rpc?.bind(client);
   if (!rpc) return fn();
@@ -288,15 +314,17 @@ async function withStoreWriteLock<T>(
   const attempts = options?.attempts ?? 20;
   const retryDelayMs = options?.retryDelayMs ?? 150;
   const owner = `desk-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const acquireFn = orgId ? ACQUIRE_ORG_STORE_LOCK : ACQUIRE_STORE_LOCK;
+  const releaseFn = orgId ? RELEASE_ORG_STORE_LOCK : RELEASE_STORE_LOCK;
+  const acquireArgs = orgId
+    ? { p_org_id: orgId, p_owner: owner, p_ttl_ms: ttlMs }
+    : { p_owner: owner, p_ttl_ms: ttlMs };
 
   let acquired = false;
   for (let attempt = 0; attempt < attempts && !acquired; attempt++) {
     let granted: { data: unknown; error: QueryError };
     try {
-      granted = await rpc(ACQUIRE_STORE_LOCK, {
-        p_owner: owner,
-        p_ttl_ms: ttlMs,
-      });
+      granted = await rpc(acquireFn, acquireArgs);
     } catch (error) {
       granted = {
         data: null,
@@ -306,6 +334,9 @@ async function withStoreWriteLock<T>(
       };
     }
     if (granted.error) {
+      if (orgId && acquireFn === ACQUIRE_ORG_STORE_LOCK) {
+        return withStoreWriteLock(client, fn, options);
+      }
       console.warn(
         `Store write lock unavailable (${granted.error.message}) — writing without serialization`,
       );
@@ -326,18 +357,19 @@ async function withStoreWriteLock<T>(
   } finally {
     // Best effort — the lease expires on its own if release fails.
     try {
-      await rpc(RELEASE_STORE_LOCK, { p_owner: owner });
+      await rpc(releaseFn, orgId ? { p_org_id: orgId, p_owner: owner } : { p_owner: owner });
     } catch {
       /* lease self-expires */
     }
   }
 }
 
-/** Read shows/entries/critiques/placements/se_evaluations + app_state.active_show_id. */
+/** Read shows/entries/critiques/placements/se_evaluations + active show. */
 export async function sbReadStore(
   client: SupabaseStoreClient,
+  orgId?: string,
 ): Promise<AppStore> {
-  const [shows, entries, critiques, placements, evaluations, documents, appState] =
+  const [shows, entries, critiques, placements, evaluations, documents, appState, orgState] =
     await Promise.all([
       client.from("shows").select("*"),
       client.from("entries").select("*"),
@@ -345,7 +377,16 @@ export async function sbReadStore(
       client.from("placements").select("*"),
       client.from("se_evaluations").select("*"),
       client.from("dog_documents").select("*"),
-      client.from("app_state").select("active_show_id").eq("id", 1).maybeSingle(),
+      orgId
+        ? Promise.resolve({ data: null, error: null })
+        : client.from("app_state").select("active_show_id").eq("id", 1).maybeSingle(),
+      orgId
+        ? client
+            .from("org_state")
+            .select("active_show_id")
+            .eq("org_id", orgId)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
     ]);
 
   throwIfError(shows.error, "read shows");
@@ -354,32 +395,38 @@ export async function sbReadStore(
   throwIfError(placements.error, "read placements");
   throwIfError(evaluations.error, "read se_evaluations");
   throwIfError(documents.error, "read dog_documents");
-  throwIfError(appState.error, "read app_state");
+  if (!orgId) throwIfError(appState.error, "read app_state");
 
-  return assembleStore({
+  const assembled = assembleStore({
     shows: (shows.data as ShowRow[] | null) ?? [],
     entries: (entries.data as EntryRow[] | null) ?? [],
     critiques: (critiques.data as CritiqueRow[] | null) ?? [],
     placements: (placements.data as PlacementRow[] | null) ?? [],
     se_evaluations: (evaluations.data as SeEvaluationRow[] | null) ?? [],
     dog_documents: (documents.data as DogDocumentRow[] | null) ?? [],
-    active_show_id:
-      (appState.data as AppStateRow | null)?.active_show_id ?? null,
+    active_show_id: orgId
+      ? ((orgState.data as OrgStateRow | AppStateRow | null)?.active_show_id ??
+        null)
+      : ((appState.data as AppStateRow | null)?.active_show_id ?? null),
   });
+
+  return orgId ? scopeStoreToOrg(assembled, orgId) : assembled;
 }
 
 export async function sbWriteStore(
   client: SupabaseStoreClient,
   store: AppStore,
   lockOptions?: StoreLockOptions,
+  orgId?: string,
 ): Promise<void> {
   await withStoreWriteLock(
     client,
     async () => {
-      const before = await sbReadStore(client);
-      await applyPlan(client, planStoreWrite(before, store));
+      const before = await sbReadStore(client, orgId);
+      await applyPlan(client, planStoreWrite(before, store), orgId);
     },
     lockOptions,
+    orgId,
   );
 }
 
@@ -397,23 +444,26 @@ export async function sbUpdateStore(
   client: SupabaseStoreClient,
   updater: (store: AppStore) => AppStore | void,
   lockOptions?: StoreLockOptions,
+  orgId?: string,
 ): Promise<AppStore> {
   return withStoreWriteLock(
     client,
     async () => {
-      const before = structuredClone(await sbReadStore(client));
+      const before = structuredClone(await sbReadStore(client, orgId));
       const working = structuredClone(before);
       const next = updater(working) ?? working;
-      await applyPlan(client, planStoreWrite(before, next));
+      await applyPlan(client, planStoreWrite(before, next), orgId);
       return next;
     },
     lockOptions,
+    orgId,
   );
 }
 
 export async function sbPurgeShowData(
   client: SupabaseStoreClient,
   showId: string,
+  orgId?: string,
 ): Promise<AppStore> {
   return sbUpdateStore(client, (store) => ({
     ...store,
@@ -431,5 +481,5 @@ export async function sbPurgeShowData(
     shows: store.shows.filter((show) => show.id !== showId),
     active_show_id:
       store.active_show_id === showId ? null : store.active_show_id,
-  }));
+  }), undefined, orgId);
 }

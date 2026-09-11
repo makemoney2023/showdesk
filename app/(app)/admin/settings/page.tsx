@@ -19,6 +19,7 @@ import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { SectionCard } from "@/components/ui/section-card";
 import { JudgeListFields } from "@/components/show/JudgeListFields";
 import { syncShowJudges } from "@/lib/domain/show-judges";
+import type { SessionOrg } from "@/lib/auth/org";
 import type { Show } from "@/lib/types";
 
 export default function AdminSettingsPage() {
@@ -33,8 +34,19 @@ export default function AdminSettingsPage() {
   const [resultsHref, setResultsHref] = useState<string | null>(null);
   const [resultsPublished, setResultsPublished] = useState(false);
   const [facebookConfigured, setFacebookConfigured] = useState(false);
+  const [club, setClub] = useState<SessionOrg | null>(null);
+  const [clubLoginUrl, setClubLoginUrl] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    const orgRes = await fetch("/api/orgs");
+    if (orgRes.ok) {
+      const orgData = (await orgRes.json()) as { org?: SessionOrg | null };
+      setClub(orgData.org ?? null);
+      if (orgData.org?.slug && typeof window !== "undefined") {
+        setClubLoginUrl(`${window.location.origin}/c/${orgData.org.slug}/login`);
+      }
+    }
+
     const res = await fetch("/api/shows");
     if (!res.ok) {
       setMessage(
@@ -151,6 +163,60 @@ export default function AdminSettingsPage() {
         <>
       {message ? (
         <p className="sss-tray px-3 py-2 text-sm">{message}</p>
+      ) : null}
+
+      {club ? (
+        <SectionCard title="Club">
+          <p className="text-sm text-sss-text-secondary">
+            {club.name} has its own Show Desk. Other clubs cannot see this
+            roster, critiques, or settings.
+          </p>
+          {clubLoginUrl ? (
+            <p className="text-sm">
+              Club login:{" "}
+              <a
+                href={clubLoginUrl}
+                className="font-medium text-sss-accent-deep underline"
+              >
+                {clubLoginUrl}
+              </a>
+            </p>
+          ) : null}
+          {club.invite_code ? (
+            <div className="space-y-2">
+              <Label htmlFor="invite_code">Staff invite code</Label>
+              <Input id="invite_code" readOnly value={club.invite_code} />
+              <p className="text-xs text-sss-text-muted">
+                Share this with another secretary or steward so they join{" "}
+                {club.name} instead of creating a second club.
+              </p>
+              <Button
+                variant="outline"
+                disabled={busy}
+                onClick={() => {
+                  setBusy(true);
+                  void fetch("/api/orgs", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ rotate_invite: true }),
+                  })
+                    .then(async (res) => {
+                      if (!res.ok) {
+                        pushToast("Could not rotate invite code");
+                        return;
+                      }
+                      const data = (await res.json()) as { org?: SessionOrg };
+                      setClub(data.org ?? club);
+                      pushToast("Invite code rotated");
+                    })
+                    .finally(() => setBusy(false));
+                }}
+              >
+                Rotate invite code
+              </Button>
+            </div>
+          ) : null}
+        </SectionCard>
       ) : null}
 
       {form ? (

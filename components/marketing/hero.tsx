@@ -123,10 +123,10 @@ export function Hero() {
             className="mt-9 flex flex-wrap items-center gap-4"
           >
             <Link
-              href="/login"
+              href="/login?mode=create"
               className="group relative rounded-full bg-[#c4a35a] px-7 py-3.5 text-sm font-bold text-[#141210] transition-transform duration-200 hover:scale-[1.03] active:scale-[0.98]"
             >
-              Try the live demo
+              Start your club
               <span
                 aria-hidden
                 className="absolute inset-0 -z-10 rounded-full bg-[#c4a35a] opacity-40 blur-xl transition-opacity group-hover:opacity-70"

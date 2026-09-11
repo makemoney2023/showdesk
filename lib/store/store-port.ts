@@ -17,6 +17,7 @@ import type { AppStore } from "@/lib/types";
 /** Postgres `shows` row. */
 export interface ShowRow {
   id: string;
+  org_id?: string | null;
   name: string;
   date: string;
   venue: string;
@@ -106,6 +107,12 @@ export type DogDocumentRow = DogDocumentRecord;
 /** Singleton `app_state` row (`id = 1`). */
 export interface AppStateRow {
   id: 1;
+  active_show_id: string | null;
+}
+
+/** Per-club active show + write lease. */
+export interface OrgStateRow {
+  org_id: string;
   active_show_id: string | null;
 }
 

@@ -10,6 +10,7 @@ import {
 describe("role-shell", () => {
   it("classifies pathnames", () => {
     expect(shellForPath("/login")).toBe("minimal");
+    expect(shellForPath("/c/blacksage/login")).toBe("minimal");
     expect(shellForPath("/ringside")).toBe("steward");
     expect(shellForPath("/ringside/record/abc")).toBe("steward");
     expect(shellForPath("/")).toBe("secretary");

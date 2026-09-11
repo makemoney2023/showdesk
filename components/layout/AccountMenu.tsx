@@ -9,7 +9,13 @@ import { openPwaInstallPrompt } from "@/components/pwa/PwaInstallHost";
 import { accountRoleLabel } from "@/lib/domain/show-day";
 import type { RoleShellKind } from "@/lib/domain/role-shell";
 
-type AccountUser = { id: string; email: string; name?: string };
+type AccountUser = {
+  id: string;
+  email: string;
+  name?: string;
+  org?: { id: string; name: string; slug: string } | null;
+  orgs?: { id: string; name: string; slug: string }[];
+};
 
 function accountInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -101,11 +107,35 @@ export function AccountMenu({
           {user?.email && user?.name ? (
             <p className="text-xs text-sss-text-secondary">{user.email}</p>
           ) : null}
+          {user?.org ? (
+            <p className="text-sm text-sss-text-secondary">{user.org.name}</p>
+          ) : null}
           {role && user ? (
             <p className="text-xs uppercase tracking-[0.16em] text-sss-text-muted">
               {role}
             </p>
           ) : null}
+          {(user?.orgs?.length ?? 0) > 1
+            ? user!.orgs!.map((org) => (
+                <Button
+                  key={org.id}
+                  variant={org.id === user?.org?.id ? "default" : "outline"}
+                  className="w-full"
+                  onClick={() => {
+                    void fetch("/api/orgs/select", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ org_id: org.id }),
+                    }).then(() => {
+                      setOpen(false);
+                      router.refresh();
+                    });
+                  }}
+                >
+                  {org.id === user?.org?.id ? `Using ${org.name}` : `Open ${org.name}`}
+                </Button>
+              ))
+            : null}
           {canInstall ? (
             <Button
               variant="outline"

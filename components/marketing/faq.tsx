@@ -55,7 +55,7 @@ export const FAQ_ITEMS: { question: string; answer: string }[] = [
   {
     question: "How do we get started?",
     answer:
-      "Try the live demo and bring your last show's catalog. Run it end to end — import, ringside recording, review, and delivery — so your committee sees the actual workflow before committing to anything.",
+      "Create your club on Show Desk, or try the live demo with your last catalog. Each club gets its own login and isolated desk — import, ringside recording, review, and delivery — so your committee sees the actual workflow before the next show.",
   },
 ];
 

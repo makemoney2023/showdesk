@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { parseAuthCredentials } from "@/lib/auth/credentials";
+import { getSessionUser } from "@/lib/auth/session";
+import { createClubForUser, joinClubByInvite } from "@/lib/auth/org-service";
 import { isDemoMode } from "@/lib/supabase/config";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
- * Self-serve email signup. Uses the service-role admin API to create an
- * already-confirmed user, then signs them in so cookies are set immediately
- * (no Dashboard user create, no confirm-email hop).
+ * Self-serve signup. Creates a confirmed user, signs them in, then either
+ * provisions a new club or joins one with an invite code.
  */
 export async function POST(request: Request) {
   if (isDemoMode()) {
@@ -17,10 +18,21 @@ export async function POST(request: Request) {
     );
   }
 
-  const body = (await request.json()) as { email?: string; password?: string };
+  const body = (await request.json()) as {
+    email?: string;
+    password?: string;
+    club_name?: string;
+    invite_code?: string;
+  };
   const parsed = parseAuthCredentials(body);
   if (!parsed.ok) {
     return NextResponse.json({ error: parsed.error }, { status: 400 });
+  }
+  if (!body.club_name?.trim() && !body.invite_code?.trim()) {
+    return NextResponse.json(
+      { error: "Create a club or enter an invite code" },
+      { status: 400 },
+    );
   }
 
   const admin = createSupabaseAdminClient();
@@ -58,5 +70,34 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true, signedUp: true });
+  const user = await getSessionUser();
+  if (!user) {
+    return NextResponse.json({ error: "Signed up but session missing" }, { status: 500 });
+  }
+
+  const provision = body.invite_code?.trim()
+    ? await joinClubByInvite({
+        userId: user.id,
+        inviteCode: body.invite_code,
+        request,
+      })
+    : await createClubForUser({
+        userId: user.id,
+        name: body.club_name,
+        request,
+      });
+  if (!provision.ok) {
+    return NextResponse.json(
+      { error: provision.error },
+      { status: provision.status },
+    );
+  }
+
+  const session = await getSessionUser();
+  return NextResponse.json({
+    ok: true,
+    signedUp: true,
+    org: provision.org,
+    user: session,
+  });
 }

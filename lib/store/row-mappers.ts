@@ -52,6 +52,7 @@ function optionalStringArray(
 export function toShowRow(show: Show): ShowRow {
   return {
     id: show.id,
+    ...(show.org_id ? { org_id: show.org_id } : {}),
     name: show.name,
     date: show.date,
     venue: show.venue,
@@ -67,6 +68,7 @@ export function toShowRow(show: Show): ShowRow {
 export function mapShowRow(row: ShowRow): Show {
   return {
     id: row.id,
+    ...(row.org_id ? { org_id: row.org_id } : {}),
     name: row.name,
     date: row.date,
     venue: row.venue,

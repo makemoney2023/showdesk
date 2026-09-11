@@ -3,6 +3,11 @@ import type { DraftCritiqueSchema } from "@/lib/domain/adrk-template";
 import type { CritiqueStatus } from "@/lib/domain/critique-status";
 import type { RulebookTemplate } from "@/lib/domain/adrk-template";
 import type { DeskRole } from "@/lib/auth/roles";
+import type { Membership, Organization } from "@/lib/auth/org";
+import {
+  DEFAULT_DEMO_ORG,
+  DEFAULT_DEMO_ORG_ID,
+} from "@/lib/auth/org";
 import type { DogSex } from "@/lib/domain/class-division";
 import type {
   CatalogClassId,
@@ -14,6 +19,8 @@ import type { DogDocumentRecord } from "@/lib/domain/dog-document";
 
 export interface Show {
   id: string;
+  /** Club that owns this show. Required in production after multi-tenant migration. */
+  org_id?: string;
   name: string;
   date: string;
   venue: string;
@@ -114,6 +121,8 @@ export interface AppStore {
   dog_documents: DogDocumentRecord[];
   active_show_id: string | null;
   demo_users: DemoUser[];
+  organizations?: Organization[];
+  memberships?: Membership[];
 }
 
 export const EMPTY_STORE: AppStore = {
@@ -124,6 +133,21 @@ export const EMPTY_STORE: AppStore = {
   se_evaluations: [],
   dog_documents: [],
   active_show_id: null,
+  organizations: [DEFAULT_DEMO_ORG],
+  memberships: [
+    {
+      id: "mem-demo-secretary",
+      org_id: DEFAULT_DEMO_ORG_ID,
+      user_id: "demo-secretary",
+      role: "secretary",
+    },
+    {
+      id: "mem-demo-steward",
+      org_id: DEFAULT_DEMO_ORG_ID,
+      user_id: "demo-steward",
+      role: "steward",
+    },
+  ],
   demo_users: [
     {
       id: "demo-secretary",

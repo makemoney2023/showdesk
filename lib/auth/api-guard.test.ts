@@ -18,6 +18,20 @@ const secretary = {
   email: "secretary@demo.local",
   name: "Demo Secretary",
   role: "secretary" as const,
+  org: {
+    id: "org-blacksage",
+    name: "Blacksage Kennels",
+    slug: "blacksage",
+    role: "secretary" as const,
+  },
+  orgs: [
+    {
+      id: "org-blacksage",
+      name: "Blacksage Kennels",
+      slug: "blacksage",
+      role: "secretary" as const,
+    },
+  ],
 };
 
 const steward = {
@@ -25,6 +39,20 @@ const steward = {
   email: "steward@demo.local",
   name: "Demo Steward",
   role: "steward" as const,
+  org: {
+    id: "org-blacksage",
+    name: "Blacksage Kennels",
+    slug: "blacksage",
+    role: "steward" as const,
+  },
+  orgs: [
+    {
+      id: "org-blacksage",
+      name: "Blacksage Kennels",
+      slug: "blacksage",
+      role: "steward" as const,
+    },
+  ],
 };
 
 describe("api guards", () => {

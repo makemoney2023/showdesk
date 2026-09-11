@@ -29,6 +29,12 @@ export async function GET() {
 export async function POST(request: Request) {
   const auth = await requireSecretaryWrite();
   if (isApiUnauthorized(auth)) return auth;
+  if (!auth.user.org) {
+    return NextResponse.json(
+      { error: "Create or select a club before adding a show" },
+      { status: 409 },
+    );
+  }
 
   const body = (await request.json()) as {
     name?: string;
@@ -58,6 +64,7 @@ export async function POST(request: Request) {
 
   const show: Show = {
     id: newId("show"),
+    org_id: auth.user.org?.id,
     name: input.name.trim(),
     date: input.date,
     venue: input.venue.trim(),

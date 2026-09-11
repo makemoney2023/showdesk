@@ -23,7 +23,7 @@ With no public Supabase env, the app stays in DEMO MODE (see below).
 
 | Behavior | Demo | Production (both public vars set) |
 |----------|------|-----------------------------------|
-| Login | Cookie `sss-demo-session`; form prefills `secretary@demo.local` / `demo1234` | Supabase Auth sign-in + **Create account** at `/login` |
+| Login | Cookie `sss-demo-session`; form prefills `secretary@demo.local` / `demo1234` | Supabase Auth sign-in, **Create your club**, or join with an invite at `/login`. Club-branded login lives at `/c/{slug}/login` |
 | Data | `.data/store.json` | Postgres (`shows`, `app_state`, `entries`, `critiques`, `placements`, `se_evaluations`) |
 | Critique audio | `.data/audio/{show_id}/{critique_id}.webm` | Private Storage bucket `critique-audio` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Unused | Server-only (signup confirm, Storage). Never `NEXT_PUBLIC_` |
@@ -71,6 +71,8 @@ SQL lives under `supabase/migrations/`. Apply **in order** on project `emiwbvbyt
 9. `supabase/migrations/20260824180000_show_results_published.sql` — public results publish timestamp.
 10. `supabase/migrations/20260825010000_dog_identity_and_documents.sql` — shared `dog_id`, identity/health fields, and optional public clearance documents.
 11. `supabase/migrations/20260902180000_store_write_lock.sql` — store write lease (`acquire_store_lock` / `release_store_lock`) so concurrent ringside + desk writes serialize instead of losing updates. The app degrades to unserialized writes until this is applied.
+12. `supabase/migrations/20260911180000_multi_tenant_orgs.sql` — clubs (`organizations`, `memberships`, `org_state`), `shows.org_id`, tenant RLS, invite join, and per-club write locks. Seeds existing rows onto **Blacksage Kennels** (`blacksage`).
+13. `supabase/migrations/20260911180100_org_lock_search_path.sql` — fixed `search_path` on org lock RPCs; club slug lookup is service-role only.
 
 **Status:** migration status must match the live project before entering placements.
 
@@ -81,18 +83,24 @@ Saturday and Sunday are independent, and Male (`R` / Rüde) and female
 (`H` / Hündin) dogs have independent Place 1–4 pools. CSV sex also accepts
 `male`/`female`, `M`/`F`, and `Ruede`/`Huendin`; unknown values are rejected.
 
-## Auth (self-serve signup)
+## Auth (multi-tenant clubs)
 
-A1: any authenticated user can use secretary + ringside (no role gates).
+Each club is its own tenant: shows, roster, critiques, placements, and storage are scoped by organization. RLS blocks cross-club reads and writes.
 
-Users **create their own account** on `/login` → **Create account** (email + password, min 6 chars). The API is `POST /api/auth/signup`, which uses the service-role admin client to create an already-confirmed user, then `signInWithPassword` so session cookies are set immediately. No Dashboard “Add user” step.
+| Path | Who |
+|------|-----|
+| `/login` | Sign in, **Create your club**, or join with an invite code |
+| `/c/{slug}/login` | Club-branded login (share this with that club's staff) |
+
+**Create your club** (`POST /api/auth/signup` with `club_name`) uses the service-role admin client to create an already-confirmed user, signs them in, then provisions an organization + owner membership. **Join a club** uses that club's invite code from Settings.
 
 Requirements for signup on Vercel:
 1. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` (required for signup confirm).
-2. Redeploy.
-3. Open `/login` → **Create account** with a real email. Do **not** use `secretary@demo.local` in production.
+2. Apply `supabase/migrations/20260911180000_multi_tenant_orgs.sql`.
+3. Redeploy.
+4. Open `/login` → **Create your club** with a real email and club name. Do **not** use `secretary@demo.local` in production.
 
-Existing users use **Sign in**. Duplicate emails return a clear error (409).
+Existing Blacksage users stay on the seeded `blacksage` club. Duplicate emails return a clear error (409). Owners/secretaries run the desk; stewards stay ringside-only.
 
 ## Storage (production)
 
@@ -124,7 +132,7 @@ Set env on the Show Desk Vercel project (Production and Preview). Then redeploy 
 | `ASSEMBLYAI_API_KEY` | optional | Legacy STT / LeMUR if Deepgram unset |
 | `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | optional | Mock email if unset |
 
-If public env is missing on Vercel, the deploy stays in DEMO MODE (file store + demo cookie). After env is set (including service role): **Create account** on `/login`, then create a show; import CSV; run SE / critique / review.
+If public env is missing on Vercel, the deploy stays in DEMO MODE (file store + demo cookie). After env is set (including service role): **Create your club** on `/login`, then create a show; import CSV; run SE / critique / review. Share `/c/{slug}/login` with that club's staff.
 
 Operator checklist: `docs/orgs/velocity-agency/customers/blacksage-kennels/initiatives/sieger-show-secretary/business-idea/WIRE/phase-9-mvp.md`.
 

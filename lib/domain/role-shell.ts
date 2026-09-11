@@ -1,7 +1,13 @@
 export type RoleShellKind = "secretary" | "steward" | "minimal";
 
 export function shellForPath(pathname: string): RoleShellKind {
-  if (pathname === "/login" || pathname.startsWith("/login/")) return "minimal";
+  if (
+    pathname === "/login" ||
+    pathname.startsWith("/login/") ||
+    pathname.startsWith("/c/")
+  ) {
+    return "minimal";
+  }
   if (pathname === "/ringside" || pathname.startsWith("/ringside/")) {
     return "steward";
   }

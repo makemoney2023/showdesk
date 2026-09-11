@@ -1,6 +1,10 @@
 import fs from "fs/promises";
 import path from "path";
 import { parseDeskRole } from "@/lib/auth/roles";
+import {
+  DEFAULT_DEMO_ORG,
+  DEFAULT_DEMO_ORG_ID,
+} from "@/lib/auth/org";
 import type { AppStore } from "@/lib/types";
 import { EMPTY_STORE } from "@/lib/types";
 import { demoWritesBlocked } from "@/lib/supabase/config";
@@ -29,8 +33,26 @@ function withDefaultDemoUsers(store: AppStore): AppStore {
   for (const user of EMPTY_STORE.demo_users) {
     if (!byId.has(user.id)) byId.set(user.id, user);
   }
+  const organizations = store.organizations?.length
+    ? store.organizations
+    : [DEFAULT_DEMO_ORG];
+  const hasDefaultOrg = organizations.some(
+    (org) => org.id === DEFAULT_DEMO_ORG_ID,
+  );
+  const orgs = hasDefaultOrg
+    ? organizations
+    : [...organizations, DEFAULT_DEMO_ORG];
+  const memberships = store.memberships?.length
+    ? store.memberships
+    : (EMPTY_STORE.memberships ?? []);
   return {
     ...store,
+    organizations: orgs,
+    memberships,
+    shows: store.shows.map((show) => ({
+      ...show,
+      org_id: show.org_id ?? DEFAULT_DEMO_ORG_ID,
+    })),
     demo_users: [...byId.values()].map((user) => ({
       ...user,
       role: parseDeskRole(user.role),

@@ -90,6 +90,7 @@ function createMockClient(
     placements?: Row[];
     se_evaluations?: Row[];
     app_state?: { id: 1; active_show_id: string | null };
+    org_state?: { org_id: string; active_show_id: string | null }[];
   },
   lock?: {
     /** Successive acquire results; exhausted entries default to granted. */
@@ -111,6 +112,9 @@ function createMockClient(
     dog_documents: new Map(),
   };
   let appState = seed?.app_state ?? { id: 1 as const, active_show_id: null };
+  const orgStates = new Map(
+    (seed?.org_state ?? []).map((row) => [row.org_id, row]),
+  );
   const ops: { op: string; table: string; payload?: unknown }[] = [];
   let acquireCalls = 0;
 
@@ -119,7 +123,7 @@ function createMockClient(
     : {
         async rpc(fn: string, args: Record<string, unknown>) {
           ops.push({ op: "rpc", table: fn, payload: args });
-          if (fn === "acquire_store_lock") {
+          if (fn === "acquire_store_lock" || fn === "acquire_org_store_lock") {
             if (lock?.errorMessage) {
               return { data: null, error: { message: lock.errorMessage } };
             }
@@ -146,6 +150,12 @@ function createMockClient(
                   if (table === "app_state" && col === "id" && val === 1) {
                     return { data: appState, error: null };
                   }
+                  if (table === "org_state" && col === "org_id") {
+                    return {
+                      data: orgStates.get(String(val)) ?? null,
+                      error: null,
+                    };
+                  }
                   const rows = [...(tables[table]?.values() ?? [])].filter(
                     (r) => r[col] === val,
                   );
@@ -169,6 +179,12 @@ function createMockClient(
           ops.push({ op: "upsert", table, payload: list });
           if (table === "app_state") {
             appState = list[0] as typeof appState;
+            return { data: list, error: null };
+          }
+          if (table === "org_state") {
+            for (const row of list) {
+              orgStates.set(String(row.org_id), row as { org_id: string; active_show_id: string | null });
+            }
             return { data: list, error: null };
           }
           for (const row of list) {
@@ -542,6 +558,55 @@ describe("sbUpdateStore — store write lease", () => {
         (op) => op.op === "rpc" && op.table === "release_store_lock",
       ),
     ).toBe(true);
+  });
+});
+
+describe("org-scoped store", () => {
+  const otherShow: Show = {
+    ...show,
+    id: "show-other",
+    org_id: "org-other",
+    name: "Other Club Show",
+  };
+  const clubShow: Show = { ...show, org_id: "org-blacksage" };
+
+  it("reads only the active club's shows and org_state", async () => {
+    const client = createMockClient({
+      shows: [toShowRow(clubShow), toShowRow(otherShow)],
+      entries: [
+        toEntryRow(entry),
+        toEntryRow({ ...entry, id: "entry-other", show_id: "show-other" }),
+      ],
+      app_state: { id: 1, active_show_id: "show-other" },
+      org_state: [{ org_id: "org-blacksage", active_show_id: "show-1" }],
+    });
+
+    const store = await sbReadStore(client, "org-blacksage");
+    expect(store.shows.map((item) => item.id)).toEqual(["show-1"]);
+    expect(store.entries.map((item) => item.id)).toEqual(["entry-1"]);
+    expect(store.active_show_id).toBe("show-1");
+  });
+
+  it("persists active show onto org_state for that club", async () => {
+    const client = createMockClient({
+      shows: [toShowRow(clubShow)],
+      org_state: [{ org_id: "org-blacksage", active_show_id: null }],
+    });
+
+    const next = await sbUpdateStore(
+      client,
+      (s) => ({ ...s, active_show_id: "show-1" }),
+      undefined,
+      "org-blacksage",
+    );
+
+    expect(next.active_show_id).toBe("show-1");
+    expect(client.ops).toContainEqual({
+      op: "upsert",
+      table: "org_state",
+      payload: [{ org_id: "org-blacksage", active_show_id: "show-1" }],
+    });
+    expect(client.ops.some((op) => op.table === "app_state")).toBe(false);
   });
 });
 

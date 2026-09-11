@@ -1,4 +1,5 @@
 import { dogPhotoRelativePath } from "@/lib/domain/dog-photo";
+import { mergeOrgStore, scopeStoreToOrg } from "@/lib/domain/org-scope";
 import {
   DEMO_WRITES_BLOCKED_MESSAGE,
   demoWritesBlocked,
@@ -97,29 +98,58 @@ async function requireSupabaseClient(): Promise<StoreClient> {
   return client as unknown as StoreClient;
 }
 
+async function activeOrgId(): Promise<string | undefined> {
+  try {
+    const { getSessionUser } = await import("@/lib/auth/session");
+    const user = await getSessionUser();
+    return user?.org?.id;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function readStore(): Promise<AppStore> {
-  if (getStoreBackend() === "file") return fileReadStore();
-  return sbReadStore(await requireSupabaseClient());
+  const orgId = await activeOrgId();
+  if (getStoreBackend() === "file") {
+    const store = await fileReadStore();
+    return orgId ? scopeStoreToOrg(store, orgId) : store;
+  }
+  return sbReadStore(await requireSupabaseClient(), orgId);
 }
 
 export async function writeStore(store: AppStore): Promise<void> {
   assertDemoWritesAllowed();
+  const orgId = await activeOrgId();
   if (getStoreBackend() === "file") return fileWriteStore(store);
-  return sbWriteStore(await requireSupabaseClient(), store);
+  return sbWriteStore(await requireSupabaseClient(), store, undefined, orgId);
 }
 
 export async function updateStore(
   updater: (store: AppStore) => AppStore | void,
 ): Promise<AppStore> {
   assertDemoWritesAllowed();
-  if (getStoreBackend() === "file") return fileUpdateStore(updater);
-  return sbUpdateStore(await requireSupabaseClient(), updater);
+  const orgId = await activeOrgId();
+  if (getStoreBackend() === "file") {
+    if (!orgId) return fileUpdateStore(updater);
+    return fileUpdateStore((full) => {
+      const scoped = scopeStoreToOrg(full, orgId);
+      const next = updater(scoped) ?? scoped;
+      return mergeOrgStore(full, next, orgId);
+    });
+  }
+  return sbUpdateStore(
+    await requireSupabaseClient(),
+    updater,
+    undefined,
+    orgId,
+  );
 }
 
 export async function purgeShowData(showId: string): Promise<AppStore> {
   assertDemoWritesAllowed();
+  const orgId = await activeOrgId();
   if (getStoreBackend() === "file") return filePurgeShowData(showId);
-  return sbPurgeShowData(await requireSupabaseClient(), showId);
+  return sbPurgeShowData(await requireSupabaseClient(), showId, orgId);
 }
 
 export async function writeCritiqueAudio(opts: {
