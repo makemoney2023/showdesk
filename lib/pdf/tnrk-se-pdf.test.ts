@@ -4,15 +4,17 @@ import {
   createEmptyTnrkSeForm,
   type TnrkSeForm,
 } from "@/lib/domain/tnrk-se-form";
-import { pdfContainsText } from "./pdf-text";
+import { extractPdfText, pdfContainsText } from "./pdf-text";
 import {
   TNRK_SE_APPEARANCE,
   TNRK_SE_COMMENTS,
   TNRK_SE_DEFAULT_INSET,
+  TNRK_SE_FOOTER,
   TNRK_SE_HEADER_VALUE,
   TNRK_SE_MEASUREMENT_VALUE,
   TNRK_SE_ROW2_INSET,
   TNRK_SE_SEX_MARK,
+  TNRK_SE_SIGNATURE_BOX,
   buildTnrkSePdf,
   fitOverlayText,
   wrapOverlayText,
@@ -198,5 +200,31 @@ describe("buildTnrkSePdf", () => {
     };
     const bytes = await buildTnrkSePdf(form);
     expect(pdfContainsText(bytes, "61")).toBe(true);
+  });
+
+  it("prints the judge name and a readable signature date", async () => {
+    const form = createEmptyTnrkSeForm();
+    form.judge = "Sandra Reck (ADRK)";
+    form.date = "2026-09-04";
+    form.signature_date = "2026-09-04";
+    const bytes = await buildTnrkSePdf(form);
+    const text = extractPdfText(bytes);
+    expect(text).toContain("Sandra Reck (ADRK)");
+    expect(text).toContain("Sep 4, 2026");
+    expect(text).not.toContain("2026-09-04");
+    expect(Buffer.from(bytes).toString("latin1")).toContain("Helvetica-Bold");
+  });
+});
+
+describe("TNRK SE signature footer layout", () => {
+  it("keeps e-signature boxes in the blank cells, left of DATE", () => {
+    const judge = TNRK_SE_SIGNATURE_BOX.judge;
+    const secretary = TNRK_SE_SIGNATURE_BOX.secretary;
+    expect(judge.x).toBeGreaterThan(TNRK_SE_FOOTER.judgeName.maxX);
+    expect(judge.x + judge.width).toBeLessThan(574);
+    expect(secretary.x).toBe(judge.x);
+    expect(secretary.x + secretary.width).toBeLessThan(TNRK_SE_FOOTER.date.x);
+    expect(TNRK_SE_FOOTER.date.fromTop).toBe(TNRK_SE_FOOTER.secretaryName.fromTop);
+    expect(TNRK_SE_FOOTER.date.maxX).toBeLessThan(574);
   });
 });

@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
-import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { formatDisplayDate } from "@/lib/domain/show-day";
 import {
   normalizeTnrkSeForm,
   type TnrkSeForm,
@@ -83,6 +84,51 @@ export const TNRK_SE_COMMENTS = {
   fromTop: 681,
 } as const;
 
+/**
+ * Footer NAME / DATE overlays. Judge name stays left of the signature box.
+ * Date sits in the DATE / DATUM cell, same baseline as the secretary row.
+ */
+export const TNRK_SE_FOOTER = {
+  judgeName: { x: 48, fromTop: 722, maxX: 310 },
+  secretaryName: { x: 48, fromTop: 752, maxX: 310 },
+  date: { x: 488, fromTop: 752, maxX: 569 },
+} as const;
+
+/**
+ * E-signature pads on the blank cells (pdftotext-style fromTop = box bottom).
+ * Judge: right of JUDGE'S SIGNATURE. Secretary: right of EVENT SECRETARY,
+ * left of DATE / DATUM.
+ */
+export const TNRK_SE_SIGNATURE_BOX = {
+  judge: { x: 318, fromTop: 736, width: 248, height: 24 },
+  secretary: { x: 318, fromTop: 768, width: 116, height: 24 },
+} as const;
+
+/** Draw a printable signature pad (border + baseline) for wet-ink or e-sign. */
+export function drawSignatureBox(
+  page: PDFPage,
+  box: { x: number; width: number; height: number },
+  yBottom: number,
+): void {
+  const border = rgb(0.12, 0.12, 0.12);
+  page.drawRectangle({
+    x: box.x,
+    y: yBottom,
+    width: box.width,
+    height: box.height,
+    borderColor: border,
+    borderWidth: 1,
+    color: rgb(1, 1, 1),
+  });
+  const inset = 8;
+  page.drawLine({
+    start: { x: box.x + inset, y: yBottom + 7 },
+    end: { x: box.x + box.width - inset, y: yBottom + 7 },
+    thickness: 0.6,
+    color: rgb(0.45, 0.45, 0.45),
+  });
+}
+
 /** Shrink, then ellipsize, so overlay text stays inside a template cell. */
 export function fitOverlayText(
   text: string,
@@ -162,6 +208,7 @@ export async function buildTnrkSePdf(form: TnrkSeForm): Promise<Uint8Array> {
   const pdf = await PDFDocument.load(bytes);
   const page = pdf.getPages()[0];
   const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const { height } = page.getSize();
   const mediaY = page.getMediaBox().y;
   const yFromTop = (fromTop: number) => height - fromTop + mediaY;
@@ -174,12 +221,13 @@ export async function buildTnrkSePdf(form: TnrkSeForm): Promise<Uint8Array> {
     y: number,
     size = 8,
     maxX?: number,
+    face: PDFFont = font,
   ) => {
     if (!text?.trim()) return;
     let out = text.trim();
     let used = size;
     if (maxX != null) {
-      const fitted = fitOverlayText(out, font, size, maxX - x);
+      const fitted = fitOverlayText(out, face, size, maxX - x);
       out = fitted.text;
       used = fitted.size;
     } else {
@@ -190,7 +238,7 @@ export async function buildTnrkSePdf(form: TnrkSeForm): Promise<Uint8Array> {
       x,
       y,
       size: used,
-      font,
+      font: face,
       color: rgb(0.05, 0.05, 0.05),
     });
   };
@@ -214,12 +262,12 @@ export async function buildTnrkSePdf(form: TnrkSeForm): Promise<Uint8Array> {
 
   // Row 0 — DATE | CLUB | JUDGE
   const y0 = baseline(144.5);
-  draw(form.date, left.x, y0, 8, left.maxX);
+  draw(formatDisplayDate(form.date), left.x, y0, 8, left.maxX);
   // Template already prints the club name — only overlay if customized.
   if (form.club.trim() && form.club !== "True North Rottweiler Klub") {
     draw(form.club, 268, y0, 7, mid.maxX);
   }
-  draw(form.judge, right.x, y0, 8, right.maxX);
+  draw(form.judge, right.x, y0, 8, right.maxX, bold);
 
   // Row 1 — DOG | SEX | REG  (dog name must not run into SEX / GESCHLECHT)
   const y1 = baseline(168.5, TNRK_SE_ROW2_INSET);
@@ -375,9 +423,34 @@ export async function buildTnrkSePdf(form: TnrkSeForm): Promise<Uint8Array> {
   mark(form.final_result === "pass", 200, yFromTop(699));
   mark(form.final_result === "fail", 246, yFromTop(699));
 
-  draw(form.judge_signature || form.judge, 48, yFromTop(722), 9, 400);
-  draw(form.event_secretary, 48, yFromTop(752), 9, 400);
-  draw(form.signature_date || form.date, 520, yFromTop(765), 9, 569);
+  const judgeBox = TNRK_SE_SIGNATURE_BOX.judge;
+  const secretaryBox = TNRK_SE_SIGNATURE_BOX.secretary;
+  drawSignatureBox(page, judgeBox, yFromTop(judgeBox.fromTop));
+  drawSignatureBox(page, secretaryBox, yFromTop(secretaryBox.fromTop));
+
+  const judgeName = form.judge_signature || form.judge;
+  draw(
+    judgeName,
+    TNRK_SE_FOOTER.judgeName.x,
+    yFromTop(TNRK_SE_FOOTER.judgeName.fromTop),
+    10,
+    TNRK_SE_FOOTER.judgeName.maxX,
+    bold,
+  );
+  draw(
+    form.event_secretary,
+    TNRK_SE_FOOTER.secretaryName.x,
+    yFromTop(TNRK_SE_FOOTER.secretaryName.fromTop),
+    9,
+    TNRK_SE_FOOTER.secretaryName.maxX,
+  );
+  draw(
+    formatDisplayDate(form.signature_date || form.date),
+    TNRK_SE_FOOTER.date.x,
+    yFromTop(TNRK_SE_FOOTER.date.fromTop),
+    9,
+    TNRK_SE_FOOTER.date.maxX,
+  );
 
   return pdf.save({ useObjectStreams: false });
 }
