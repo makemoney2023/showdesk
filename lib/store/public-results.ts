@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { samplePublishedStore } from "@/lib/domain/public-results.sample";
 import { listPublishedShows } from "@/lib/domain/public-results";
 import { isDemoMode, isVercelPreview } from "@/lib/supabase/config";
@@ -15,22 +16,18 @@ export function shouldUseSampleResults(publishedCount: number): boolean {
   return isDemoMode() || isVercelPreview();
 }
 
-/**
- * Store snapshot for public /results pages.
- * Uses the service-role client in production so anonymous visitors can
- * read published shows despite authenticated-only RLS.
- * Never returns email, audio, or unpublished critiques — callers must
- * still project through `listPublishedShows` / `getPublishedShow`.
- */
-export async function readPublicResultsStore(): Promise<AppStore> {
-  const store = await readLivePublicStore();
-  if (shouldUseSampleResults(listPublishedShows(store).length)) {
-    return samplePublishedStore();
-  }
-  return store;
+/** Share one live snapshot across a build / serverless instance. */
+const LIVE_STORE_TTL_MS = 30_000;
+
+let liveStorePromise: Promise<AppStore> | null = null;
+let liveStoreAt = 0;
+
+export function resetPublicResultsStoreCache() {
+  liveStorePromise = null;
+  liveStoreAt = 0;
 }
 
-async function readLivePublicStore(): Promise<AppStore> {
+async function readLivePublicStoreUncached(): Promise<AppStore> {
   if (isDemoMode()) return fileReadStore();
 
   const { createSupabaseAdminClient } = await import("@/lib/supabase/admin");
@@ -38,3 +35,40 @@ async function readLivePublicStore(): Promise<AppStore> {
   if (!admin) return EMPTY_STORE;
   return sbReadStore(admin as unknown as SupabaseStoreClient);
 }
+
+async function readLivePublicStore(): Promise<AppStore> {
+  const now = Date.now();
+  if (liveStorePromise && now - liveStoreAt < LIVE_STORE_TTL_MS) {
+    return liveStorePromise;
+  }
+
+  const pending = readLivePublicStoreUncached().catch((error: unknown) => {
+    if (liveStorePromise === pending) {
+      liveStorePromise = null;
+    }
+    console.error("Failed to read public results store", error);
+    return EMPTY_STORE;
+  });
+  liveStoreAt = now;
+  liveStorePromise = pending;
+  return pending;
+}
+
+/**
+ * Store snapshot for public /results pages.
+ * Uses the service-role client in production so anonymous visitors can
+ * read published shows despite authenticated-only RLS.
+ * Never returns email, audio, or unpublished critiques — callers must
+ * still project through `listPublishedShows` / `getPublishedShow`.
+ *
+ * React `cache` dedupes metadata + page + OG in one render. The process
+ * memo above also reuses one snapshot across the many static pages Next
+ * prerenders in a single build worker (React cache is per-request only).
+ */
+export const readPublicResultsStore = cache(async (): Promise<AppStore> => {
+  const store = await readLivePublicStore();
+  if (shouldUseSampleResults(listPublishedShows(store).length)) {
+    return samplePublishedStore();
+  }
+  return store;
+});

@@ -8,7 +8,6 @@ import {
   dogResultHeadline,
   facebookDogPost,
   getPublishedDog,
-  publicDogPaths,
 } from "@/lib/domain/public-results";
 import { resultShareMetadata } from "@/lib/domain/result-share-metadata";
 import { facebookGroupUrl } from "@/lib/social/facebook-results";
@@ -19,11 +18,9 @@ export const revalidate = 60;
 export const dynamicParams = true;
 
 export async function generateStaticParams() {
-  const store = await readPublicResultsStore();
-  return publicDogPaths(store).map((href) => {
-    const [, , showSlug, dogSlug] = href.split("/");
-    return { showSlug, dogSlug };
-  });
+  // On-demand ISR: prerendering 100+ dog pages (plus OG images) at build
+  // time repeatedly dumps the full store and has failed production deploys.
+  return [];
 }
 
 export async function generateMetadata({

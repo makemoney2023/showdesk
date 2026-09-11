@@ -7,11 +7,7 @@ export const revalidate = 60;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const origin = siteUrl();
-  const store = await readPublicResultsStore();
-  const shows = listPublishedShows(store);
-  const dogPaths = publicDogPaths(store);
-
-  return [
+  const fallback: MetadataRoute.Sitemap = [
     {
       url: origin,
       changeFrequency: "weekly",
@@ -22,16 +18,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily",
       priority: 0.9,
     },
-    ...shows.map((show) => ({
-      url: `${origin}${show.href}`,
-      lastModified: show.publishedAt,
-      changeFrequency: "weekly" as const,
-      priority: 0.8,
-    })),
-    ...dogPaths.map((href) => ({
-      url: `${origin}${href}`,
-      changeFrequency: "weekly" as const,
-      priority: 0.7,
-    })),
   ];
+
+  try {
+    const store = await readPublicResultsStore();
+    const shows = listPublishedShows(store);
+    const dogPaths = publicDogPaths(store);
+
+    return [
+      ...fallback,
+      ...shows.map((show) => ({
+        url: `${origin}${show.href}`,
+        lastModified: show.publishedAt,
+        changeFrequency: "weekly" as const,
+        priority: 0.8,
+      })),
+      ...dogPaths.map((href) => ({
+        url: `${origin}${href}`,
+        changeFrequency: "weekly" as const,
+        priority: 0.7,
+      })),
+    ];
+  } catch {
+    return fallback;
+  }
 }

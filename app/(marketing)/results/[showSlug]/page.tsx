@@ -17,8 +17,12 @@ export const revalidate = 60;
 export const dynamicParams = true;
 
 export async function generateStaticParams() {
-  const store = await readPublicResultsStore();
-  return listPublishedShows(store).map((show) => ({ showSlug: show.slug }));
+  try {
+    const store = await readPublicResultsStore();
+    return listPublishedShows(store).map((show) => ({ showSlug: show.slug }));
+  } catch {
+    return [];
+  }
 }
 
 export async function generateMetadata({
