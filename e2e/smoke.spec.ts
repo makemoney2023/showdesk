@@ -77,4 +77,22 @@ test.describe("smoke", () => {
     ).toBeVisible();
     await expect(page.getByLabel("Email")).toBeVisible();
   });
+
+  test("signed-in settings shows this club and its login link", async ({
+    page,
+  }) => {
+    await page.goto("/login");
+    await page.getByLabel("Email").fill("secretary@demo.local");
+    await page.getByLabel("Password").fill("demo1234");
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/admin\/entries/);
+
+    await page.goto("/admin/settings");
+    await expect(page.getByRole("heading", { name: "Club" })).toBeVisible();
+    await expect(page.getByText("Blacksage Kennels has its own Show Desk")).toBeVisible();
+    await expect(page.getByText(/\/c\/blacksage\/login/)).toBeVisible();
+    await expect(page.getByLabel("Staff invite code")).toHaveValue(
+      "BLACKSAGE-DEMO",
+    );
+  });
 });
