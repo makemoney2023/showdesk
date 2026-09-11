@@ -9,6 +9,7 @@ import {
   TNRK_TEMPLATE_LABELS,
   buildTnrkCritiquePdf,
   centeredTextX,
+  critiqueJudgeSignatureBox,
   resolveCritiqueCertificateNarrative,
 } from "./tnrk-critique-pdf";
 
@@ -146,11 +147,21 @@ describe("tnrk-critique-pdf layout", () => {
     expect(text.toLowerCase()).not.toContain("vp very promising");
   });
 
-  it("places only a judge signature box after the typed name", () => {
-    const judge = TNRK_CRITIQUE_SIGNATURE_BOX.judge;
-    expect(judge.x).toBeGreaterThan(TNRK_CRITIQUE_FIELD_X.judge_signature);
-    expect(judge.x + judge.width).toBeLessThan(830);
+  it("places only a judge signature box on the same row as the name", async () => {
+    const pdf = await PDFDocument.create();
+    const font = await pdf.embedFont(StandardFonts.Helvetica);
+    const name = "Sandra Reck (ADRK)";
+    const box = critiqueJudgeSignatureBox(name, font, 10);
+    const nameWidth = font.widthOfTextAtSize(name, 10);
     expect(TNRK_CRITIQUE_SIGNATURE_BOX).not.toHaveProperty("secretary");
+    expect(box.fromTop).toBe(TNRK_CRITIQUE_FIELD_TOP.judge_signature - 3);
+    expect(box.x).toBeGreaterThan(
+      TNRK_CRITIQUE_FIELD_X.judge_signature + nameWidth,
+    );
+    expect(box.x).toBeLessThan(
+      TNRK_CRITIQUE_FIELD_X.judge_signature + nameWidth + 12,
+    );
+    expect(box.x + box.width).toBeLessThan(830);
   });
 
   it("prints the judge name and does not add an event secretary pad", async () => {

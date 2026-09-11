@@ -74,11 +74,45 @@ export const TNRK_CRITIQUE_FIELD_X = {
 
 /**
  * Judge e-signature pad on the JUDGE'S SIGNATURE row (fromTop = box bottom).
- * Sits after the typed judge name.
+ * Bottom is 7pt below the name baseline so the inner sign-here line
+ * matches the typed name. x is computed just after that name.
  */
 export const TNRK_CRITIQUE_SIGNATURE_BOX = {
-  judge: { x: 500, fromTop: 568, width: 220, height: 22 },
+  judge: {
+    fromTop: TNRK_CRITIQUE_FIELD_TOP.judge_signature - 3,
+    height: 22,
+  },
 } as const;
+
+const CRITIQUE_SIGNATURE_GAP = 8;
+const CRITIQUE_SIGNATURE_RIGHT = 818;
+const CRITIQUE_SIGNATURE_MIN_WIDTH = 160;
+
+/** Pad starts immediately after the judge name, on the same baseline row. */
+export function critiqueJudgeSignatureBox(
+  name: string,
+  font: PDFFont,
+  size = 10,
+): { x: number; fromTop: number; width: number; height: number } {
+  const trimmed = name.trim();
+  const nameWidth = trimmed
+    ? font.widthOfTextAtSize(trimmed.slice(0, 140), size)
+    : 0;
+  const x = Math.min(
+    TNRK_CRITIQUE_FIELD_X.judge_signature +
+      (nameWidth ? nameWidth + CRITIQUE_SIGNATURE_GAP : 0),
+    CRITIQUE_SIGNATURE_RIGHT - CRITIQUE_SIGNATURE_MIN_WIDTH,
+  );
+  return {
+    x,
+    fromTop: TNRK_CRITIQUE_SIGNATURE_BOX.judge.fromTop,
+    width: Math.max(
+      CRITIQUE_SIGNATURE_MIN_WIDTH,
+      Math.min(220, CRITIQUE_SIGNATURE_RIGHT - x),
+    ),
+    height: TNRK_CRITIQUE_SIGNATURE_BOX.judge.height,
+  };
+}
 
 export const TNRK_CRITIQUE_NARRATIVE_SIZE = 10;
 
@@ -218,7 +252,7 @@ export async function buildTnrkCritiquePdf(
     10,
   );
 
-  const judgeBox = TNRK_CRITIQUE_SIGNATURE_BOX.judge;
+  const judgeBox = critiqueJudgeSignatureBox(form.judge_signature, font, 10);
   drawSignatureBox(page, judgeBox, yFromTop(judgeBox.fromTop));
   draw(
     form.judge_signature,
@@ -226,7 +260,7 @@ export async function buildTnrkCritiquePdf(
     baseline(TNRK_CRITIQUE_FIELD_TOP.judge_signature),
     10,
     false,
-    judgeBox.x - 6,
+    judgeBox.x - 4,
   );
 
   return pdf.save();
