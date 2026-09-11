@@ -1,9 +1,11 @@
 import { rgb, type PDFPage } from "pdf-lib";
 
+export const SIGNATURE_LINE_FROM_BOTTOM = 7;
+
 /** Draw a printable signature pad (border + baseline) for wet-ink or e-sign. */
 export function drawSignatureBox(
   page: PDFPage,
-  box: { x: number; width: number; height: number },
+  box: { x: number; width: number; height: number; lineFromBottom?: number },
   yBottom: number,
 ): void {
   const border = rgb(0.12, 0.12, 0.12);
@@ -17,9 +19,10 @@ export function drawSignatureBox(
     color: rgb(1, 1, 1),
   });
   const inset = 8;
+  const lineY = yBottom + (box.lineFromBottom ?? SIGNATURE_LINE_FROM_BOTTOM);
   page.drawLine({
-    start: { x: box.x + inset, y: yBottom + 7 },
-    end: { x: box.x + box.width - inset, y: yBottom + 7 },
+    start: { x: box.x + inset, y: lineY },
+    end: { x: box.x + box.width - inset, y: lineY },
     thickness: 0.6,
     color: rgb(0.45, 0.45, 0.45),
   });

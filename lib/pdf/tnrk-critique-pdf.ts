@@ -42,7 +42,8 @@ export const TNRK_CRITIQUE_FIELD_TOP = {
   dog_name: 206,
   /** Critique lines start (+20% lower) */
   narrative_start: Math.round(258 * TNRK_CRITIQUE_BODY_TOP_SHIFT),
-  class_and_rating: 472,
+  /** CLASS and DATE share one row — same baseline, just above the underline. */
+  class_and_rating: 468,
   date: 468,
   owner: 500,
   co_owner: 525,
@@ -74,13 +75,14 @@ export const TNRK_CRITIQUE_FIELD_X = {
 
 /**
  * Judge e-signature pad on the JUDGE'S SIGNATURE row (fromTop = box bottom).
- * Bottom is 7pt below the name baseline so the inner sign-here line
- * matches the typed name. x is computed just after that name.
+ * Taller pad grows downward so it clears CO-OWNER; the inner sign-here
+ * line stays on the typed-name baseline. x is computed just after that name.
  */
 export const TNRK_CRITIQUE_SIGNATURE_BOX = {
   judge: {
-    fromTop: TNRK_CRITIQUE_FIELD_TOP.judge_signature - 3,
-    height: 22,
+    fromTop: TNRK_CRITIQUE_FIELD_TOP.judge_signature + 6,
+    height: 28,
+    lineFromBottom: 16,
   },
 } as const;
 
@@ -93,7 +95,13 @@ export function critiqueJudgeSignatureBox(
   name: string,
   font: PDFFont,
   size = 10,
-): { x: number; fromTop: number; width: number; height: number } {
+): {
+  x: number;
+  fromTop: number;
+  width: number;
+  height: number;
+  lineFromBottom: number;
+} {
   const trimmed = name.trim();
   const nameWidth = trimmed
     ? font.widthOfTextAtSize(trimmed.slice(0, 140), size)
@@ -111,6 +119,7 @@ export function critiqueJudgeSignatureBox(
       Math.min(220, CRITIQUE_SIGNATURE_RIGHT - x),
     ),
     height: TNRK_CRITIQUE_SIGNATURE_BOX.judge.height,
+    lineFromBottom: TNRK_CRITIQUE_SIGNATURE_BOX.judge.lineFromBottom,
   };
 }
 
