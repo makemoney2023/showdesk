@@ -71,6 +71,9 @@ describe("tnrk-critique-pdf layout", () => {
       TNRK_CRITIQUE_FIELD_TOP.dog_name,
     );
     expect(TNRK_CRITIQUE_FIELD_TOP.class_and_rating).toBeGreaterThan(440);
+    expect(TNRK_CRITIQUE_FIELD_TOP.date).toBe(
+      TNRK_CRITIQUE_FIELD_TOP.class_and_rating,
+    );
     expect(TNRK_CRITIQUE_FIELD_X.dog_name).toBeGreaterThan(184);
     expect(TNRK_CRITIQUE_FIELD_X.dob).toBeGreaterThan(
       TNRK_TEMPLATE_LABELS.gebDatum.x1,
@@ -154,7 +157,8 @@ describe("tnrk-critique-pdf layout", () => {
     const box = critiqueJudgeSignatureBox(name, font, 10);
     const nameWidth = font.widthOfTextAtSize(name, 10);
     expect(TNRK_CRITIQUE_SIGNATURE_BOX).not.toHaveProperty("secretary");
-    expect(box.fromTop).toBe(TNRK_CRITIQUE_FIELD_TOP.judge_signature - 3);
+    expect(box.fromTop).toBe(TNRK_CRITIQUE_FIELD_TOP.judge_signature + 6);
+    expect(box.height).toBe(28);
     expect(box.x).toBeGreaterThan(
       TNRK_CRITIQUE_FIELD_X.judge_signature + nameWidth,
     );

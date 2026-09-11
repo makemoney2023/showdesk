@@ -103,8 +103,8 @@ export const TNRK_SE_FOOTER = {
  * left of DATE / DATUM.
  */
 export const TNRK_SE_SIGNATURE_BOX = {
-  judge: { x: 318, fromTop: 736, width: 248, height: 24 },
-  secretary: { x: 318, fromTop: 768, width: 116, height: 24 },
+  judge: { x: 318, fromTop: 736, width: 248, height: 28 },
+  secretary: { x: 318, fromTop: 768, width: 116, height: 28 },
 } as const;
 
 /** Shrink, then ellipsize, so overlay text stays inside a template cell. */
