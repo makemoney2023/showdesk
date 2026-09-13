@@ -41,6 +41,7 @@ import {
   reviewReportsHref,
   reviewTranscriptPreview,
   tnrkCritiquePdfHref,
+  type ReviewQueueFilter,
 } from "@/lib/domain/review-queue-layout";
 import { listQueuedRecordings, updateQueuedRecordingTranscript } from "@/lib/offline/queue";
 import { syncOfflineQueue } from "@/lib/offline/sync";
@@ -91,7 +92,7 @@ function AdminReviewPageInner() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<CritiqueRecord["draft"] | null>(null);
   const [statusMsg, setStatusMsg] = useState("");
-  const [pendingOnly, setPendingOnly] = useState(true);
+  const [queueFilter, setQueueFilter] = useState<ReviewQueueFilter>("attention");
   const [search, setSearch] = useState("");
   const [divisionFilter, setDivisionFilter] = useState("all");
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -413,10 +414,13 @@ function AdminReviewPageInner() {
     reviewCritiques.map((c) => c.status),
   );
   const visible = critiquesVisibleInReviewQueue(reviewCritiques, {
-    pendingOnly,
+    filter: queueFilter,
     selectedId,
     needsAttention: (status) => needsDeskAttention(status as CritiqueStatus),
   });
+  const approvedCount = reviewCritiques.filter(
+    (critique) => critique.status === "APPROVED",
+  ).length;
   const divisions = divisionsWithDogs(entries);
   const activeDivisionFilter = sanitizeRosterDivisionFilter(
     divisionFilter,
@@ -570,6 +574,45 @@ function AdminReviewPageInner() {
                       </span>
                     ) : null}
                   </div>
+                  <StickyDeskBar
+                    primaryLabel={
+                      queuedLocal
+                        ? "Sync to desk"
+                        : reviewPrimaryAction(selected.status).label
+                    }
+                    primaryDisabled={
+                      busy ||
+                      (!queuedLocal &&
+                        reviewPrimaryAction(selected.status).disabled)
+                    }
+                    primaryHref={
+                      queuedLocal || !showId || !selectedId
+                        ? undefined
+                        : reviewPrimaryAction(selected.status).kind === "print"
+                          ? tnrkCritiquePdfHref(showId, selectedId)
+                          : reviewPrimaryAction(selected.status).kind ===
+                              "reports"
+                            ? reviewReportsHref({
+                                armband: entry?.armband,
+                                entryId: selected.entry_id,
+                              })
+                            : undefined
+                    }
+                    primaryTarget={
+                      reviewPrimaryAction(selected.status).kind === "print"
+                        ? "_blank"
+                        : undefined
+                    }
+                    onPrimary={() => {
+                      if (queuedLocal) {
+                        void syncQueuedCritique();
+                        return;
+                      }
+                      const kind = reviewPrimaryAction(selected.status).kind;
+                      if (kind === "approve") setConfirmOpen(true);
+                      if (kind === "retry") void discardAndRerun();
+                    }}
+                  />
                   <div className="mt-3 space-y-1">
                     <p className="text-xs font-medium uppercase tracking-wide text-sss-text-secondary">
                       Transcript
@@ -793,45 +836,6 @@ function AdminReviewPageInner() {
                     ) : null}
                   </div>
                 </details>
-                <StickyDeskBar
-                  primaryLabel={
-                    queuedLocal
-                      ? "Sync to desk"
-                      : reviewPrimaryAction(selected.status).label
-                  }
-                  primaryDisabled={
-                    busy ||
-                    (!queuedLocal &&
-                      reviewPrimaryAction(selected.status).disabled)
-                  }
-                  primaryHref={
-                    queuedLocal || !showId || !selectedId
-                      ? undefined
-                      : reviewPrimaryAction(selected.status).kind === "print"
-                        ? tnrkCritiquePdfHref(showId, selectedId)
-                        : reviewPrimaryAction(selected.status).kind ===
-                            "reports"
-                          ? reviewReportsHref({
-                              armband: entry?.armband,
-                              entryId: selected.entry_id,
-                            })
-                          : undefined
-                  }
-                  primaryTarget={
-                    reviewPrimaryAction(selected.status).kind === "print"
-                      ? "_blank"
-                      : undefined
-                  }
-                  onPrimary={() => {
-                    if (queuedLocal) {
-                      void syncQueuedCritique();
-                      return;
-                    }
-                    const kind = reviewPrimaryAction(selected.status).kind;
-                    if (kind === "approve") setConfirmOpen(true);
-                    if (kind === "retry") void discardAndRerun();
-                  }}
-                />
                 <ConfirmDialog
                   open={confirmOpen}
                   title="Release this critique to the owner?"
@@ -892,24 +896,30 @@ function AdminReviewPageInner() {
       />
 
       <section className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="font-medium">
-            {pendingOnly
-              ? `Needs attention (${attentionCount})`
-              : `All (${reviewCritiques.length})`}
-          </h2>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPendingOnly((v) => !v)}
-            >
-              {pendingOnly ? "Show all" : "Needs attention"}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => void load()}>
-              Refresh
-            </Button>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Review queue filter">
+            {(
+              [
+                ["attention", `Needs attention (${attentionCount})`],
+                ["approved", `Approved (${approvedCount})`],
+                ["all", `All (${reviewCritiques.length})`],
+              ] as const
+            ).map(([value, label]) => (
+              <Button
+                key={value}
+                type="button"
+                size="sm"
+                variant={queueFilter === value ? "default" : "outline"}
+                aria-pressed={queueFilter === value}
+                onClick={() => setQueueFilter(value)}
+              >
+                {label}
+              </Button>
+            ))}
           </div>
+          <Button variant="outline" size="sm" onClick={() => void load()}>
+            Refresh
+          </Button>
         </div>
         <p className="text-xs text-sss-text-muted">
           Includes ringside recordings and SE forms synced into review. Select a

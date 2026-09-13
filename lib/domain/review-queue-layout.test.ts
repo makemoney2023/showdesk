@@ -243,7 +243,7 @@ describe("critiquesVisibleInReviewQueue", () => {
   it("keeps the selected approved certificate in needs-attention mode", () => {
     expect(
       critiquesVisibleInReviewQueue(rows, {
-        pendingOnly: true,
+        filter: "attention",
         selectedId: "approved",
         needsAttention,
       }).map((row) => row.id),
@@ -253,11 +253,31 @@ describe("critiquesVisibleInReviewQueue", () => {
   it("hides approved certificates when nothing is selected", () => {
     expect(
       critiquesVisibleInReviewQueue(rows, {
-        pendingOnly: true,
+        filter: "attention",
         selectedId: null,
         needsAttention,
       }).map((row) => row.id),
     ).toEqual(["pending"]);
+  });
+
+  it("shows only approved certificates on the Approved chip", () => {
+    expect(
+      critiquesVisibleInReviewQueue(rows, {
+        filter: "approved",
+        selectedId: null,
+        needsAttention,
+      }).map((row) => row.id),
+    ).toEqual(["approved"]);
+  });
+
+  it("keeps the selected pending item when viewing Approved", () => {
+    expect(
+      critiquesVisibleInReviewQueue(rows, {
+        filter: "approved",
+        selectedId: "pending",
+        needsAttention,
+      }).map((row) => row.id),
+    ).toEqual(["pending", "approved"]);
   });
 });
 

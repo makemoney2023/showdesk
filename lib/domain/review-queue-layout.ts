@@ -61,31 +61,47 @@ export function reviewReportsHref(input: {
   return query ? `/admin/reports?${query}` : "/admin/reports";
 }
 
+export type ReviewQueueFilter = "attention" | "approved" | "all";
+
+function critiqueMatchesReviewFilter<T extends { status: string }>(
+  critique: T,
+  filter: ReviewQueueFilter,
+  needsAttention: (status: string) => boolean,
+): boolean {
+  if (filter === "all") return true;
+  if (filter === "approved") return critique.status === "APPROVED";
+  return needsAttention(critique.status);
+}
+
 /**
- * Needs-attention mode hides approved certificates. Keep the open item so
- * Print stays available right after Approve.
+ * Queue chips hide the other statuses. Keep the open item so Approve / Print
+ * stay available after switching filters.
  */
 export function critiquesVisibleInReviewQueue<
   T extends { id: string; status: string },
 >(
   critiques: T[],
   options: {
-    pendingOnly: boolean;
+    filter: ReviewQueueFilter;
     selectedId?: string | null;
     needsAttention: (status: string) => boolean;
   },
 ): T[] {
-  if (!options.pendingOnly) return critiques;
-  const attention = critiques.filter((critique) =>
-    options.needsAttention(critique.status),
+  if (options.filter === "all") return critiques;
+  const matched = critiques.filter((critique) =>
+    critiqueMatchesReviewFilter(
+      critique,
+      options.filter,
+      options.needsAttention,
+    ),
   );
   const selected = options.selectedId
     ? critiques.find((critique) => critique.id === options.selectedId)
     : undefined;
-  if (selected && !attention.some((critique) => critique.id === selected.id)) {
-    return [selected, ...attention];
+  if (selected && !matched.some((critique) => critique.id === selected.id)) {
+    return [selected, ...matched];
   }
-  return attention;
+  return matched;
 }
 
 /** Turn a device-queued recording into a review-queue row so it can be edited. */

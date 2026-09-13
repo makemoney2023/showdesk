@@ -439,7 +439,9 @@ test.describe("happy path", () => {
     await expect(
       page.getByRole("heading", { name: "Release this critique to the owner?" }),
     ).toBeHidden();
-    await expect(page.getByRole("main").getByText(/^Approved/)).toBeVisible({
+    await expect(
+      page.getByRole("main").getByText(/^Approved(?: —| and)/),
+    ).toBeVisible({
       timeout: 10000,
     });
 
