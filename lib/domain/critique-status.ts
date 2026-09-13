@@ -24,6 +24,29 @@ export function canRecall(
   return status === "APPROVED" && deliveryStatus !== "sent";
 }
 
+/**
+ * Review can keep editing after Approve until the owner email actually
+ * goes out. A mocked send stays pending so a typo can still be saved.
+ */
+export function canEditCritiqueDraft(
+  status: CritiqueStatus,
+  deliveryStatus?: DeliveryStatus | string | null,
+): boolean {
+  if (status === "PROCESSING") return false;
+  return !(status === "APPROVED" && deliveryStatus === "sent");
+}
+
+export function critiqueDraftLockedReason(
+  status: CritiqueStatus,
+  deliveryStatus?: DeliveryStatus | string | null,
+): string | null {
+  if (canEditCritiqueDraft(status, deliveryStatus)) return null;
+  if (status === "PROCESSING") {
+    return "This critique cannot be edited while it is processing";
+  }
+  return "This certificate was already emailed — recall it before editing";
+}
+
 export function canTransition(
   from: CritiqueStatus,
   to: CritiqueStatus,

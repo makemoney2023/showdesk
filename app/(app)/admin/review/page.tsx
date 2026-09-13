@@ -21,8 +21,10 @@ import {
 import { sanitizeRosterDivisionFilter } from "@/lib/domain/roster-view";
 import { DivisionFilterChips } from "@/components/desk/DivisionFilterChips";
 import {
+  canEditCritiqueDraft,
   canRecall,
   canRelease,
+  critiqueDraftLockedReason,
   deskAttentionCount,
   needsDeskAttention,
   type CritiqueStatus,
@@ -234,6 +236,15 @@ function AdminReviewPageInner() {
   async function saveDraft(): Promise<boolean> {
     if (!showId || !selectedId || !draft || busy) return false;
     setBusy(true);
+    const current = critiques.find((item) => item.id === selectedId);
+    const locked = current
+      ? critiqueDraftLockedReason(current.status, current.delivery_status)
+      : null;
+    if (locked && !isQueuedCritiqueId(selectedId)) {
+      setStatusMsg(locked);
+      pushToast(locked, "error");
+      return false;
+    }
     if (isQueuedCritiqueId(selectedId)) {
       const recordingId = recordingIdFromQueuedCritique(selectedId);
       const ok = recordingId
@@ -268,9 +279,11 @@ function AdminReviewPageInner() {
         draft,
       }),
     });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
     const ok = res.ok;
-    setStatusMsg(ok ? "Draft saved" : "Save failed");
-    pushToast(ok ? "Draft saved" : "Save failed", ok ? "ok" : "error");
+    const msg = ok ? "Draft saved" : (data.error ?? "Save failed");
+    setStatusMsg(msg);
+    pushToast(msg, ok ? "ok" : "error");
     setBusy(false);
     if (ok) await load();
     return ok;
@@ -518,6 +531,10 @@ function AdminReviewPageInner() {
     return <PageSkeleton rows={5} />;
   }
 
+  const draftEditable = selected
+    ? canEditCritiqueDraft(selected.status, selected.delivery_status)
+    : false;
+
   const editorEl =
     selected && draft ? (
       <div
@@ -707,6 +724,7 @@ function AdminReviewPageInner() {
                     id="narrative-draft"
                     value={draft.narrative}
                     rows={8}
+                    disabled={busy || !draftEditable}
                     onChange={(e) =>
                       setDraft({ ...draft, narrative: e.target.value })
                     }
@@ -732,7 +750,7 @@ function AdminReviewPageInner() {
                           type="button"
                           size="sm"
                           variant={selectedRating ? "default" : "outline"}
-                          disabled={busy || selected.status === "APPROVED"}
+                          disabled={busy || !draftEditable}
                           onClick={() =>
                             setDraft({ ...draft, formwert: code })
                           }
@@ -749,7 +767,7 @@ function AdminReviewPageInner() {
                       disabled={
                         busy ||
                         !draft.formwert ||
-                        selected.status === "APPROVED"
+                        !draftEditable
                       }
                       onClick={() => setDraft({ ...draft, formwert: null })}
                     >
@@ -807,7 +825,7 @@ function AdminReviewPageInner() {
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Button
                       variant="outline"
-                      disabled={busy}
+                      disabled={busy || !draftEditable}
                       onClick={() => void saveDraft()}
                     >
                       Save draft

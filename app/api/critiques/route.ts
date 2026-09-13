@@ -8,7 +8,11 @@ import {
 } from "@/lib/store";
 import { filterByShow } from "@/lib/domain/show-scope";
 import { processCritique } from "@/lib/pipeline/process-critique";
-import { canRecall, canTransition } from "@/lib/domain/critique-status";
+import {
+  canRecall,
+  canTransition,
+  critiqueDraftLockedReason,
+} from "@/lib/domain/critique-status";
 import {
   openCritiqueForEntry,
   recordingBlockedReason,
@@ -239,24 +243,30 @@ export async function PATCH(request: Request) {
   }
 
   if (body.action === "update_draft" && body.draft) {
-    if (critique.status === "APPROVED") {
-      return NextResponse.json(
-        { error: "Approved critiques cannot be edited" },
-        { status: 409 },
-      );
+    const locked = critiqueDraftLockedReason(
+      critique.status,
+      critique.delivery_status,
+    );
+    if (locked) {
+      return NextResponse.json({ error: locked }, { status: 409 });
     }
-    await updateStore((s) => ({
-      ...s,
-      critiques: s.critiques.map((c) =>
-        c.id === body.critique_id
-          ? {
-              ...c,
-              draft: body.draft as typeof c.draft,
-              updated_at: new Date().toISOString(),
-            }
-          : c,
-      ),
-    }));
+    try {
+      await updateStore((s) => ({
+        ...s,
+        critiques: s.critiques.map((c) =>
+          c.id === body.critique_id
+            ? {
+                ...c,
+                draft: body.draft as typeof c.draft,
+                updated_at: new Date().toISOString(),
+              }
+            : c,
+        ),
+      }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Save failed";
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
     return NextResponse.json({ ok: true });
   }
 

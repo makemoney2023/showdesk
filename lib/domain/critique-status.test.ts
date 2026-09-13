@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  canEditCritiqueDraft,
   canRecall,
   canRelease,
   canTransition,
+  critiqueDraftLockedReason,
   deskAttentionCount,
   isReviewable,
   needsDeskAttention,
@@ -58,5 +60,17 @@ describe("critique-status", () => {
     expect(canRecall("APPROVED", "blocked")).toBe(true);
     expect(canRecall("APPROVED", "sent")).toBe(false);
     expect(canRecall("PENDING_REVIEW", "pending")).toBe(false);
+  });
+
+  it("allows draft edits after approve until the email is sent", () => {
+    expect(canEditCritiqueDraft("PENDING_REVIEW", "pending")).toBe(true);
+    expect(canEditCritiqueDraft("ERROR", "pending")).toBe(true);
+    expect(canEditCritiqueDraft("APPROVED", "pending")).toBe(true);
+    expect(canEditCritiqueDraft("APPROVED", "failed")).toBe(true);
+    expect(canEditCritiqueDraft("APPROVED", "blocked")).toBe(true);
+    expect(canEditCritiqueDraft("APPROVED", "sent")).toBe(false);
+    expect(canEditCritiqueDraft("PROCESSING", "pending")).toBe(false);
+    expect(critiqueDraftLockedReason("APPROVED", "sent")).toMatch(/emailed/);
+    expect(critiqueDraftLockedReason("APPROVED", "pending")).toBeNull();
   });
 });
