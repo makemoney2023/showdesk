@@ -337,6 +337,17 @@ export function seFormFormwert(
   return code && isValidFormwert(code) ? code : null;
 }
 
+/**
+ * Official ringside rating: Placements / SE wins over a transcript guess
+ * left on an approved critique. Same rule as resolveFormwertByEntryId.
+ */
+export function officialCritiqueFormwert(
+  se?: { form?: Pick<TnrkSeForm, "formwert"> } | null,
+  critique?: { draft?: { formwert?: AdrkFormwertCode | null } } | null,
+): AdrkFormwertCode | null {
+  return seFormFormwert(se?.form) ?? critique?.draft?.formwert ?? null;
+}
+
 /** Live required-field gaps for Mark complete (same rules as validateTnrkSeFormForPass). */
 export function seCompletionGaps(form: TnrkSeForm): SeCompletionGap[] {
   return validateTnrkSeFormForPass(form).errors.map((field) => ({

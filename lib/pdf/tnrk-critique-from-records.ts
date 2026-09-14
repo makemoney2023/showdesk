@@ -5,7 +5,7 @@ import {
 } from "@/lib/domain/adrk-template";
 import { catalogDivisionLabel } from "@/lib/domain/catalog-competition";
 import { critiqueLetterForCertificate } from "@/lib/domain/se-to-critique";
-import { seFormFormwert } from "@/lib/domain/tnrk-se-form";
+import { officialCritiqueFormwert } from "@/lib/domain/tnrk-se-form";
 import { formatCertificateDob, formatDisplayDate } from "@/lib/domain/show-day";
 import { registeredDogName } from "@/lib/domain/registered-name";
 import { resolvePdfJudge } from "@/lib/domain/show-judges";
@@ -95,7 +95,7 @@ export async function buildTnrkCritiquePdfForRecords(input: {
     prefix_titles: entry.prefix_titles,
     suffix_titles: entry.suffix_titles,
   });
-  const formwert = critique?.draft.formwert ?? seFormFormwert(se?.form) ?? null;
+  const formwert = officialCritiqueFormwert(se, critique);
   const placement = critiqueCertificatePlacement(
     entry.id,
     critique,

@@ -15,6 +15,7 @@ import {
   formatSeMissingFields,
   seCompletionGaps,
   seFormFormwert,
+  officialCritiqueFormwert,
 } from "./tnrk-se-form";
 
 describe("tnrk-se-form", () => {
@@ -28,6 +29,15 @@ describe("tnrk-se-form", () => {
     expect(seFormFormwert(form)).toBeNull();
     expect(seFormFormwert({ formwert: "V" })).toBe("V");
     expect(seFormFormwert({ formwert: "nope" as never })).toBeNull();
+    expect(
+      officialCritiqueFormwert(
+        { form: { formwert: "vv" } },
+        { draft: { formwert: "V" } },
+      ),
+    ).toBe("vv");
+    expect(
+      officialCritiqueFormwert(null, { draft: { formwert: "V" } }),
+    ).toBe("V");
     expect(form.head_shape).toBeNull();
     expect(form.measurements.height).toBe("");
   });

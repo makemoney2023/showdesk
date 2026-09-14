@@ -56,7 +56,7 @@ import {
   spokenCritiqueTranscript,
   visibleReviewCritiques,
 } from "@/lib/domain/se-to-critique";
-import { seFormFormwert } from "@/lib/domain/tnrk-se-form";
+import { officialCritiqueFormwert } from "@/lib/domain/tnrk-se-form";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { pushToast } from "@/components/feedback/toast";
 import {
@@ -178,7 +178,7 @@ function AdminReviewPageInner() {
         selected.draft.draftAssist?.note?.includes("SE form") ||
         selected.transcript.startsWith("Ringside SE")),
   );
-  const seRating = seFormFormwert(seForSelected?.form);
+  const officialRating = officialCritiqueFormwert(seForSelected, selected);
   const ratingScale = formwertScaleForEntry(entry ?? {});
   const ratingCodes = formwertSelectCodes(ratingScale, draft?.formwert ?? null);
   const dirty = Boolean(
@@ -187,7 +187,7 @@ function AdminReviewPageInner() {
       isReviewDraftDirty(
         {
           ...selected.draft,
-          formwert: selected.draft.formwert ?? seRating,
+          formwert: officialRating,
         },
         draft,
       ),
@@ -210,7 +210,7 @@ function AdminReviewPageInner() {
         spokenOrDraft ||
         selected.draft.narrative.trim() ||
         spokenCritiqueTranscript(selected),
-      formwert: selected.draft.formwert ?? seFormFormwert(se?.form),
+      formwert: officialCritiqueFormwert(se, selected),
     };
     setDraft(seeded);
   }, [entries, evaluations, selected]);

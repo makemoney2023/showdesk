@@ -816,7 +816,7 @@ describe("applyFormwertUpdates", () => {
     ).toBe("V");
   });
 
-  it("does not overwrite an approved certificate", () => {
+  it("updates the rating on an approved letter that has not been emailed", () => {
     const sat = testEntry({ id: "sat" });
     const approved: CritiqueRecord = {
       id: "c-sat",
@@ -840,6 +840,41 @@ describe("applyFormwertUpdates", () => {
       entries: [sat],
       evaluations: [],
       critiques: [approved],
+      rows: [{ entry_id: "sat", formwert: "V" }],
+      newEvaluationId: () => "se-1",
+      newCritiqueId: () => "c-1",
+      now: "2026-09-05T12:00:00.000Z",
+    });
+    expect(next.evaluations[0]?.form.formwert).toBe("V");
+    expect(next.critiques[0]?.draft.formwert).toBe("V");
+    expect(next.critiques[0]?.draft.narrative).toBe("Spoken letter");
+    expect(next.critiques[0]?.status).toBe("APPROVED");
+  });
+
+  it("does not overwrite a certificate after the owner email is sent", () => {
+    const sat = testEntry({ id: "sat" });
+    const sent: CritiqueRecord = {
+      id: "c-sat",
+      show_id: "s1",
+      entry_id: "sat",
+      status: "APPROVED",
+      transcript: "Spoken letter",
+      draft: {
+        narrative: "Spoken letter",
+        formwert: "Sg",
+        placement: 1,
+        titles: [],
+      },
+      delivery_status: "sent",
+      created_at: "2026-09-05T11:00:00.000Z",
+      updated_at: "2026-09-05T11:00:00.000Z",
+      approved_at: "2026-09-05T11:30:00.000Z",
+    };
+    const next = applyFormwertUpdates({
+      showId: "s1",
+      entries: [sat],
+      evaluations: [],
+      critiques: [sent],
       rows: [{ entry_id: "sat", formwert: "V" }],
       newEvaluationId: () => "se-1",
       newCritiqueId: () => "c-1",

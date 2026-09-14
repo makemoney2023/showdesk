@@ -13,6 +13,7 @@ import {
   type CatalogEntryMetadata,
 } from "./catalog-competition";
 import { entriesForDog } from "./dog-identity";
+import { canEditCritiqueDraft } from "./critique-status";
 import {
   canSyncSeIntoCritique,
   syncSeIntoDogCritiques,
@@ -424,7 +425,9 @@ function stampCritiqueFormwert(
 ): CritiqueRecord[] {
   return critiques.map((critique) => {
     if (!entryIds.has(critique.entry_id)) return critique;
-    if (!canSyncSeIntoCritique(critique)) return critique;
+    if (!canEditCritiqueDraft(critique.status, critique.delivery_status)) {
+      return critique;
+    }
     if (critique.draft.formwert === formwert) return critique;
     return {
       ...critique,

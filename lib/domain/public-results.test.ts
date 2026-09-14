@@ -163,6 +163,45 @@ describe("projection", () => {
     expect(rex?.dog.ratingPlacement).toBe("V1");
   });
 
+  it("prefers the placements SE rating over a stale approved draft", () => {
+    const form = createEmptyTnrkSeForm();
+    form.formwert = "vv";
+    const staleLetter = {
+      ...store,
+      entries: store.entries.map((entry, index) =>
+        index === 0
+          ? { ...entry, catalog_class: "puppy-ii", class_id: "juengstenklasse" as const }
+          : entry,
+      ),
+      critiques: store.critiques.map((critique, index) =>
+        index === 0
+          ? {
+              ...critique,
+              draft: { ...critique.draft, formwert: "V" as const },
+            }
+          : critique,
+      ),
+      se_evaluations: [
+        {
+          id: "sample-se-rex",
+          show_id: "sample-show",
+          entry_id: "sample-rex",
+          status: "draft" as const,
+          form,
+          created_at: "2026-09-08T00:24:00.000Z",
+          updated_at: "2026-09-08T00:24:00.000Z",
+        },
+      ],
+    };
+    const rex = getPublishedDog(
+      staleLetter,
+      "tnrk-rcc-national-sieger-show-2026-09-04",
+      "101-rex-vom-blacksage",
+    );
+    expect(rex?.dog.formwert).toBe("vv");
+    expect(rex?.dog.ratingPlacement).toBe("VP1");
+  });
+
   it("omits a missing class place from the share description", () => {
     const found = getPublishedDog(
       store,

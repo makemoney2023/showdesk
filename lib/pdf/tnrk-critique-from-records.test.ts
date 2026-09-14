@@ -177,6 +177,69 @@ describe("critique certificate class line", () => {
     expect(text).not.toMatch(/2026-09-04/);
   });
 
+  it("prints the placements SE rating when the approved draft still has the old one", async () => {
+    const bytes = await buildTnrkCritiquePdfForRecords({
+      show: {
+        id: "show-1",
+        name: "TNRK Sieger Show 2026",
+        date: "2026-09-04",
+        venue: "Demo",
+        judge: "Hamid Falah",
+        rulebook: "adrk",
+        created_at: "t",
+      },
+      entry: {
+        id: "entry-4",
+        show_id: "show-1",
+        armband: "4",
+        dog_name: "The Great Gatsby Von Der Musikstadt",
+        zb_number: "",
+        wt: "2026-02-02",
+        owner: "Rosann Bentley",
+        sex: "R",
+        class_id: "juengstenklasse",
+        event_kind: "conformation",
+        competition_day: "2026-09-05",
+        catalog_class: "puppy-ii",
+        email: "",
+      },
+      se: {
+        id: "se-4",
+        show_id: "show-1",
+        entry_id: "entry-4",
+        status: "draft",
+        created_at: "t",
+        updated_at: "t",
+        form: {
+          ...createEmptyTnrkSeForm(),
+          formwert: "vv",
+          date_of_birth: "2026-02-02",
+          owner_co_owner: "Rosann Bentley",
+        },
+      },
+      critique: {
+        id: "crit-4",
+        show_id: "show-1",
+        entry_id: "entry-4",
+        status: "APPROVED",
+        transcript: "Promising male.",
+        draft: {
+          narrative: "Promising male.",
+          formwert: "V",
+          placement: null,
+          titles: [],
+        },
+        delivery_status: "pending",
+        created_at: "t",
+        updated_at: "t",
+      },
+      placements: [{ entry_id: "entry-4", placement: 1 }],
+    });
+    const text = extractPdfText(bytes);
+    expect(text).toMatch(/VP 1/);
+    expect(text).not.toMatch(/\bP 1\b/);
+  });
+
   it("prints only the registered name, not prefix or suffix titles", async () => {
     const bytes = await buildTnrkCritiquePdfForRecords({
       show: {
