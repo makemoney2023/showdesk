@@ -56,7 +56,10 @@ import {
   spokenCritiqueTranscript,
   visibleReviewCritiques,
 } from "@/lib/domain/se-to-critique";
-import { officialCritiqueFormwert } from "@/lib/domain/tnrk-se-form";
+import {
+  officialCritiqueFormwert,
+  seFormFormwert,
+} from "@/lib/domain/tnrk-se-form";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { pushToast } from "@/components/feedback/toast";
 import {
@@ -179,6 +182,7 @@ function AdminReviewPageInner() {
         selected.transcript.startsWith("Ringside SE")),
   );
   const officialRating = officialCritiqueFormwert(seForSelected, selected);
+  const seRating = seFormFormwert(seForSelected?.form);
   const ratingScale = formwertScaleForEntry(entry ?? {});
   const ratingCodes = formwertSelectCodes(ratingScale, draft?.formwert ?? null);
   const dirty = Boolean(
