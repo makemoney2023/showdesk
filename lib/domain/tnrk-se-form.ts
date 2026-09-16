@@ -407,14 +407,31 @@ export function seFormFormwert(
   return code && isValidFormwert(code) ? code : null;
 }
 
+/** This entry's SE/eval row — never a Friday sibling used only for overlay. */
+export function appearanceSeEvaluation<T extends { entry_id: string }>(
+  evaluations: T[] | null | undefined,
+  entryId: string | undefined,
+): T | null {
+  if (!entryId) return null;
+  return evaluations?.find((item) => item.entry_id === entryId) ?? null;
+}
+
 /**
- * Official ringside rating: Placements / SE wins over a transcript guess
- * left on an approved critique. Same rule as resolveFormwertByEntryId.
+ * Official rating for a certificate / Review / results.
+ * Pass `appearance` (including null) for this day's eval so Friday SE
+ * "ne" cannot replace a Sunday Youth II "V". Omit it for the legacy
+ * overlay-wins rule used when the eval is on the same entry.
  */
 export function officialCritiqueFormwert(
   se?: { form?: Pick<TnrkSeForm, "formwert"> } | null,
   critique?: { draft?: { formwert?: AdrkFormwertCode | null } } | null,
+  appearance?: { form?: Pick<TnrkSeForm, "formwert"> } | null,
 ): AdrkFormwertCode | null {
+  if (appearance !== undefined) {
+    return (
+      seFormFormwert(appearance?.form) ?? critique?.draft?.formwert ?? null
+    );
+  }
   return seFormFormwert(se?.form) ?? critique?.draft?.formwert ?? null;
 }
 

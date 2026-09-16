@@ -9,7 +9,7 @@ import {
   isShowResultsPublished,
   showResultsSlug,
 } from "@/lib/domain/public-results";
-import { catalogDivisionLabel } from "@/lib/domain/catalog-competition";
+import { appearanceSeEvaluation } from "@/lib/domain/tnrk-se-form";
 import {
   resolveSeEvaluationForPdf,
   resolveSeFormForPdf,
@@ -39,6 +39,7 @@ export interface PublishedPdfRecords {
   entry: RosterEntryRecord;
   critique: CritiqueRecord | null;
   se: SeEvaluationRecord | null;
+  appearanceSe?: SeEvaluationRecord | null;
 }
 
 function publishedShowForId(store: AppStore, showId: string): Show | null {
@@ -91,7 +92,17 @@ export function resolvePublishedPdfRecords(
       store.entries.filter((item) => item.show_id === show.id),
       entry,
     );
-    return { kind: "critique", show, entry, critique, se: se ?? null };
+    return {
+      kind: "critique",
+      show,
+      entry,
+      critique,
+      se: se ?? null,
+      appearanceSe: appearanceSeEvaluation(
+        (store.se_evaluations ?? []).filter((item) => item.show_id === show.id),
+        entry.id,
+      ),
+    };
   }
 
   if (request.kind === "se") {
@@ -131,6 +142,7 @@ export async function readPublishedPdf(
       entry: found.entry,
       critique: found.critique,
       se: found.se,
+      appearanceSe: found.appearanceSe,
       placements: store.placements.filter(
         (row) => row.show_id === found.show.id,
       ),

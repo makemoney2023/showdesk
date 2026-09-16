@@ -754,7 +754,7 @@ describe("applyFormwertUpdates", () => {
     expect(next.critiques[0]?.entry_id).toBe("sat");
   });
 
-  it("writes the rating onto Friday SE and an existing Saturday critique", () => {
+  it("writes this day's rating without changing Friday SE ne", () => {
     const se = testEntry({
       id: "se",
       event_kind: "se",
@@ -767,7 +767,12 @@ describe("applyFormwertUpdates", () => {
       id: "eval-se",
       show_id: "s1",
       entry_id: "se",
-      form: { ...createEmptyTnrkSeForm(), dog_name: "Rex", comments: "Steady" },
+      form: {
+        ...createEmptyTnrkSeForm(),
+        dog_name: "Rex",
+        comments: "Steady",
+        formwert: "ne",
+      },
       status: "draft",
       created_at: "2026-09-04T10:00:00.000Z",
       updated_at: "2026-09-04T10:00:00.000Z",
@@ -801,7 +806,7 @@ describe("applyFormwertUpdates", () => {
     expect(
       next.evaluations.find((evaluation) => evaluation.entry_id === "se")?.form
         .formwert,
-    ).toBe("V");
+    ).toBe("ne");
     expect(
       next.evaluations.find((evaluation) => evaluation.entry_id === "se")?.form
         .comments,

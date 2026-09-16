@@ -18,6 +18,8 @@ import {
   recordingBlockedReason,
 } from "@/lib/domain/entry-cascade";
 import { applySeFormwert } from "@/lib/domain/se-to-critique";
+import { applyFormwertUpdates } from "@/lib/domain/placements";
+import { isValidFormwert } from "@/lib/domain/adrk-template";
 import { resolveAssignedJudge, syncShowJudges } from "@/lib/domain/show-judges";
 import {
   requireApiSession,
@@ -251,18 +253,40 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: locked }, { status: 409 });
     }
     try {
-      await updateStore((s) => ({
-        ...s,
-        critiques: s.critiques.map((c) =>
-          c.id === body.critique_id
-            ? {
-                ...c,
-                draft: body.draft as typeof c.draft,
-                updated_at: new Date().toISOString(),
-              }
-            : c,
-        ),
-      }));
+      await updateStore((s) => {
+        const formwert = body.draft?.formwert ?? null;
+        const canSyncRating =
+          formwert === null || isValidFormwert(formwert);
+        const rated = canSyncRating
+          ? applyFormwertUpdates({
+              showId: body.show_id,
+              entries: s.entries,
+              evaluations: s.se_evaluations ?? [],
+              critiques: s.critiques,
+              show: s.shows.find((show) => show.id === body.show_id),
+              rows: [{ entry_id: critique.entry_id, formwert }],
+              newEvaluationId: () => newId("se"),
+              newCritiqueId: () => newId("critique"),
+            })
+          : {
+              evaluations: s.se_evaluations ?? [],
+              critiques: s.critiques,
+            };
+        const now = new Date().toISOString();
+        return {
+          ...s,
+          se_evaluations: rated.evaluations,
+          critiques: rated.critiques.map((c) =>
+            c.id === body.critique_id
+              ? {
+                  ...c,
+                  draft: body.draft as typeof c.draft,
+                  updated_at: now,
+                }
+              : c,
+          ),
+        };
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Save failed";
       return NextResponse.json({ error: message }, { status: 500 });

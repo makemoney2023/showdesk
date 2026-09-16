@@ -14,10 +14,7 @@ import {
 } from "./catalog-competition";
 import { entriesForDog } from "./dog-identity";
 import { canEditCritiqueDraft } from "./critique-status";
-import {
-  canSyncSeIntoCritique,
-  syncSeIntoDogCritiques,
-} from "./se-to-critique";
+import { syncSeIntoCritiques } from "./se-to-critique";
 import {
   normalizeTnrkSeForm,
   seedSeFormForEntry,
@@ -483,8 +480,9 @@ function upsertEvaluationFormwert(
 }
 
 /**
- * Write a ringside Formwert onto the dog's SE form(s) and open critiques
- * so placements, SE, Review, certificates, and public results stay aligned.
+ * Write a Formwert onto this appearance's eval and open critique.
+ * Saturday/Sunday and Friday SE are independent — do not copy a Youth II
+ * V onto a Friday SE that was honestly "ne" (not exhibited).
  */
 export function applyFormwertUpdates(
   input: {
@@ -509,68 +507,39 @@ export function applyFormwertUpdates(
     );
     if (!entry) continue;
 
-    const siblings = entriesForDog(input.entries, entry);
-    const seEntry = siblings.find((item) => item.event_kind === "se");
-    const createIds = new Set(
-      [entry.id, seEntry?.id].filter((id): id is string => Boolean(id)),
+    const next = upsertEvaluationFormwert(
+      evaluations,
+      entry,
+      input.showId,
+      row.formwert,
+      input.show,
+      input.newEvaluationId,
+      now,
     );
-    const updateExisting = siblings.filter(
-      (item) =>
-        !createIds.has(item.id) &&
-        evaluations.some(
-          (evaluation) =>
-            evaluation.entry_id === item.id &&
-            evaluation.show_id === input.showId,
-        ),
-    );
+    evaluations = next.evaluations;
 
-    const targets = siblings.filter(
-      (item) =>
-        createIds.has(item.id) ||
-        updateExisting.some((other) => other.id === item.id),
+    const hasCritique = critiques.some(
+      (critique) =>
+        critique.entry_id === entry.id && critique.show_id === input.showId,
     );
-    let syncForm: TnrkSeForm | null = null;
-    for (const target of targets) {
-      const next = upsertEvaluationFormwert(
-        evaluations,
-        target,
-        input.showId,
-        row.formwert,
-        input.show,
-        input.newEvaluationId,
-        now,
-      );
-      evaluations = next.evaluations;
-      if (target.id === (seEntry?.id ?? entry.id)) {
-        syncForm = next.evaluation.form;
-      }
-    }
-
-    const syncEntryId = seEntry?.id ?? entry.id;
-    if (syncForm) {
-      critiques = syncSeIntoDogCritiques(
+    if (!hasCritique) {
+      critiques = syncSeIntoCritiques(
         critiques,
-        input.entries,
         input.showId,
-        syncEntryId,
-        syncForm,
+        entry.id,
+        next.evaluation.form,
         {
           force: true,
           newId: input.newCritiqueId,
           now,
+          createIfMissing: true,
         },
       );
     }
 
-    const stampIds = new Set(targets.map((item) => item.id));
-    if (seEntry) {
-      for (const sibling of siblings) {
-        if (sibling.event_kind === "conformation") stampIds.add(sibling.id);
-      }
-    }
     critiques = stampCritiqueFormwert(
       critiques,
-      stampIds,
+      new Set([entry.id]),
       row.formwert,
       now,
     );

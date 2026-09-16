@@ -263,8 +263,10 @@ export default function PlacementsPage() {
       formwert: ratings[entryId] ?? null,
     }));
     if (payload.length === 0 && ratingPayload.length === 0) {
-      setStatus("No placement changes to save");
-      pushToast("No placement changes to save");
+      setStatus(
+        "Ratings save when you change the drop-down. Save placements after a class place changes.",
+      );
+      pushToast("No class place changes to save");
       return;
     }
     setBusy(true);

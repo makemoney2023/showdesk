@@ -57,6 +57,7 @@ import {
   visibleReviewCritiques,
 } from "@/lib/domain/se-to-critique";
 import {
+  appearanceSeEvaluation,
   officialCritiqueFormwert,
   seFormFormwert,
 } from "@/lib/domain/tnrk-se-form";
@@ -175,13 +176,21 @@ function AdminReviewPageInner() {
     ? entries.find((e) => e.id === selected.entry_id)
     : undefined;
   const seForSelected = seEvaluationForEntry(evaluations, entries, entry);
+  const appearanceForSelected = appearanceSeEvaluation(
+    evaluations,
+    entry?.id,
+  );
   const selectedFromSe = Boolean(
     selected &&
       (selected.draft.draftAssist?.se_sync ||
         selected.draft.draftAssist?.note?.includes("SE form") ||
         selected.transcript.startsWith("Ringside SE")),
   );
-  const officialRating = officialCritiqueFormwert(seForSelected, selected);
+  const officialRating = officialCritiqueFormwert(
+    seForSelected,
+    selected,
+    appearanceForSelected,
+  );
   const seRating = seFormFormwert(seForSelected?.form);
   const ratingScale = formwertScaleForEntry(entry ?? {});
   const ratingCodes = formwertSelectCodes(ratingScale, draft?.formwert ?? null);
@@ -204,6 +213,7 @@ function AdminReviewPageInner() {
     }
     const selectedEntry = entries.find((e) => e.id === selected.entry_id);
     const se = seEvaluationForEntry(evaluations, entries, selectedEntry);
+    const appearance = appearanceSeEvaluation(evaluations, selected.entry_id);
     const spokenOrDraft = isSeFormReplacementDraft(selected.draft)
       ? selected.draft.narrative.trim()
       : critiqueLetterWithoutSeSection(selected.draft.narrative) ||
@@ -214,7 +224,7 @@ function AdminReviewPageInner() {
         spokenOrDraft ||
         selected.draft.narrative.trim() ||
         spokenCritiqueTranscript(selected),
-      formwert: officialCritiqueFormwert(se, selected),
+      formwert: officialCritiqueFormwert(se, selected, appearance),
     };
     setDraft(seeded);
   }, [entries, evaluations, selected]);
@@ -739,7 +749,9 @@ function AdminReviewPageInner() {
                   <p className="text-xs text-sss-text-muted">
                     {ratingScale === "puppy"
                       ? "Puppy Class I–III: Very promising, Promising, Little promising."
-                      : "Youth and older: V Excellent, SG Very good, G Good."}
+                      : "Youth and older: V Excellent, SG Very good, G Good."}{" "}
+                    This day’s rating prints on this certificate. Friday SE is a
+                    separate form.
                   </p>
                   <div
                     className="flex flex-wrap gap-2"

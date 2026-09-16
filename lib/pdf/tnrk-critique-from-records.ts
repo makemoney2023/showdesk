@@ -86,6 +86,8 @@ export async function buildTnrkCritiquePdfForRecords(input: {
   entry: RosterEntryRecord;
   critique?: CritiqueRecord | null;
   se?: SeEvaluationRecord | null;
+  /** This day's eval. When omitted, `se` is used only if it belongs to `entry`. */
+  appearanceSe?: SeEvaluationRecord | null;
   placements?: Array<Pick<PlacementRecord, "entry_id" | "placement">>;
 }): Promise<Uint8Array> {
   const { show, entry, critique, se, placements } = input;
@@ -95,7 +97,13 @@ export async function buildTnrkCritiquePdfForRecords(input: {
     prefix_titles: entry.prefix_titles,
     suffix_titles: entry.suffix_titles,
   });
-  const formwert = officialCritiqueFormwert(se, critique);
+  const appearanceSe =
+    input.appearanceSe !== undefined
+      ? input.appearanceSe
+      : se?.entry_id === entry.id
+        ? se
+        : null;
+  const formwert = officialCritiqueFormwert(se, critique, appearanceSe);
   const placement = critiqueCertificatePlacement(
     entry.id,
     critique,

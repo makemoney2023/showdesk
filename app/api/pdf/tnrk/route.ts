@@ -5,7 +5,7 @@ import { buildTnrkAwardPdf } from "@/lib/pdf/tnrk-award-pdf";
 import { buildTnrkCritiquePdfForRecords } from "@/lib/pdf/tnrk-critique-from-records";
 import { mergePdfDocuments } from "@/lib/pdf/merge-pdfs";
 import { requireApiSession, isApiUnauthorized } from "@/lib/auth/api-guard";
-import { type TnrkSeForm } from "@/lib/domain/tnrk-se-form";
+import { type TnrkSeForm, appearanceSeEvaluation } from "@/lib/domain/tnrk-se-form";
 import {
   resolveSeEvaluationForPdf,
   resolveSeFormForPdf,
@@ -191,6 +191,10 @@ export async function GET(request: Request) {
       entry,
       critique,
       se,
+      appearanceSe: appearanceSeEvaluation(
+        (store.se_evaluations ?? []).filter((e) => e.show_id === showId),
+        entry.id,
+      ),
       placements: store.placements.filter((row) => row.show_id === showId),
     });
 

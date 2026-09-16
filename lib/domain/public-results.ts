@@ -39,7 +39,10 @@ import {
   type HealthClearanceRow,
 } from "./health-clearances";
 import { critiqueLetterForCertificate, seEvaluationForEntry } from "./se-to-critique";
-import { officialCritiqueFormwert } from "./tnrk-se-form";
+import {
+  appearanceSeEvaluation,
+  officialCritiqueFormwert,
+} from "./tnrk-se-form";
 
 /** Public URL slug: lowercase, hyphenated, no leading/trailing hyphens. */
 export function slugify(value: string): string {
@@ -266,8 +269,9 @@ function toPublicDog(
   entries: RosterEntryRecord[],
   evaluations: SeEvaluationRecord[],
 ): PublicDogResult | null {
-  const se = seEvaluationForEntry(evaluations, entries, entry);
-  const formwert = officialCritiqueFormwert(se, critique);
+  const overlay = seEvaluationForEntry(evaluations, entries, entry);
+  const appearance = appearanceSeEvaluation(evaluations, entry.id);
+  const formwert = officialCritiqueFormwert(overlay, critique, appearance);
   const rank = placement?.placement ?? critique?.draft.placement ?? null;
   const scale = formwertScaleForEntry(entry);
   const narrative = critiqueLetterForCertificate(critique) || null;

@@ -39,6 +39,20 @@ describe("tnrk-se-form", () => {
     expect(
       officialCritiqueFormwert(null, { draft: { formwert: "V" } }),
     ).toBe("V");
+    expect(
+      officialCritiqueFormwert(
+        { form: { formwert: "ne" } },
+        { draft: { formwert: "V" } },
+        null,
+      ),
+    ).toBe("V");
+    expect(
+      officialCritiqueFormwert(
+        { form: { formwert: "ne" } },
+        { draft: { formwert: "Sg" } },
+        { form: { formwert: "V" } },
+      ),
+    ).toBe("V");
     expect(form.head_shape).toBeNull();
     expect(form.measurements.height).toBe("");
   });

@@ -240,6 +240,81 @@ describe("critique certificate class line", () => {
     expect(text).not.toMatch(/\bP 1\b/);
   });
 
+  it("prints this day's V, not Friday SE ne, on a Youth II certificate", async () => {
+    const fridaySe = {
+      ...createEmptyTnrkSeForm(),
+      formwert: "ne" as const,
+      overall_appearance: "Not exhibited in SE.",
+      date_of_birth: "2024-11-06",
+      owner_co_owner: "Marie Josee Gallant",
+    };
+    const bytes = await buildTnrkCritiquePdfForRecords({
+      show: {
+        id: "show-1",
+        name: "TNRK Sieger Show 2026",
+        date: "2026-09-04",
+        venue: "Demo",
+        judge: "Hamid Falah",
+        rulebook: "adrk",
+        created_at: "t",
+      },
+      entry: {
+        id: "entry-sun",
+        show_id: "show-1",
+        armband: "52",
+        dog_name: "Von Stoisch's Holy Shining Quartz",
+        zb_number: "",
+        wt: "2024-11-06",
+        owner: "Marie Josee Gallant",
+        sex: "H",
+        class_id: "jugendklasse",
+        event_kind: "conformation",
+        competition_day: "2026-09-06",
+        catalog_class: "youth-ii",
+        email: "",
+      },
+      se: {
+        id: "se-fri",
+        show_id: "show-1",
+        entry_id: "entry-fri",
+        status: "complete",
+        created_at: "t",
+        updated_at: "t",
+        form: fridaySe,
+      },
+      appearanceSe: {
+        id: "se-sun",
+        show_id: "show-1",
+        entry_id: "entry-sun",
+        status: "draft",
+        created_at: "t",
+        updated_at: "t",
+        form: { ...createEmptyTnrkSeForm(), formwert: "V" },
+      },
+      critique: {
+        id: "crit-sun",
+        show_id: "show-1",
+        entry_id: "entry-sun",
+        status: "APPROVED",
+        transcript: "Scissor bite. Large female.",
+        draft: {
+          narrative: "Scissor bite. Large female.",
+          formwert: "V",
+          placement: 3,
+          titles: [],
+        },
+        delivery_status: "pending",
+        created_at: "t",
+        updated_at: "t",
+      },
+      placements: [{ entry_id: "entry-sun", placement: 3 }],
+    });
+    const text = extractPdfText(bytes);
+    expect(text).toMatch(/V 3/);
+    expect(text).not.toMatch(/\bne 3\b/);
+    expect(text).toMatch(/Sep 6, 2026/);
+  });
+
   it("prints only the registered name, not prefix or suffix titles", async () => {
     const bytes = await buildTnrkCritiquePdfForRecords({
       show: {
