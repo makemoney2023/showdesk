@@ -37,6 +37,7 @@ import {
   syncIdentityToDog,
 } from "@/lib/domain/dog-identity";
 import { showWeekendDays } from "@/lib/domain/show-weekend";
+import type { RosterEntryRecord } from "@/lib/types";
 import { seHealthRequirementError } from "@/lib/domain/health-clearances";
 import { inferSeDocumentKind } from "@/lib/domain/dog-document";
 
