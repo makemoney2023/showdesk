@@ -2,7 +2,7 @@ import { seEvaluationForEntry } from "@/lib/domain/se-to-critique";
 import {
   mergeEntryIntoSeForm,
   mergeSeFormPreferFilled,
-  type SeEntrySeed,
+  seEntrySeedFromRoster,
   type TnrkSeForm,
 } from "@/lib/domain/tnrk-se-form";
 
@@ -30,13 +30,17 @@ export function resolveSeFormForPdf(input: {
     sex?: "R" | "H";
     wt?: string;
     sire?: string;
+    sire_reg?: string;
     dam?: string;
+    dam_reg?: string;
     breeder?: string;
     address?: string;
+    handler?: string;
     hd_ed_jlpp?: string;
     date_of_birth?: string;
     co_owner?: string;
     kennel_name?: string;
+    registration_club?: string;
   }>;
 }): TnrkSeForm {
   const entry = input.entries.find(
@@ -51,25 +55,7 @@ export function resolveSeFormForPdf(input: {
     ),
   );
   if (!entry) return merged;
-  const seed: SeEntrySeed = {
-    dog_name: entry.dog_name ?? "",
-    armband: entry.armband ?? "",
-    owner: entry.owner ?? "",
-    email: entry.email ?? "",
-    sex: entry.sex === "H" ? "H" : "R",
-    zb_number: entry.zb_number ?? "",
-    wt: entry.wt ?? "",
-    sire: entry.sire,
-    dam: entry.dam,
-    breeder: entry.breeder,
-    address: entry.address,
-    hd_ed_jlpp: entry.hd_ed_jlpp,
-    date_of_birth: entry.date_of_birth,
-    microchip: entry.microchip,
-    co_owner: entry.co_owner,
-    kennel_name: entry.kennel_name,
-  };
-  return mergeEntryIntoSeForm(merged, seed);
+  return mergeEntryIntoSeForm(merged, seEntrySeedFromRoster(entry));
 }
 
 export function resolveSeEvaluationForPdf<

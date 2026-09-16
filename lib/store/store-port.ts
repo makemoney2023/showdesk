@@ -58,6 +58,9 @@ export interface EntryRow {
   registration_club?: string | null;
   co_owner?: string | null;
   kennel_name?: string | null;
+  sire_reg?: string | null;
+  dam_reg?: string | null;
+  handler?: string | null;
   health?: DogHealthClearances | string | null;
 }
 

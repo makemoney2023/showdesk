@@ -364,10 +364,13 @@ export default function AdminEntriesPage() {
               catalog_class: draft.catalog_class,
               email: draft.email,
               sire: draft.sire ?? "",
+              sire_reg: draft.sire_reg ?? "",
               dam: draft.dam ?? "",
+              dam_reg: draft.dam_reg ?? "",
               breeder: draft.breeder ?? "",
               kennel_name: draft.kennel_name ?? "",
               address: draft.address ?? "",
+              handler: draft.handler ?? "",
               hd_ed_jlpp: draft.hd_ed_jlpp ?? "",
               prefix_titles: draft.prefix_titles ?? "",
               suffix_titles: draft.suffix_titles ?? "",
@@ -1142,6 +1145,69 @@ export default function AdminEntriesPage() {
                     kennel_name: e.target.value,
                     breeder: e.target.value,
                   })
+                }
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="sire">Sire</Label>
+              <Input
+                id="sire"
+                value={entryDraft.sire ?? ""}
+                onChange={(e) =>
+                  setEntryDraft({ ...entryDraft, sire: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="sire_reg">Sire registration #</Label>
+              <Input
+                id="sire_reg"
+                value={entryDraft.sire_reg ?? ""}
+                onChange={(e) =>
+                  setEntryDraft({ ...entryDraft, sire_reg: e.target.value })
+                }
+                placeholder="CL608305"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="dam">Dam</Label>
+              <Input
+                id="dam"
+                value={entryDraft.dam ?? ""}
+                onChange={(e) =>
+                  setEntryDraft({ ...entryDraft, dam: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="dam_reg">Dam registration #</Label>
+              <Input
+                id="dam_reg"
+                value={entryDraft.dam_reg ?? ""}
+                onChange={(e) =>
+                  setEntryDraft({ ...entryDraft, dam_reg: e.target.value })
+                }
+                placeholder="AG502533"
+              />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label htmlFor="address">Address</Label>
+              <Input
+                id="address"
+                value={entryDraft.address ?? ""}
+                onChange={(e) =>
+                  setEntryDraft({ ...entryDraft, address: e.target.value })
+                }
+                placeholder="6203 Route 3 Lawrence Station, NB E5A 3C3"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="handler">Handler</Label>
+              <Input
+                id="handler"
+                value={entryDraft.handler ?? ""}
+                onChange={(e) =>
+                  setEntryDraft({ ...entryDraft, handler: e.target.value })
                 }
               />
             </div>

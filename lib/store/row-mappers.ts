@@ -112,6 +112,9 @@ export function toEntryRow(entry: RosterEntryRecord): EntryRow {
     registration_club: requiredText(entry.registration_club),
     co_owner: requiredText(entry.co_owner),
     kennel_name: requiredText(entry.kennel_name),
+    sire_reg: requiredText(entry.sire_reg),
+    dam_reg: requiredText(entry.dam_reg),
+    handler: requiredText(entry.handler),
     health: normalizeHealthClearances(entry.health),
   };
 }
@@ -149,6 +152,9 @@ export function mapEntryRow(row: EntryRow): RosterEntryRecord {
       : {}),
     ...(row.co_owner ? { co_owner: row.co_owner } : {}),
     ...(row.kennel_name ? { kennel_name: row.kennel_name } : {}),
+    ...(row.sire_reg ? { sire_reg: row.sire_reg } : {}),
+    ...(row.dam_reg ? { dam_reg: row.dam_reg } : {}),
+    ...(row.handler ? { handler: row.handler } : {}),
     ...(healthFromRow(row.health)
       ? { health: healthFromRow(row.health) }
       : {}),

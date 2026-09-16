@@ -36,6 +36,9 @@ describe("blankRosterEntryDraft", () => {
     expect(row.dam).toBe("");
     expect(row.breeder).toBe("");
     expect(row.address).toBe("");
+    expect(row.handler).toBe("");
+    expect(row.sire_reg).toBe("");
+    expect(row.dam_reg).toBe("");
     expect(row.hd_ed_jlpp).toBe("");
     expect(row.competition_day).toBe("2026-09-05");
   });

@@ -4,6 +4,7 @@ import { filterByShow } from "@/lib/domain/show-scope";
 import {
   mergeSeFormPreferFilled,
   seedSeFormForEntry,
+  seEntrySeedFromRoster,
   validateTnrkSeFormForPass,
   type TnrkSeForm,
 } from "@/lib/domain/tnrk-se-form";
@@ -51,19 +52,30 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Entry not found" }, { status: 404 });
   }
 
+  const show = store.shows.find((s) => s.id === body.show_id);
+  const seed = seEntrySeedFromRoster(entry);
+  const header = {
+    date: show?.date,
+    judge: (body.judge ?? "").trim() || show?.judge,
+  };
+
   const existing = (store.se_evaluations ?? []).find(
     (e) => e.entry_id === body.entry_id && e.show_id === body.show_id,
   );
   if (existing) {
-    return NextResponse.json({ evaluation: existing });
+    return NextResponse.json({
+      evaluation: {
+        ...existing,
+        form: mergeSeFormPreferFilled(
+          seedSeFormForEntry(seed, header),
+          existing.form,
+        ),
+      },
+    });
   }
 
-  const show = store.shows.find((s) => s.id === body.show_id);
   const now = new Date().toISOString();
-  const form = seedSeFormForEntry(entry, {
-    date: show?.date,
-    judge: (body.judge ?? "").trim() || show?.judge,
-  });
+  const form = seedSeFormForEntry(seed, header);
 
   const evaluation = {
     id: newId("se"),

@@ -63,6 +63,9 @@ export interface RosterEntryRecord {
   registration_club?: string;
   co_owner?: string;
   kennel_name?: string;
+  sire_reg?: string;
+  dam_reg?: string;
+  handler?: string;
   health?: DogHealthClearances;
 }
 

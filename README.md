@@ -73,10 +73,11 @@ SQL lives under `supabase/migrations/`. Apply **in order** on project `emiwbvbyt
 11. `supabase/migrations/20260902180000_store_write_lock.sql` — store write lease (`acquire_store_lock` / `release_store_lock`) so concurrent ringside + desk writes serialize instead of losing updates. The app degrades to unserialized writes until this is applied.
 12. `supabase/migrations/20260911180000_multi_tenant_orgs.sql` — clubs (`organizations`, `memberships`, `org_state`), `shows.org_id`, tenant RLS, invite join, and per-club write locks. Seeds existing rows onto **Blacksage Kennels** (`blacksage`).
 13. `supabase/migrations/20260911180100_org_lock_search_path.sql` — fixed `search_path` on org lock RPCs; club slug lookup is service-role only.
+14. `supabase/migrations/20260916120000_entry_se_identity_fields.sql` — SE catalog identity (`sire_reg`, `dam_reg`, `handler`) highlighted on the official evaluation form.
 
 **Status:** migration status must match the live project before entering placements.
 
-Roster CSV required headers: `armband,dog_name,zb_number,wt,owner,sex,class_id,email`. Optional columns: `sire,dam,breeder,address,hd_ed_jlpp,event_kind,competition_day,catalog_class,dog_id,date_of_birth,prefix_titles,suffix_titles,microchip,registration_club,co_owner,kennel_name`. CSV upserts by armband + event + day so SE and conformation can share a number.
+Roster CSV required headers: `armband,dog_name,zb_number,wt,owner,sex,class_id,email`. Optional columns: `sire,sire_reg,dam,dam_reg,breeder,address,handler,hd_ed_jlpp,event_kind,competition_day,catalog_class,dog_id,date_of_birth,prefix_titles,suffix_titles,microchip,registration_club,co_owner,kennel_name`. CSV upserts by armband + event + day so SE and conformation can share a number.
 
 Competition placement pools are `(competition_day, catalog_class, sex)`.
 Saturday and Sunday are independent, and Male (`R` / Rüde) and female

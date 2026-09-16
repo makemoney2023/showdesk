@@ -37,6 +37,9 @@ export interface RosterEntry {
   registration_club?: string;
   co_owner?: string;
   kennel_name?: string;
+  sire_reg?: string;
+  dam_reg?: string;
+  handler?: string;
 }
 
 export interface RosterParseResult {
@@ -57,9 +60,12 @@ const REQUIRED_HEADERS = [
 
 const OPTIONAL_HEADERS = [
   "sire",
+  "sire_reg",
   "dam",
+  "dam_reg",
   "breeder",
   "address",
+  "handler",
   "hd_ed_jlpp",
   "event_kind",
   "competition_day",
@@ -203,9 +209,12 @@ export function parseRosterCsv(csv: string): RosterParseResult {
           Pick<
             RosterEntry,
             | "sire"
+            | "sire_reg"
             | "dam"
+            | "dam_reg"
             | "breeder"
             | "address"
+            | "handler"
             | "hd_ed_jlpp"
             | "dog_id"
             | "date_of_birth"
@@ -306,7 +315,7 @@ export function validateRosterEntryUpdate(
 }
 
 export function rosterCsvTemplate(): string {
-  return `${[...REQUIRED_HEADERS, ...OPTIONAL_HEADERS].join(",")}\n101,Rex vom Test,DE-12345,2024-01-01,Max Mustermann,R,zwischenklasse,owner@example.com,Sire Name,Dam Name,Breeder Name,123 Main St,Hips: Excellent,conformation,2026-09-05,youth-i,,,2024-01-01,,,123456789,ADRK,,Kennel`;
+  return `${[...REQUIRED_HEADERS, ...OPTIONAL_HEADERS].join(",")}\n101,Rex vom Test,DE-12345,2024-01-01,Max Mustermann,R,zwischenklasse,owner@example.com,Sire Name,CL608305,Dam Name,AG502533,Breeder Name,123 Main St,Kim Handler,Hips: Excellent,conformation,2026-09-05,youth-i,,,2024-01-01,,,123456789,ADRK,,Kennel`;
 }
 
 function findImportMatchIndex<T extends RosterEntry>(

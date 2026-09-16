@@ -34,5 +34,8 @@ export function blankRosterEntryDraft(
     registration_club: "",
     co_owner: "",
     kennel_name: "",
+    sire_reg: "",
+    dam_reg: "",
+    handler: "",
   };
 }

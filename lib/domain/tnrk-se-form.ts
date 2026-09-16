@@ -112,14 +112,80 @@ export interface SeEntrySeed {
   wt: string;
   /** Catalog pedigree / contact extras (optional on older roster rows). */
   sire?: string;
+  sire_reg?: string;
   dam?: string;
+  dam_reg?: string;
   breeder?: string;
   address?: string;
+  handler?: string;
   hd_ed_jlpp?: string;
   date_of_birth?: string;
   microchip?: string;
   co_owner?: string;
   kennel_name?: string;
+  registration_club?: string;
+}
+
+/** Official SE registration cell: club prefix plus number when the number has none. */
+export function seRegistrationNumber(entry: {
+  zb_number?: string;
+  registration_club?: string;
+}): string {
+  const number = entry.zb_number?.trim() ?? "";
+  const club = entry.registration_club?.trim() ?? "";
+  if (!number) return "";
+  if (!club) return number;
+  const clubKey = club.replace(/[^a-z0-9]/gi, "").toUpperCase();
+  const numberKey = number.replace(/[^a-z0-9]/gi, "").toUpperCase();
+  if (clubKey && numberKey.startsWith(clubKey)) return number;
+  return `${club}-${number}`;
+}
+
+/** Map a roster row onto the SE seed used at create and print. */
+export function seEntrySeedFromRoster(entry: {
+  dog_name?: string;
+  armband?: string;
+  owner?: string;
+  email?: string;
+  sex?: string;
+  zb_number?: string;
+  wt?: string;
+  sire?: string;
+  sire_reg?: string;
+  dam?: string;
+  dam_reg?: string;
+  breeder?: string;
+  address?: string;
+  handler?: string;
+  hd_ed_jlpp?: string;
+  date_of_birth?: string;
+  microchip?: string;
+  co_owner?: string;
+  kennel_name?: string;
+  registration_club?: string;
+}): SeEntrySeed {
+  return {
+    dog_name: entry.dog_name ?? "",
+    armband: entry.armband ?? "",
+    owner: entry.owner ?? "",
+    email: entry.email ?? "",
+    sex: entry.sex === "H" ? "H" : "R",
+    zb_number: entry.zb_number ?? "",
+    wt: entry.wt ?? "",
+    sire: entry.sire,
+    sire_reg: entry.sire_reg,
+    dam: entry.dam,
+    dam_reg: entry.dam_reg,
+    breeder: entry.breeder,
+    address: entry.address,
+    handler: entry.handler,
+    hd_ed_jlpp: entry.hd_ed_jlpp,
+    date_of_birth: entry.date_of_birth,
+    microchip: entry.microchip,
+    co_owner: entry.co_owner,
+    kennel_name: entry.kennel_name,
+    registration_club: entry.registration_club,
+  };
 }
 
 export function createEmptyTnrkSeForm(): TnrkSeForm {
@@ -273,7 +339,8 @@ export function mergeEntryIntoSeForm(
   return {
     ...form,
     dog_name: entry.dog_name || form.dog_name,
-    registration_number: entry.zb_number || form.registration_number,
+    registration_number:
+      seRegistrationNumber(entry) || form.registration_number,
     date_of_birth:
       entry.date_of_birth?.trim() || entry.wt || form.date_of_birth,
     microchip_nr: entry.microchip?.trim() || form.microchip_nr,
@@ -283,10 +350,13 @@ export function mergeEntryIntoSeForm(
       form.owner_co_owner,
     email: entry.email || form.email,
     sire: entry.sire?.trim() || form.sire,
+    sire_reg: entry.sire_reg?.trim() || form.sire_reg,
     dam: entry.dam?.trim() || form.dam,
+    dam_reg: entry.dam_reg?.trim() || form.dam_reg,
     breeder:
       entry.kennel_name?.trim() || entry.breeder?.trim() || form.breeder,
     address: entry.address?.trim() || form.address,
+    handler: entry.handler?.trim() || form.handler,
     hd_ed_jlpp_nr: entry.hd_ed_jlpp?.trim() || form.hd_ed_jlpp_nr,
   };
 }

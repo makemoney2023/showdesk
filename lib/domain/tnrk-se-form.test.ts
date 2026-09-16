@@ -16,6 +16,7 @@ import {
   seCompletionGaps,
   seFormFormwert,
   officialCritiqueFormwert,
+  seRegistrationNumber,
 } from "./tnrk-se-form";
 
 describe("tnrk-se-form", () => {
@@ -200,6 +201,43 @@ describe("tnrk-se-form", () => {
       "1260 3E Rang Saint-Luc-De-Vincenne, Quebec G0X 3K0",
     );
     expect(form.hd_ed_jlpp_nr).toBe("Cardiac: Normal; JLPP: Normal");
+  });
+
+  it("seeds highlighted official-form identity fields from the catalog", () => {
+    const form = mergeEntryIntoSeForm(createEmptyTnrkSeForm(), {
+      dog_name: "Esmonds Canadian Shield",
+      armband: "12",
+      owner: "Kim Oatway & Ann Felske-Jackman",
+      email: "Kimberlyaoatway@Gmail.com",
+      sex: "R",
+      zb_number: "GQ3977172",
+      registration_club: "CKC",
+      wt: "2019-08-27",
+      sire: "Esmonds Mint Chip",
+      sire_reg: "CL608305",
+      dam: "Esmonds Singular Sensation",
+      dam_reg: "AG502533",
+      address: "6203 Route 3 Lawrence Station, Nb E5A 3C3",
+      handler: "Kim Oatway",
+    });
+    expect(form.registration_number).toBe("CKC-GQ3977172");
+    expect(form.sire_reg).toBe("CL608305");
+    expect(form.dam_reg).toBe("AG502533");
+    expect(form.address).toBe("6203 Route 3 Lawrence Station, Nb E5A 3C3");
+    expect(form.handler).toBe("Kim Oatway");
+  });
+
+  it("does not double-prefix a registration number that already includes the club", () => {
+    expect(
+      seRegistrationNumber({
+        zb_number: "CKC-GQ3977172",
+        registration_club: "CKC",
+      }),
+    ).toBe("CKC-GQ3977172");
+    expect(
+      seRegistrationNumber({ zb_number: "GQ3977172", registration_club: "CKC" }),
+    ).toBe("CKC-GQ3977172");
+    expect(seRegistrationNumber({ zb_number: "ADRK-1" })).toBe("ADRK-1");
   });
 
   it("requires dog name, rating, and final result before treating SE as complete", () => {

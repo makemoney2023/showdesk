@@ -29,6 +29,10 @@ describe("resolveSeFormForPdf", () => {
       sex: "R" as const,
       zb_number: "AKC-WS73993802",
       wt: "2021-08-31",
+      sire_reg: "CL608305",
+      dam_reg: "AG502533",
+      address: "6203 Route 3 Lawrence Station, Nb E5A 3C3",
+      handler: "Kim Oatway",
     },
     {
       id: "entry-038-se",
@@ -42,6 +46,10 @@ describe("resolveSeFormForPdf", () => {
       sex: "R" as const,
       zb_number: "AKC-WS73993802",
       wt: "2021-08-31",
+      sire_reg: "CL608305",
+      dam_reg: "AG502533",
+      address: "6203 Route 3 Lawrence Station, Nb E5A 3C3",
+      handler: "Kim Oatway",
     },
   ];
   const evaluations = [
@@ -61,6 +69,10 @@ describe("resolveSeFormForPdf", () => {
     expect(form.dog_name).toBe("Ason Von Haus Wilkerson");
     expect(form.owner_co_owner).toBe("Mr. Michael Wilkerson");
     expect(form.registration_number).toBe("AKC-WS73993802");
+    expect(form.sire_reg).toBe("CL608305");
+    expect(form.dam_reg).toBe("AG502533");
+    expect(form.address).toBe("6203 Route 3 Lawrence Station, Nb E5A 3C3");
+    expect(form.handler).toBe("Kim Oatway");
     expect(form.sex).toBe("male");
     expect(form.judge).toBe("Sandra Reck (ADRK)");
     expect(form.bite).toBe("correct_scissor");

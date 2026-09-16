@@ -139,6 +139,28 @@ describe("buildTnrkSePdf", () => {
     expect(Buffer.from(bytes.slice(0, 5)).toString()).toBe("%PDF-");
   });
 
+  it("overlays highlighted identity cells from the official SE form", async () => {
+    const form = createEmptyTnrkSeForm();
+    form.registration_number = "CKC-GQ3977172";
+    form.sire_reg = "CL608305";
+    form.dam_reg = "AG502533";
+    form.address = "6203 Route 3 Lawrence Station, Nb E5A 3C3";
+    form.handler = "Kim Oatway";
+    form.measurements = {
+      ...form.measurements,
+      eye_color: "1B",
+      legible_tattoo: "Not applicable",
+    };
+    const bytes = await buildTnrkSePdf(form);
+    expect(pdfContainsText(bytes, "CKC-GQ3977172")).toBe(true);
+    expect(pdfContainsText(bytes, "CL608305")).toBe(true);
+    expect(pdfContainsText(bytes, "AG502533")).toBe(true);
+    expect(pdfContainsText(bytes, "6203 Route 3")).toBe(true);
+    expect(pdfContainsText(bytes, "Kim Oatway")).toBe(true);
+    expect(pdfContainsText(bytes, "1B")).toBe(true);
+    expect(pdfContainsText(bytes, "Not applicable")).toBe(true);
+  });
+
   it("overlays measurements, critique, and comments from the SE form", async () => {
     const form = createEmptyTnrkSeForm();
     form.dog_name = "Rex vom Test";

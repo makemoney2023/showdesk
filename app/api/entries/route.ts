@@ -356,9 +356,12 @@ export async function PUT(request: Request) {
     photo_path: existing.photo_path,
     dog_id: existing.dog_id ?? body.entry.dog_id ?? newId("dog"),
     sire: body.entry.sire ?? existing.sire ?? "",
+    sire_reg: body.entry.sire_reg ?? existing.sire_reg ?? "",
     dam: body.entry.dam ?? existing.dam ?? "",
+    dam_reg: body.entry.dam_reg ?? existing.dam_reg ?? "",
     breeder: body.entry.breeder ?? existing.breeder ?? "",
     address: body.entry.address ?? existing.address ?? "",
+    handler: body.entry.handler ?? existing.handler ?? "",
     hd_ed_jlpp: body.entry.hd_ed_jlpp ?? existing.hd_ed_jlpp ?? "",
   };
   const divisionChanged =

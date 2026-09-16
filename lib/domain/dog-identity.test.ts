@@ -247,6 +247,10 @@ describe("dog identity", () => {
       dog_id: "dog-1",
       owner: "New Owner",
       microchip: "999",
+      sire_reg: "CL608305",
+      dam_reg: "AG502533",
+      handler: "Kim Oatway",
+      address: "6203 Route 3",
     });
     const synced = syncIdentityToDog(
       [
@@ -262,5 +266,9 @@ describe("dog identity", () => {
     );
     expect(synced[1].owner).toBe("New Owner");
     expect(synced[1].microchip).toBe("999");
+    expect(synced[1].sire_reg).toBe("CL608305");
+    expect(synced[1].dam_reg).toBe("AG502533");
+    expect(synced[1].handler).toBe("Kim Oatway");
+    expect(synced[1].address).toBe("6203 Route 3");
   });
 });

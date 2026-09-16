@@ -36,6 +36,9 @@ export interface DogIdentityFields {
   hd_ed_jlpp?: string;
   health?: DogHealthClearances;
   photo_path?: string;
+  sire_reg?: string;
+  dam_reg?: string;
+  handler?: string;
 }
 
 const CATALOG_TO_ADRK: Record<CatalogClassId, AdrkClassId> = {
@@ -200,6 +203,9 @@ export function identityFromEntry(
       ? formatHealthClearances(health)
       : (entry.hd_ed_jlpp ?? ""),
     health,
+    sire_reg: entry.sire_reg ?? "",
+    dam_reg: entry.dam_reg ?? "",
+    handler: entry.handler ?? "",
   };
 }
 
