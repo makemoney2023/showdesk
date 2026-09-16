@@ -9,6 +9,7 @@ import {
   isShowResultsPublished,
   showResultsSlug,
 } from "@/lib/domain/public-results";
+import { catalogDivisionLabel } from "@/lib/domain/catalog-competition";
 import { appearanceSeEvaluation } from "@/lib/domain/tnrk-se-form";
 import {
   resolveSeEvaluationForPdf,
