@@ -75,14 +75,15 @@ export const TNRK_CRITIQUE_FIELD_X = {
 
 /**
  * Judge e-signature pad on the JUDGE'S SIGNATURE row (fromTop = box bottom).
- * Taller pad grows downward so it clears CO-OWNER; the inner sign-here
- * line stays on the typed-name baseline. x is computed just after that name.
+ * Taller pad grows up toward CO-OWNER and down toward the disclaimer so a
+ * wet-ink signature fits; the inner sign-here line stays on the typed-name
+ * baseline. x is computed just after that name.
  */
 export const TNRK_CRITIQUE_SIGNATURE_BOX = {
   judge: {
-    fromTop: TNRK_CRITIQUE_FIELD_TOP.judge_signature + 6,
-    height: 28,
-    lineFromBottom: 16,
+    fromTop: TNRK_CRITIQUE_FIELD_TOP.judge_signature + 18,
+    height: 50,
+    lineFromBottom: 28,
   },
 } as const;
 

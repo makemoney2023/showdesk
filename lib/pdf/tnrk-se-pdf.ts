@@ -99,12 +99,13 @@ export const TNRK_SE_FOOTER = {
 
 /**
  * E-signature pads on the blank cells (pdftotext-style fromTop = box bottom).
- * Judge: right of JUDGE'S SIGNATURE. Secretary: right of EVENT SECRETARY,
- * left of DATE / DATUM.
+ * Judge: right of JUDGE'S SIGNATURE, growing up into the empty FINAL RESULT
+ * cell so a wet-ink signature fits. Secretary: right of EVENT SECRETARY,
+ * left of DATE / DATUM, growing down toward the gold footer bar.
  */
 export const TNRK_SE_SIGNATURE_BOX = {
-  judge: { x: 318, fromTop: 736, width: 248, height: 28 },
-  secretary: { x: 318, fromTop: 768, width: 116, height: 28 },
+  judge: { x: 318, fromTop: 736, width: 248, height: 44 },
+  secretary: { x: 318, fromTop: 780, width: 116, height: 40 },
 } as const;
 
 /** Shrink, then ellipsize, so overlay text stays inside a template cell. */

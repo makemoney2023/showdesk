@@ -157,8 +157,12 @@ describe("tnrk-critique-pdf layout", () => {
     const box = critiqueJudgeSignatureBox(name, font, 10);
     const nameWidth = font.widthOfTextAtSize(name, 10);
     expect(TNRK_CRITIQUE_SIGNATURE_BOX).not.toHaveProperty("secretary");
-    expect(box.fromTop).toBe(TNRK_CRITIQUE_FIELD_TOP.judge_signature + 6);
-    expect(box.height).toBe(28);
+    expect(box.fromTop).toBe(TNRK_CRITIQUE_FIELD_TOP.judge_signature + 18);
+    expect(box.height).toBe(50);
+    expect(box.fromTop - box.height).toBeGreaterThan(
+      TNRK_CRITIQUE_FIELD_TOP.co_owner - 6,
+    );
+    expect(box.fromTop).toBeLessThan(578);
     expect(box.x).toBeGreaterThan(
       TNRK_CRITIQUE_FIELD_X.judge_signature + nameWidth,
     );

@@ -246,8 +246,11 @@ describe("TNRK SE signature footer layout", () => {
     expect(judge.x + judge.width).toBeLessThan(574);
     expect(secretary.x).toBe(judge.x);
     expect(secretary.x + secretary.width).toBeLessThan(TNRK_SE_FOOTER.date.x);
-    expect(judge.height).toBe(28);
-    expect(secretary.height).toBe(28);
+    expect(judge.height).toBe(44);
+    expect(secretary.height).toBe(40);
+    expect(judge.fromTop - judge.height).toBeGreaterThan(681);
+    expect(secretary.fromTop - secretary.height).toBeGreaterThan(judge.fromTop);
+    expect(secretary.fromTop).toBeLessThan(783);
     expect(TNRK_SE_FOOTER.date.fromTop).toBe(TNRK_SE_FOOTER.secretaryName.fromTop);
     expect(TNRK_SE_FOOTER.date.maxX).toBeLessThan(574);
   });
