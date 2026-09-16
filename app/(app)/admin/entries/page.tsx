@@ -47,6 +47,11 @@ import {
   SeClearanceAttachField,
   fileToBase64,
 } from "@/components/roster/DogDocumentsField";
+import {
+  inferSeDocumentKind,
+  seDocumentRequirementError,
+  type DogDocumentRecord,
+} from "@/lib/domain/dog-document";
 import { TrophyOrderActions } from "@/components/roster/TrophyOrderActions";
 import type { RulebookTemplate } from "@/lib/domain/adrk-template";
 import {
@@ -356,6 +361,32 @@ export default function AdminEntriesPage() {
         showEntryError(healthError);
         return;
       }
+      const existingDocs: DogDocumentRecord[] = draft.dog_id
+        ? await fetch(
+            `/api/documents?show_id=${encodeURIComponent(activeShow)}&dog_id=${encodeURIComponent(draft.dog_id)}`,
+          )
+            .then((res) => res.json())
+            .then((data: { documents?: DogDocumentRecord[] }) => data.documents ?? [])
+            .catch(() => [])
+        : [];
+      const documentError = seDocumentRequirementError({
+        filenames: [
+          ...REQUIRED_SE_HEALTH_FIELDS.filter((field) => pendingClearanceDocs[field.key]).map(
+            (field) => pendingClearanceDocs[field.key]!.name,
+          ),
+          ...existingDocs.map((document) => document.filename),
+        ],
+        kinds: [
+          ...REQUIRED_SE_HEALTH_FIELDS.filter((field) => pendingClearanceDocs[field.key]).map(
+            (field) => field.key,
+          ),
+          ...existingDocs.map((document) => inferSeDocumentKind(document.filename)),
+        ],
+      });
+      if (documentError) {
+        showEntryError(documentError);
+        return;
+      }
     }
     const validation = validateRosterEntry(draft);
     if (!validation.valid) {
@@ -468,6 +499,26 @@ export default function AdminEntriesPage() {
     }
 
     try {
+      for (const field of REQUIRED_SE_HEALTH_FIELDS) {
+        const file = pendingClearanceDocs[field.key];
+        if (!file || !draft.id) continue;
+        const uploadRes = await fetch("/api/documents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            show_id: activeShow,
+            entry_id: draft.id,
+            file_base64: await fileToBase64(file),
+            filename: file.name,
+            mime: file.type,
+            kind: field.key,
+          }),
+        });
+        if (!uploadRes.ok) {
+          showEntryError(await readApiError(uploadRes, "Document upload failed"));
+          return;
+        }
+      }
       const res = await fetch("/api/entries", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -1382,8 +1433,8 @@ export default function AdminEntriesPage() {
                 SE health clearances
               </p>
               <p className="text-xs text-sss-text-muted sm:col-span-2">
-                HD, ED, and JLPP results and documents are required for SE.
-                Eye, heart, NAD, and registry stay optional.
+                HD, ED, and JLPP results and document uploads are required for
+                SE. Eye, heart, NAD, and registry values stay optional.
               </p>
               {REQUIRED_SE_HEALTH_FIELDS.map(({ key, label }) => (
                 <div key={key} className="space-y-1">
@@ -1403,18 +1454,16 @@ export default function AdminEntriesPage() {
                     placeholder="clear / passing"
                     aria-required
                   />
-                  {entryFormMode === "create" ? (
-                    <SeClearanceAttachField
-                      label={label}
-                      file={pendingClearanceDocs[key]}
-                      onFileChange={(file) =>
-                        setPendingClearanceDocs((current) => ({
-                          ...current,
-                          [key]: file,
-                        }))
-                      }
-                    />
-                  ) : null}
+                  <SeClearanceAttachField
+                    label={label}
+                    file={pendingClearanceDocs[key]}
+                    onFileChange={(file) =>
+                      setPendingClearanceDocs((current) => ({
+                        ...current,
+                        [key]: file,
+                      }))
+                    }
+                  />
                 </div>
               ))}
               {(
@@ -1487,6 +1536,8 @@ export default function AdminEntriesPage() {
               </div>
             </div>
           ) : null}
+          {entryFormMode === "create" &&
+          (entryDays.se || entryDraft.event_kind === "se") ? null : (
           <DogDocumentsField
             showId={entryDraft.show_id || showId || ""}
             entryId={entryDraft.id || undefined}
@@ -1495,6 +1546,7 @@ export default function AdminEntriesPage() {
             onPendingFilesChange={setPendingDocuments}
             extraOnly={entryDays.se || entryDraft.event_kind === "se"}
           />
+          )}
           <div className="flex gap-2">
             <Button onClick={() => void saveEntryForm()}>
               {entryFormMode === "create" ? "Create entry" : "Save entry"}

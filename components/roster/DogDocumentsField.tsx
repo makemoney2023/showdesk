@@ -71,7 +71,7 @@ export function SeClearanceAttachField({
           size="sm"
           onClick={() => inputRef.current?.click()}
         >
-          Attach {label} document
+          Attach {label} document (required)
         </Button>
       )}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -179,13 +179,13 @@ export function DogDocumentsField({
     <div className="space-y-2 sm:col-span-2">
       <Label>
         {extraOnly
-          ? "Additional clearances (optional)"
-          : "Clearances and attachments (optional)"}
+          ? "HD, ED, and JLPP documents (required)"
+          : "Clearances and attachments"}
       </Label>
       <p className="text-xs text-sss-text-muted">
         {extraOnly
-          ? "Eye, heart, NAD, or registry paperwork. HD, ED, and JLPP documents are required above."
-          : "HD/ED, eye, heart, OFA/ADRK, JLPP, NAD. Attach a PDF when you have one — shown on public results if you publish the show."}
+          ? "Each of HD, ED, and JLPP must have an attached PDF or image. Extra eye, heart, NAD, or registry files can go here too."
+          : "HD, ED, and JLPP attachments are required when this dog is entered in SE."}
       </p>
       <input
         ref={inputRef}

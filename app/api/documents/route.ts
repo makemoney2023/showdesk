@@ -14,7 +14,7 @@ import { readJsonBody } from "@/lib/api/read-json";
 import { dogKey } from "@/lib/domain/dog-identity";
 import {
   DOG_DOCUMENT_MAX_BASE64_CHARS,
-  sanitizeDocumentFilename,
+  filenameForSeDocumentKind,
   validateDogDocumentUpload,
 } from "@/lib/domain/dog-document";
 
@@ -46,6 +46,7 @@ export async function POST(request: Request) {
     file_base64: string;
     filename?: string;
     mime?: string;
+    kind?: string;
   }>(request);
   if (!body?.show_id || !body.entry_id || !body.file_base64) {
     return NextResponse.json(
@@ -99,7 +100,11 @@ export async function POST(request: Request) {
     show_id: body.show_id,
     dog_id: dogId,
     path,
-    filename: sanitizeDocumentFilename(body.filename ?? "document", validation.ext),
+    filename: filenameForSeDocumentKind(
+      body.filename ?? "document",
+      body.kind,
+      validation.ext,
+    ),
     content_type: validation.mime,
     created_at: new Date().toISOString(),
   };

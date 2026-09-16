@@ -39,7 +39,10 @@ import {
 import { showWeekendDays } from "@/lib/domain/show-weekend";
 import type { RosterEntryRecord } from "@/lib/types";
 import { seHealthRequirementError } from "@/lib/domain/health-clearances";
-import { inferSeDocumentKind } from "@/lib/domain/dog-document";
+import {
+  inferSeDocumentKind,
+  seDocumentRequirementError,
+} from "@/lib/domain/dog-document";
 
 function hostedCatalogMetadataError(
   entry: Pick<
@@ -369,6 +372,24 @@ export async function PUT(request: Request) {
   );
   if (!existing) {
     return NextResponse.json({ error: "Entry not found" }, { status: 404 });
+  }
+  if (body.entry.event_kind === "se") {
+    const dogId = existing.dog_id ?? body.entry.dog_id;
+    const existingDocs = (store.dog_documents ?? []).filter(
+      (document) =>
+        document.show_id === body.show_id &&
+        Boolean(dogId) &&
+        document.dog_id === dogId,
+    );
+    const documentError = seDocumentRequirementError({
+      filenames: existingDocs.map((document) => document.filename),
+      kinds: existingDocs.map((document) =>
+        inferSeDocumentKind(document.filename),
+      ),
+    });
+    if (documentError) {
+      return NextResponse.json({ error: documentError }, { status: 400 });
+    }
   }
 
   const nextEntry: RosterEntryRecord = {
