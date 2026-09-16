@@ -11,18 +11,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ADRK_CLASSES } from "@/lib/domain/adrk-template";
 import { formatDisplayDate } from "@/lib/domain/show-day";
 import {
   divisionLabel,
   divisionsWithDogs,
 } from "@/lib/domain/class-division";
-import {
-  CATALOG_CLASSES,
-  catalogMetadataError,
-  type CatalogClassId,
-  type CatalogEventKind,
-} from "@/lib/domain/catalog-competition";
+import { catalogMetadataError } from "@/lib/domain/catalog-competition";
 import {
   entriesForRosterTab,
   rosterEmptyMessage,
@@ -34,7 +28,14 @@ import {
 } from "@/lib/domain/roster-view";
 import { DivisionFilterChips } from "@/components/desk/DivisionFilterChips";
 import { showWeekendDays } from "@/lib/domain/show-weekend";
-import { classEligibilityWarning } from "@/lib/domain/class-eligibility";
+import {
+  classEligibilityWarning,
+  eligibleCatalogClasses,
+} from "@/lib/domain/class-eligibility";
+import {
+  applyCreateCatalogDraft,
+  withResolvedConformationClass,
+} from "@/lib/domain/catalog-event-draft";
 import {
   emptyHealthClearances,
   HEALTH_REGISTRY_OPTIONS,
@@ -42,6 +43,7 @@ import {
   seHealthRequirementError,
 } from "@/lib/domain/health-clearances";
 import { CsvImportDialog } from "@/components/roster/CsvImportDialog";
+import { CatalogEventFields } from "@/components/roster/CatalogEventFields";
 import {
   DogDocumentsField,
   SeClearanceAttachField,
@@ -61,9 +63,8 @@ import { blankRosterEntryDraft } from "@/lib/domain/roster-draft";
 import { blankShowDraft, validateShowCreate } from "@/lib/domain/show-draft";
 import type { ShowCreateInput } from "@/lib/domain/show-draft";
 import { DogPhotoField } from "@/components/roster/DogPhotoField";
-import { Checkbox } from "@/components/ui/checkbox";
 import { dogPhotoHrefForEntry } from "@/lib/domain/dog-photo";
-import { photoSourceForDog } from "@/lib/domain/dog-identity";
+import { adrkClassForCatalog, photoSourceForDog } from "@/lib/domain/dog-identity";
 import { JudgeListFields } from "@/components/show/JudgeListFields";
 import {
   Dialog,
@@ -98,7 +99,7 @@ export default function AdminEntriesPage() {
   const [rosterTab, setRosterTab] = useState<RosterTab>("all");
   const [entryDays, setEntryDays] = useState({
     se: false,
-    saturday: true,
+    saturday: false,
     sunday: false,
   });
   const [armbandMode, setArmbandMode] = useState<"sequential" | "random">(
@@ -269,7 +270,7 @@ export default function AdminEntriesPage() {
     setEntryFormMode("create");
     setPendingDocuments([]);
     setPendingClearanceDocs({});
-    setEntryDays({ se: false, saturday: true, sunday: false });
+    setEntryDays({ se: false, saturday: false, sunday: false });
     setArmbandMode("sequential");
     const showDate = shows.find((show) => show.id === showId)?.date ?? "";
     setEntryDraft(
@@ -317,7 +318,17 @@ export default function AdminEntriesPage() {
     }
 
     const named = splitRegisteredName(entryDraft);
-    const draft = { ...entryDraft, ...named };
+    const weekendDays = showWeekendDays(
+      shows.find((show) => show.id === activeShow)?.date ?? "",
+    );
+    let draft =
+      entryFormMode === "create"
+        ? applyCreateCatalogDraft(
+            { ...entryDraft, ...named },
+            entryDays,
+            weekendDays,
+          )
+        : { ...entryDraft, ...named };
     setEntryDraft(draft);
 
     if (
@@ -326,7 +337,16 @@ export default function AdminEntriesPage() {
       !entryDays.saturday &&
       !entryDays.sunday
     ) {
-      showEntryError("Select at least one date");
+      showEntryError("Select at least one catalog event");
+      return;
+    }
+    if (
+      (entryFormMode === "create"
+        ? entryDays.saturday || entryDays.sunday
+        : draft.event_kind === "conformation") &&
+      !(draft.date_of_birth || draft.wt).trim()
+    ) {
+      showEntryError("Enter the dog's date of birth to choose a catalog class");
       return;
     }
     if (entryFormMode === "create") {
@@ -523,15 +543,52 @@ export default function AdminEntriesPage() {
     divisionFilter: activeDivisionFilter,
     tab: rosterTab,
   });
-  const classWarning =
+  const catalogOnDate =
+    entryDraft?.competition_day?.trim() || weekend.saturday;
+  const classWarning = entryDraft
+    ? classEligibilityWarning({
+        catalogClass: entryDraft.catalog_class,
+        dateOfBirth: entryDraft.date_of_birth || entryDraft.wt,
+        onDate: catalogOnDate,
+        prefixTitles: entryDraft.prefix_titles,
+        suffixTitles: entryDraft.suffix_titles,
+      })
+    : null;
+  const eligibleClasses = entryDraft
+    ? eligibleCatalogClasses({
+        dateOfBirth: entryDraft.date_of_birth || entryDraft.wt,
+        onDate: catalogOnDate,
+        prefixTitles: entryDraft.prefix_titles,
+        suffixTitles: entryDraft.suffix_titles,
+        include:
+          entryFormMode === "edit" ? entryDraft.catalog_class : undefined,
+      })
+    : [];
+  const seChecked =
+    entryFormMode === "create"
+      ? entryDays.se
+      : entryDraft?.event_kind === "se";
+  const conformationChecked =
+    entryFormMode === "create"
+      ? entryDays.saturday || entryDays.sunday
+      : entryDraft?.event_kind !== "se";
+  const dobMissing = Boolean(
     entryDraft &&
-    classEligibilityWarning({
-      catalogClass: entryDraft.catalog_class,
-      dateOfBirth: entryDraft.date_of_birth || entryDraft.wt,
-      onDate: weekend.saturday,
-      prefixTitles: entryDraft.prefix_titles,
-      suffixTitles: entryDraft.suffix_titles,
-    });
+      (!(entryDraft.date_of_birth || entryDraft.wt).trim() ||
+        (entryDraft.sex !== "R" && entryDraft.sex !== "H")),
+  );
+
+  function patchConformationClass(draft: RosterEntryRecord): RosterEntryRecord {
+    const conformation =
+      entryFormMode === "create"
+        ? entryDays.saturday || entryDays.sunday
+        : draft.event_kind !== "se";
+    if (!conformation) return draft;
+    return withResolvedConformationClass(
+      draft,
+      draft.competition_day?.trim() || weekend.saturday,
+    );
+  }
 
   const selectValue = shows.some((s) => s.id === showId) ? showId! : undefined;
 
@@ -965,69 +1022,6 @@ export default function AdminEntriesPage() {
               }
             />
           ) : null}
-          {entryFormMode === "create" ? (
-            <div className="space-y-2 rounded-sss-md border border-sss-border p-3">
-              <Label>Date(s) entered</Label>
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={entryDays.se}
-                  onCheckedChange={(checked) =>
-                    setEntryDays((days) => ({ ...days, se: checked === true }))
-                  }
-                />
-                Friday {formatDisplayDate(weekend.se)} — SE only
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={entryDays.saturday}
-                  onCheckedChange={(checked) =>
-                    setEntryDays((days) => ({
-                      ...days,
-                      saturday: checked === true,
-                    }))
-                  }
-                />
-                Saturday {formatDisplayDate(weekend.saturday)}
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={entryDays.sunday}
-                  onCheckedChange={(checked) =>
-                    setEntryDays((days) => ({
-                      ...days,
-                      sunday: checked === true,
-                    }))
-                  }
-                />
-                Sunday {formatDisplayDate(weekend.sunday)}
-              </label>
-              <div className="space-y-1 pt-2">
-                <Label>Armband assignment</Label>
-                <Select
-                  value={armbandMode}
-                  onValueChange={(value) =>
-                    setArmbandMode(value as "sequential" | "random")
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sequential">
-                      Sequential (show-wide, Saturday then Sunday)
-                    </SelectItem>
-                    <SelectItem value="random">
-                      Random in the show range
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-sss-text-muted">
-                  Both conformation days get different numbers. SE reuses the
-                  Saturday number when the dog is also in conformation.
-                </p>
-              </div>
-            </div>
-          ) : null}
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor="armband">Armband</Label>
@@ -1137,11 +1131,13 @@ export default function AdminEntriesPage() {
                 type="date"
                 value={entryDraft.date_of_birth || entryDraft.wt}
                 onChange={(e) =>
-                  setEntryDraft({
-                    ...entryDraft,
-                    date_of_birth: e.target.value,
-                    wt: e.target.value,
-                  })
+                  setEntryDraft(
+                    patchConformationClass({
+                      ...entryDraft,
+                      date_of_birth: e.target.value,
+                      wt: e.target.value,
+                    }),
+                  )
                 }
               />
             </div>
@@ -1151,10 +1147,12 @@ export default function AdminEntriesPage() {
                 id="prefix_titles"
                 value={entryDraft.prefix_titles ?? ""}
                 onChange={(e) =>
-                  setEntryDraft({
-                    ...entryDraft,
-                    prefix_titles: e.target.value,
-                  })
+                  setEntryDraft(
+                    patchConformationClass({
+                      ...entryDraft,
+                      prefix_titles: e.target.value,
+                    }),
+                  )
                 }
                 placeholder="CH, AM CH, Sieger…"
               />
@@ -1165,10 +1163,12 @@ export default function AdminEntriesPage() {
                 id="suffix_titles"
                 value={entryDraft.suffix_titles ?? ""}
                 onChange={(e) =>
-                  setEntryDraft({
-                    ...entryDraft,
-                    suffix_titles: e.target.value,
-                  })
+                  setEntryDraft(
+                    patchConformationClass({
+                      ...entryDraft,
+                      suffix_titles: e.target.value,
+                    }),
+                  )
                 }
                 placeholder="IGP1, BH, FH…"
               />
@@ -1259,7 +1259,12 @@ export default function AdminEntriesPage() {
                     : undefined
                 }
                 onValueChange={(v) =>
-                  setEntryDraft({ ...entryDraft, sex: v as "R" | "H" })
+                  setEntryDraft(
+                    patchConformationClass({
+                      ...entryDraft,
+                      sex: v as "R" | "H",
+                    }),
+                  )
                 }
               >
                 <SelectTrigger>
@@ -1271,112 +1276,135 @@ export default function AdminEntriesPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
-              <Label>Class</Label>
-              <Select
-                value={entryDraft.class_id}
-                onValueChange={(v) =>
-                  setEntryDraft({
+          </div>
+          <CatalogEventFields
+            mode={entryFormMode ?? "create"}
+            seChecked={Boolean(seChecked)}
+            onSeChange={(checked) => {
+              if (entryFormMode === "create") {
+                const next = { ...entryDays, se: checked };
+                setEntryDays(next);
+                setEntryDraft((current) =>
+                  current
+                    ? applyCreateCatalogDraft(current, next, weekend)
+                    : current,
+                );
+                return;
+              }
+              if (!checked) return;
+              setEntryDraft({
+                ...entryDraft,
+                event_kind: "se",
+                catalog_class: "standard-evaluation",
+                competition_day: weekend.se,
+              });
+            }}
+            conformationChecked={Boolean(conformationChecked)}
+            onConformationChange={(checked) => {
+              if (entryFormMode === "create") {
+                const next = {
+                  ...entryDays,
+                  saturday: checked
+                    ? entryDays.saturday || !entryDays.sunday
+                    : false,
+                  sunday: checked ? entryDays.sunday : false,
+                };
+                setEntryDays(next);
+                setEntryDraft((current) =>
+                  current
+                    ? applyCreateCatalogDraft(current, next, weekend)
+                    : current,
+                );
+                return;
+              }
+              if (!checked) return;
+              setEntryDraft(
+                withResolvedConformationClass(
+                  {
                     ...entryDraft,
-                    class_id: v as RosterEntryRecord["class_id"],
-                  })
+                    event_kind: "conformation",
+                    competition_day:
+                      entryDraft.competition_day &&
+                      entryDraft.competition_day !== weekend.se
+                        ? entryDraft.competition_day
+                        : weekend.saturday,
+                  },
+                  weekend.saturday,
+                ),
+              );
+            }}
+            saturdayChecked={entryDays.saturday}
+            sundayChecked={entryDays.sunday}
+            onSaturdayChange={(checked) => {
+              const next = { ...entryDays, saturday: checked };
+              setEntryDays(next);
+              setEntryDraft((current) =>
+                current
+                  ? applyCreateCatalogDraft(current, next, weekend)
+                  : current,
+              );
+            }}
+            onSundayChange={(checked) => {
+              const next = { ...entryDays, sunday: checked };
+              setEntryDays(next);
+              setEntryDraft((current) =>
+                current
+                  ? applyCreateCatalogDraft(current, next, weekend)
+                  : current,
+              );
+            }}
+            weekend={weekend}
+            catalogClass={entryDraft.catalog_class}
+            onCatalogClassChange={(value) =>
+              setEntryDraft({
+                ...entryDraft,
+                catalog_class: value,
+                class_id: adrkClassForCatalog(value),
+              })
+            }
+            eligibleClasses={eligibleClasses}
+            sex={entryDraft.sex === "R" || entryDraft.sex === "H" ? entryDraft.sex : ""}
+            classWarning={classWarning}
+            competitionDay={entryDraft.competition_day}
+            onCompetitionDayChange={(value) =>
+              setEntryDraft(
+                withResolvedConformationClass(
+                  { ...entryDraft, competition_day: value },
+                  value || weekend.saturday,
+                ),
+              )
+            }
+            dobMissing={dobMissing}
+          />
+          {entryFormMode === "create" &&
+          (entryDays.saturday || entryDays.sunday) ? (
+            <div className="space-y-1">
+              <Label>Armband assignment</Label>
+              <Select
+                value={armbandMode}
+                onValueChange={(value) =>
+                  setArmbandMode(value as "sequential" | "random")
                 }
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {ADRK_CLASSES.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.label}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="sequential">
+                    Sequential (show-wide, Saturday then Sunday)
+                  </SelectItem>
+                  <SelectItem value="random">
+                    Random in the show range
+                  </SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-sss-text-muted">
+                Both conformation days get different numbers. SE reuses the
+                Saturday number when the dog is also in conformation.
+              </p>
             </div>
-            {entryFormMode === "edit" ? (
-              <>
-                <div className="space-y-1">
-                  <Label>Catalog event</Label>
-                  <Select
-                    value={entryDraft.event_kind || undefined}
-                    onValueChange={(value) => {
-                      const eventKind = value as CatalogEventKind;
-                      setEntryDraft({
-                        ...entryDraft,
-                        event_kind: eventKind,
-                        catalog_class:
-                          eventKind === "se"
-                            ? "standard-evaluation"
-                            : entryDraft.catalog_class === "standard-evaluation"
-                              ? "youth-i"
-                              : entryDraft.catalog_class,
-                      });
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select event" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="se">Standard Evaluation (SE)</SelectItem>
-                      <SelectItem value="conformation">Conformation</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="competition_day">Competition day (required)</Label>
-                  <Input
-                    id="competition_day"
-                    type="date"
-                    value={entryDraft.competition_day ?? ""}
-                    onChange={(event) =>
-                      setEntryDraft({
-                        ...entryDraft,
-                        competition_day: event.target.value,
-                      })
-                    }
-                  />
-                </div>
-              </>
-            ) : null}
-            {entryDraft.event_kind !== "se" ? (
-              <div className="space-y-1 sm:col-span-2">
-                <Label>Published catalog class</Label>
-                <Select
-                  value={
-                    entryDraft.catalog_class &&
-                    entryDraft.catalog_class !== "standard-evaluation"
-                      ? entryDraft.catalog_class
-                      : undefined
-                  }
-                  onValueChange={(value) =>
-                    setEntryDraft({
-                      ...entryDraft,
-                      catalog_class: value as CatalogClassId,
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select published class" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATALOG_CLASSES.map((catalogClass) => (
-                      <SelectItem
-                        key={catalogClass.id}
-                        value={catalogClass.id}
-                      >
-                        {catalogClass.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {classWarning ? (
-                  <p className="text-sm text-amber-800">{classWarning}</p>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-          {entryDays.se || entryDraft.event_kind === "se" ? (
+          ) : null}
+          {seChecked ? (
             <div className="grid gap-3 rounded-sss-md border border-sss-border p-3 sm:grid-cols-2">
               <p className="text-sm font-medium sm:col-span-2">
                 SE health clearances
@@ -1493,7 +1521,7 @@ export default function AdminEntriesPage() {
             dogId={entryDraft.dog_id}
             pendingFiles={pendingDocuments}
             onPendingFilesChange={setPendingDocuments}
-            extraOnly={entryDays.se || entryDraft.event_kind === "se"}
+            extraOnly={Boolean(seChecked)}
           />
           <div className="flex gap-2">
             <Button onClick={() => void saveEntryForm()}>
