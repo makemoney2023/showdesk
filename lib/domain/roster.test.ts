@@ -38,24 +38,42 @@ describe("roster", () => {
     expect(result.entries[0]?.suffix_titles).toBe("IGP1");
   });
 
-  it("requires microchip on create but treats SE health as optional", () => {
+  it("requires HD, ED, and JLPP values plus documents when creating SE", () => {
     expect(createEntryRequirementError({ microchip: "" })).toBe(
       "microchip is required",
     );
     expect(
       createEntryRequirementError({
         microchip: "123",
-        se: true,
-        health: { hd: "clear" },
+        se: false,
+        health: {},
       }),
     ).toBeNull();
     expect(
       createEntryRequirementError({
         microchip: "123",
         se: true,
+        health: { hd: "clear" },
+      }),
+    ).toBe("ED, JLPP are required for SE");
+    expect(
+      createEntryRequirementError({
+        microchip: "123",
+        se: true,
         health: {},
       }),
-    ).toBeNull();
+    ).toBe("HD, ED, and JLPP clearances are required for SE");
+    expect(
+      createEntryRequirementError({
+        microchip: "123",
+        se: true,
+        health: {
+          hd: "clear",
+          ed: "clear",
+          jlpp: "N/N",
+        },
+      }),
+    ).toBe("Attach documents for HD, ED, and JLPP");
     expect(
       createEntryRequirementError({
         microchip: "123",
@@ -72,6 +90,16 @@ describe("roster", () => {
         },
         documentFilenames: ["clearances.pdf"],
         documentTypes: ["application/pdf"],
+      }),
+    ).toBe("Attach documents for HD, ED, and JLPP");
+    expect(
+      createEntryRequirementError({
+        microchip: "123",
+        se: true,
+        health: { hd: "A", ed: "normal", jlpp: "N/N" },
+        documentKinds: ["hd", "ed", "jlpp"],
+        documentFilenames: ["hips.pdf", "elbows.pdf", "jlpp.pdf"],
+        documentTypes: ["application/pdf", "application/pdf", "application/pdf"],
       }),
     ).toBeNull();
   });

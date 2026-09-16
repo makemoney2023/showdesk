@@ -38,10 +38,13 @@ import { classEligibilityWarning } from "@/lib/domain/class-eligibility";
 import {
   emptyHealthClearances,
   HEALTH_REGISTRY_OPTIONS,
+  REQUIRED_SE_HEALTH_FIELDS,
+  seHealthRequirementError,
 } from "@/lib/domain/health-clearances";
 import { CsvImportDialog } from "@/components/roster/CsvImportDialog";
 import {
   DogDocumentsField,
+  SeClearanceAttachField,
   fileToBase64,
 } from "@/components/roster/DogDocumentsField";
 import { TrophyOrderActions } from "@/components/roster/TrophyOrderActions";
@@ -80,6 +83,10 @@ import type { RosterEntryRecord, Show } from "@/lib/types";
 
 type EntryFormMode = "create" | "edit";
 
+type SeClearanceFiles = Partial<
+  Record<(typeof REQUIRED_SE_HEALTH_FIELDS)[number]["key"], File>
+>;
+
 export default function AdminEntriesPage() {
   const [showId, setShowId] = useState<string | null>(null);
   const [shows, setShows] = useState<Show[]>([]);
@@ -104,6 +111,8 @@ export default function AdminEntriesPage() {
   const [showDraft, setShowDraft] = useState<ShowCreateInput>(() => blankShowDraft());
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const [pendingDocuments, setPendingDocuments] = useState<File[]>([]);
+  const [pendingClearanceDocs, setPendingClearanceDocs] =
+    useState<SeClearanceFiles>({});
   const [loaded, setLoaded] = useState(false);
   const [switching, setSwitching] = useState(false);
 
@@ -259,6 +268,7 @@ export default function AdminEntriesPage() {
     setShowFormOpen(false);
     setEntryFormMode("create");
     setPendingDocuments([]);
+    setPendingClearanceDocs({});
     setEntryDays({ se: false, saturday: true, sunday: false });
     setArmbandMode("sequential");
     const showDate = shows.find((show) => show.id === showId)?.date ?? "";
@@ -276,6 +286,7 @@ export default function AdminEntriesPage() {
     setShowFormOpen(false);
     setEntryFormMode("edit");
     setPendingDocuments([]);
+    setPendingClearanceDocs({});
     setEntryDraft({ ...entry });
   }
 
@@ -283,6 +294,7 @@ export default function AdminEntriesPage() {
     setEntryFormMode(null);
     setEntryDraft(null);
     setPendingDocuments([]);
+    setPendingClearanceDocs({});
   }
 
   async function readApiError(res: Response, fallback: string) {
@@ -318,15 +330,30 @@ export default function AdminEntriesPage() {
       return;
     }
     if (entryFormMode === "create") {
+      const clearanceKinds = REQUIRED_SE_HEALTH_FIELDS.map((field) => field.key)
+        .filter((key) => pendingClearanceDocs[key]);
       const createError = createEntryRequirementError({
         microchip: draft.microchip,
         se: entryDays.se,
         health: draft.health,
-        documentFilenames: pendingDocuments.map((file) => file.name),
-        documentTypes: pendingDocuments.map((file) => file.type),
+        documentFilenames: [
+          ...clearanceKinds.map((key) => pendingClearanceDocs[key]!.name),
+          ...pendingDocuments.map((file) => file.name),
+        ],
+        documentTypes: [
+          ...clearanceKinds.map((key) => pendingClearanceDocs[key]!.type),
+          ...pendingDocuments.map((file) => file.type),
+        ],
+        documentKinds: clearanceKinds,
       });
       if (createError) {
         showEntryError(createError);
+        return;
+      }
+    } else if (draft.event_kind === "se") {
+      const healthError = seHealthRequirementError(draft.health);
+      if (healthError) {
+        showEntryError(healthError);
         return;
       }
     }
@@ -380,13 +407,24 @@ export default function AdminEntriesPage() {
             },
             days: entryDays,
             armband_mode: armbandMode,
-            documents: await Promise.all(
-              pendingDocuments.map(async (file) => ({
+            documents: await Promise.all([
+              ...REQUIRED_SE_HEALTH_FIELDS.filter(
+                (field) => pendingClearanceDocs[field.key],
+              ).map(async (field) => {
+                const file = pendingClearanceDocs[field.key]!;
+                return {
+                  file_base64: await fileToBase64(file),
+                  filename: file.name,
+                  mime: file.type,
+                  kind: field.key,
+                };
+              }),
+              ...pendingDocuments.map(async (file) => ({
                 file_base64: await fileToBase64(file),
                 filename: file.name,
                 mime: file.type,
               })),
-            ),
+            ]),
           }),
         });
         if (!res.ok) {
@@ -398,6 +436,7 @@ export default function AdminEntriesPage() {
         pushToast("Entry created — add a photo if you have one");
         if (created.entry) {
           setPendingDocuments([]);
+          setPendingClearanceDocs({});
           setEntryDraft(created.entry);
           setEntryFormMode("edit");
         } else {
@@ -1340,15 +1379,48 @@ export default function AdminEntriesPage() {
           {entryDays.se || entryDraft.event_kind === "se" ? (
             <div className="grid gap-3 rounded-sss-md border border-sss-border p-3 sm:grid-cols-2">
               <p className="text-sm font-medium sm:col-span-2">
-                SE health clearances (optional)
+                SE health clearances
               </p>
+              <p className="text-xs text-sss-text-muted sm:col-span-2">
+                HD, ED, and JLPP results and documents are required for SE.
+                Eye, heart, NAD, and registry stay optional.
+              </p>
+              {REQUIRED_SE_HEALTH_FIELDS.map(({ key, label }) => (
+                <div key={key} className="space-y-1">
+                  <Label htmlFor={`health_${key}`}>{label} (required)</Label>
+                  <Input
+                    id={`health_${key}`}
+                    value={entryDraft.health?.[key] ?? ""}
+                    onChange={(e) =>
+                      setEntryDraft({
+                        ...entryDraft,
+                        health: {
+                          ...(entryDraft.health ?? emptyHealthClearances()),
+                          [key]: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder="clear / passing"
+                    aria-required
+                  />
+                  {entryFormMode === "create" ? (
+                    <SeClearanceAttachField
+                      label={label}
+                      file={pendingClearanceDocs[key]}
+                      onFileChange={(file) =>
+                        setPendingClearanceDocs((current) => ({
+                          ...current,
+                          [key]: file,
+                        }))
+                      }
+                    />
+                  ) : null}
+                </div>
+              ))}
               {(
                 [
-                  ["hd", "HD"],
-                  ["ed", "ED"],
                   ["eye", "Eye"],
                   ["heart", "Heart"],
-                  ["jlpp", "JLPP"],
                   ["nad", "NAD"],
                 ] as const
               ).map(([key, label]) => (
@@ -1421,6 +1493,7 @@ export default function AdminEntriesPage() {
             dogId={entryDraft.dog_id}
             pendingFiles={pendingDocuments}
             onPendingFilesChange={setPendingDocuments}
+            extraOnly={entryDays.se || entryDraft.event_kind === "se"}
           />
           <div className="flex gap-2">
             <Button onClick={() => void saveEntryForm()}>

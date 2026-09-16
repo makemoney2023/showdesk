@@ -37,7 +37,8 @@ import {
   syncIdentityToDog,
 } from "@/lib/domain/dog-identity";
 import { showWeekendDays } from "@/lib/domain/show-weekend";
-import type { RosterEntryRecord } from "@/lib/types";
+import { seHealthRequirementError } from "@/lib/domain/health-clearances";
+import { inferSeDocumentKind } from "@/lib/domain/dog-document";
 
 function hostedCatalogMetadataError(
   entry: Pick<
@@ -172,12 +173,25 @@ export async function POST(request: Request) {
   const existingDogId =
     existingDogRows.find((row) => row.dog_id)?.dog_id ??
     (existingDogRows[0] ? dogKey(existingDogRows[0]) : "");
+  const existingDocs = (store.dog_documents ?? []).filter(
+    (document) =>
+      document.show_id === body.show_id &&
+      Boolean(existingDogId) &&
+      document.dog_id === existingDogId,
+  );
   const createError = createEntryRequirementError({
     microchip: body.entry.microchip,
     se: days.se,
     health: body.entry.health,
-    documentFilenames: uploads.map((upload) => upload.filename ?? ""),
+    documentFilenames: [
+      ...uploads.map((upload) => upload.filename ?? ""),
+      ...existingDocs.map((document) => document.filename),
+    ],
     documentTypes: uploads.map((upload) => upload.mime ?? ""),
+    documentKinds: [
+      ...uploads.map((upload) => upload.kind),
+      ...existingDocs.map((document) => inferSeDocumentKind(document.filename)),
+    ],
   });
   if (createError) {
     return NextResponse.json({ error: createError }, { status: 400 });
@@ -340,6 +354,12 @@ export async function PUT(request: Request) {
   const metadataError = hostedCatalogMetadataError(body.entry);
   if (metadataError) {
     return NextResponse.json({ error: metadataError }, { status: 400 });
+  }
+  if (body.entry.event_kind === "se") {
+    const healthError = seHealthRequirementError(body.entry.health);
+    if (healthError) {
+      return NextResponse.json({ error: healthError }, { status: 400 });
+    }
   }
 
   const store = await readStore();

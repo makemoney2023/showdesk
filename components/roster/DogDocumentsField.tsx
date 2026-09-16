@@ -21,18 +21,78 @@ export function fileToBase64(file: File): Promise<string> {
   });
 }
 
+export function SeClearanceAttachField({
+  label,
+  file,
+  onFileChange,
+}: {
+  label: string;
+  file?: File;
+  onFileChange: (file: File | undefined) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState("");
+
+  return (
+    <div className="space-y-1">
+      <input
+        ref={inputRef}
+        type="file"
+        accept="application/pdf,image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(event) => {
+          const next = event.target.files?.[0];
+          event.target.value = "";
+          if (!next) return;
+          if (next.size > DOG_DOCUMENT_MAX_BYTES) {
+            setError("Document must be 10 MB or smaller (PDF, JPEG, PNG, or WebP).");
+            return;
+          }
+          setError("");
+          onFileChange(next);
+        }}
+      />
+      {file ? (
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <span className="truncate">{file.name}</span>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => onFileChange(undefined)}
+          >
+            Remove
+          </Button>
+        </div>
+      ) : (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => inputRef.current?.click()}
+        >
+          Attach {label} document
+        </Button>
+      )}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+    </div>
+  );
+}
+
 export function DogDocumentsField({
   showId,
   entryId,
   dogId,
   pendingFiles = [],
   onPendingFilesChange,
+  extraOnly = false,
 }: {
   showId: string;
   entryId?: string;
   dogId?: string;
   pendingFiles?: File[];
   onPendingFilesChange?: (files: File[]) => void;
+  extraOnly?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [documents, setDocuments] = useState<DogDocumentRecord[]>([]);
@@ -118,12 +178,14 @@ export function DogDocumentsField({
   return (
     <div className="space-y-2 sm:col-span-2">
       <Label>
-        Clearances and attachments (optional)
+        {extraOnly
+          ? "Additional clearances (optional)"
+          : "Clearances and attachments (optional)"}
       </Label>
       <p className="text-xs text-sss-text-muted">
-        HD/ED, eye, heart, OFA/ADRK, JLPP, NAD. Attach a PDF when you have
-        one — SE create and completion do not require it. Shown on public
-        results if you publish the show.
+        {extraOnly
+          ? "Eye, heart, NAD, or registry paperwork. HD, ED, and JLPP documents are required above."
+          : "HD/ED, eye, heart, OFA/ADRK, JLPP, NAD. Attach a PDF when you have one — shown on public results if you publish the show."}
       </p>
       <input
         ref={inputRef}

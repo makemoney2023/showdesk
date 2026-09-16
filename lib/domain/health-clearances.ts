@@ -74,11 +74,27 @@ export function normalizeHealthClearances(
   };
 }
 
-/** SE health clearances are optional for create and form completion. */
+export const REQUIRED_SE_HEALTH_FIELDS = [
+  { key: "hd", label: "HD" },
+  { key: "ed", label: "ED" },
+  { key: "jlpp", label: "JLPP" },
+] as const;
+
+export type RequiredSeHealthKey = (typeof REQUIRED_SE_HEALTH_FIELDS)[number]["key"];
+
+/** HD, ED, and JLPP must be filled when creating or saving an SE entry. */
 export function seHealthRequirementError(
-  _health: Partial<DogHealthClearances> | null | undefined,
+  health: Partial<DogHealthClearances> | null | undefined,
 ): string | null {
-  return null;
+  const normalized = normalizeHealthClearances(health);
+  const missing = REQUIRED_SE_HEALTH_FIELDS.filter(
+    (field) => !normalized[field.key],
+  ).map((field) => field.label);
+  if (missing.length === 0) return null;
+  if (missing.length === REQUIRED_SE_HEALTH_FIELDS.length) {
+    return "HD, ED, and JLPP clearances are required for SE";
+  }
+  return `${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} required for SE`;
 }
 
 export function healthClearancesHaveValues(

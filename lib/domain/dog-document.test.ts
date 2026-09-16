@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   dogDocumentRelativePath,
   documentsIncludeHealthPdf,
+  filenameForSeDocumentKind,
+  inferSeDocumentKind,
   isOwnedDogDocumentPath,
   seDocumentRequirementError,
   sniffDogDocumentMime,
@@ -18,14 +20,31 @@ describe("dog documents", () => {
     ).toBe(false);
   });
 
-  it("treats SE health PDFs as optional", () => {
-    expect(seDocumentRequirementError({ filenames: ["hips.jpg"] })).toBeNull();
+  it("requires labeled HD, ED, and JLPP documents for SE", () => {
+    expect(seDocumentRequirementError({ filenames: ["hips.jpg"] })).toBe(
+      "Attach documents for ED, JLPP",
+    );
     expect(
       seDocumentRequirementError({
         filenames: ["clearances.pdf"],
         contentTypes: ["application/pdf"],
       }),
+    ).toBe("Attach documents for HD, ED, and JLPP");
+    expect(
+      seDocumentRequirementError({
+        kinds: ["hd", "ed", "jlpp"],
+      }),
     ).toBeNull();
+    expect(
+      seDocumentRequirementError({
+        filenames: ["HD-hips.pdf", "ED-elbows.pdf", "JLPP-dna.pdf"],
+      }),
+    ).toBeNull();
+    expect(inferSeDocumentKind("HD-scan.pdf")).toBe("hd");
+    expect(inferSeDocumentKind("elbows.png")).toBe("ed");
+    expect(filenameForSeDocumentKind("hips.pdf", "hd", "pdf")).toBe(
+      "HD-hips.pdf",
+    );
     expect(
       documentsIncludeHealthPdf(
         [

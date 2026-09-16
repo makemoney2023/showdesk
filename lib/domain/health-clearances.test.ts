@@ -34,10 +34,17 @@ describe("health clearances", () => {
     ]);
   });
 
-  it("treats SE clearance fields as optional", () => {
+  it("requires HD, ED, and JLPP for SE", () => {
     expect(seHealthRequirementError(SAMPLE)).toBeNull();
-    expect(seHealthRequirementError({ hd: "clear" })).toBeNull();
-    expect(seHealthRequirementError({})).toBeNull();
+    expect(seHealthRequirementError({ hd: "clear" })).toBe(
+      "ED, JLPP are required for SE",
+    );
+    expect(seHealthRequirementError({})).toBe(
+      "HD, ED, and JLPP clearances are required for SE",
+    );
+    expect(
+      seHealthRequirementError({ hd: "A", ed: "normal", jlpp: "N/N" }),
+    ).toBeNull();
   });
 
   it("merges the first filled value for each clearance", () => {

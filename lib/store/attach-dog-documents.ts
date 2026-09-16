@@ -1,7 +1,7 @@
 import { newId, writeDogDocument } from "@/lib/store";
 import {
   DOG_DOCUMENT_MAX_BASE64_CHARS,
-  sanitizeDocumentFilename,
+  filenameForSeDocumentKind,
   validateDogDocumentUpload,
   type DogDocumentRecord,
 } from "@/lib/domain/dog-document";
@@ -10,6 +10,7 @@ export interface StagedDogDocument {
   file_base64: string;
   filename?: string;
   mime?: string;
+  kind?: string;
 }
 
 export async function persistStagedDogDocuments(input: {
@@ -53,8 +54,9 @@ export async function persistStagedDogDocuments(input: {
       show_id: input.showId,
       dog_id: input.dogId,
       path,
-      filename: sanitizeDocumentFilename(
+      filename: filenameForSeDocumentKind(
         upload.filename ?? "document",
+        upload.kind,
         validation.ext,
       ),
       content_type: validation.mime,

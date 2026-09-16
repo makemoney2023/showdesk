@@ -7,6 +7,8 @@ import {
   type CatalogEventKind,
 } from "./catalog-competition";
 import type { DogHealthClearances } from "./health-clearances";
+import { seHealthRequirementError } from "./health-clearances";
+import { seDocumentRequirementError } from "./dog-document";
 import { splitRegisteredName } from "./registered-name";
 
 export interface RosterEntry {
@@ -297,12 +299,19 @@ export function createEntryRequirementError(input: {
   health?: Partial<DogHealthClearances> | null;
   documentFilenames?: string[];
   documentTypes?: string[];
+  documentKinds?: Array<string | null | undefined>;
   hasExistingPdf?: boolean;
 }): string | null {
   if (!input.microchip?.trim()) return "microchip is required";
-  // SE health clearances and clearance PDFs are optional so ringside can
-  // still open and complete an SE when paperwork is missing.
-  return null;
+  if (!input.se) return null;
+  const healthError = seHealthRequirementError(input.health);
+  if (healthError) return healthError;
+  return seDocumentRequirementError({
+    filenames: input.documentFilenames,
+    contentTypes: input.documentTypes,
+    kinds: input.documentKinds,
+    hasPdf: input.hasExistingPdf,
+  });
 }
 
 /** Validate a full entry record for PUT updates (includes id + show_id). */

@@ -137,13 +137,69 @@ export function validateDogDocumentUpload(input: {
   };
 }
 
-/** Health PDFs are optional for SE create and completion. */
-export function seDocumentRequirementError(_input: {
+export const REQUIRED_SE_DOCUMENT_KINDS = ["hd", "ed", "jlpp"] as const;
+
+export type RequiredSeDocumentKind = (typeof REQUIRED_SE_DOCUMENT_KINDS)[number];
+
+const SE_DOCUMENT_KIND_LABEL: Record<RequiredSeDocumentKind, string> = {
+  hd: "HD",
+  ed: "ED",
+  jlpp: "JLPP",
+};
+
+/** Infer HD / ED / JLPP from a labeled filename (`HD-hips.pdf`, `elbows.jpg`). */
+export function inferSeDocumentKind(
+  filename: string,
+): RequiredSeDocumentKind | null {
+  const stem = filename
+    .replace(/\.[^.]+$/, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-");
+  const tokens = stem.split("-").filter(Boolean);
+  if (tokens.includes("jlpp")) return "jlpp";
+  const first = tokens[0];
+  if (first === "hd" || first === "hip" || first === "hips") return "hd";
+  if (first === "ed" || first === "elbow" || first === "elbows") return "ed";
+  return null;
+}
+
+export function filenameForSeDocumentKind(
+  filename: string,
+  kind: RequiredSeDocumentKind | string | undefined,
+  ext: string,
+): string {
+  const sanitized = sanitizeDocumentFilename(filename, ext);
+  if (kind !== "hd" && kind !== "ed" && kind !== "jlpp") return sanitized;
+  const prefix = `${kind.toUpperCase()}-`;
+  if (sanitized.toUpperCase().startsWith(prefix)) return sanitized;
+  return sanitizeDocumentFilename(`${prefix}${filename}`, ext);
+}
+
+/** HD, ED, and JLPP each need an attached document on SE create. */
+export function seDocumentRequirementError(input: {
   hasPdf?: boolean;
   filenames?: string[];
   contentTypes?: string[];
+  kinds?: Array<string | null | undefined>;
 }): string | null {
-  return null;
+  const present = new Set<RequiredSeDocumentKind>();
+  for (const kind of input.kinds ?? []) {
+    const normalized = kind?.trim().toLowerCase();
+    if (normalized === "hd" || normalized === "ed" || normalized === "jlpp") {
+      present.add(normalized);
+    }
+  }
+  for (const filename of input.filenames ?? []) {
+    const inferred = inferSeDocumentKind(filename);
+    if (inferred) present.add(inferred);
+  }
+  const missing = REQUIRED_SE_DOCUMENT_KINDS.filter((kind) => !present.has(kind));
+  if (missing.length === 0) return null;
+  const labels = missing.map((kind) => SE_DOCUMENT_KIND_LABEL[kind]);
+  if (missing.length === REQUIRED_SE_DOCUMENT_KINDS.length) {
+    return "Attach documents for HD, ED, and JLPP";
+  }
+  return `Attach documents for ${labels.join(", ")}`;
 }
 
 export function documentsIncludeHealthPdf(
