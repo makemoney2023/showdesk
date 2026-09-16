@@ -1,18 +1,9 @@
-import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { readStore, updateStore, writeDogPhoto, deleteDogPhoto } from "@/lib/store";
 import { requireApiWrite, isApiUnauthorized } from "@/lib/auth/api-guard";
 import { parseDogPhotoUpload } from "@/lib/api/parse-photo-upload";
 import { validateDogPhotoUpload } from "@/lib/domain/dog-photo";
-import { showResultsSlug } from "@/lib/domain/public-results";
-import type { Show } from "@/lib/types";
-
-function revalidatePublishedResults(show: Show | undefined) {
-  revalidatePath("/results", "layout");
-  if (show) {
-    revalidatePath(`/results/${showResultsSlug(show)}`, "layout");
-  }
-}
+import { revalidatePublishedResults } from "@/lib/store/revalidate-public-results";
 
 export async function POST(request: Request) {
   const auth = await requireApiWrite();

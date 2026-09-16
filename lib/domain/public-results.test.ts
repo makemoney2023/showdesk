@@ -202,6 +202,70 @@ describe("projection", () => {
     expect(rex?.dog.ratingPlacement).toBe("VP1");
   });
 
+  it("prints this day's Youth II V, not Friday SE ne", () => {
+    const fridayForm = createEmptyTnrkSeForm();
+    fridayForm.formwert = "ne";
+    const sundayForm = createEmptyTnrkSeForm();
+    sundayForm.formwert = "V";
+    const rex = store.entries[0]!;
+    const withDays = {
+      ...store,
+      entries: [
+        { ...rex, dog_id: "dog-rex" },
+        {
+          ...rex,
+          id: "sample-rex-se",
+          dog_id: "dog-rex",
+          armband: "17",
+          event_kind: "se" as const,
+        },
+        ...store.entries.slice(1),
+      ],
+      critiques: store.critiques.map((critique) =>
+        critique.entry_id === "sample-rex"
+          ? {
+              ...critique,
+              draft: { ...critique.draft, formwert: "ne" as const },
+            }
+          : critique,
+      ),
+      se_evaluations: [
+        {
+          id: "sample-se-friday",
+          show_id: "sample-show",
+          entry_id: "sample-rex-se",
+          status: "complete" as const,
+          form: fridayForm,
+          created_at: "2026-09-04T10:00:00.000Z",
+          updated_at: "2026-09-04T16:00:00.000Z",
+        },
+        {
+          id: "sample-se-sunday",
+          show_id: "sample-show",
+          entry_id: "sample-rex",
+          status: "draft" as const,
+          form: sundayForm,
+          created_at: "2026-09-06T10:00:00.000Z",
+          updated_at: "2026-09-06T16:00:00.000Z",
+        },
+      ],
+    };
+    const youth = getPublishedDog(
+      withDays,
+      "tnrk-rcc-national-sieger-show-2026-09-04",
+      "101-rex-vom-blacksage",
+    );
+    const friday = getPublishedDog(
+      withDays,
+      "tnrk-rcc-national-sieger-show-2026-09-04",
+      "17-rex-vom-blacksage",
+    );
+    expect(youth?.dog.formwert).toBe("V");
+    expect(youth?.dog.ratingPlacement).toBe("V1");
+    expect(friday?.dog.formwert).toBe("ne");
+    expect(friday?.dog.ratingPlacement).toBe("ne");
+  });
+
   it("omits a missing class place from the share description", () => {
     const found = getPublishedDog(
       store,

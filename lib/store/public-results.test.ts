@@ -59,4 +59,17 @@ describe("readPublicResultsStore", () => {
 
     expect(sbReadStore).toHaveBeenCalledTimes(1);
   });
+
+  it("refetches after the live snapshot is cleared", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "anon-key");
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "service-role-key");
+    vi.stubEnv("VERCEL_ENV", "production");
+
+    await readPublicResultsStore();
+    resetPublicResultsStoreCache();
+    await readPublicResultsStore();
+
+    expect(sbReadStore).toHaveBeenCalledTimes(2);
+  });
 });

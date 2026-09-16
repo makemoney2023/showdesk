@@ -29,6 +29,7 @@ import {
 } from "@/lib/auth/api-guard";
 import { readJsonBody } from "@/lib/api/read-json";
 import type { DraftCritiqueSchema } from "@/lib/domain/adrk-template";
+import { revalidatePublishedResults } from "@/lib/store/revalidate-public-results";
 
 const MAX_AUDIO_BASE64_CHARS = 20 * 1024 * 1024;
 
@@ -243,6 +244,7 @@ export async function PATCH(request: Request) {
   if (!critique) {
     return NextResponse.json({ error: "Critique not found" }, { status: 404 });
   }
+  const show = store.shows.find((item) => item.id === body.show_id);
 
   if (body.action === "update_draft" && body.draft) {
     const locked = critiqueDraftLockedReason(
@@ -291,6 +293,7 @@ export async function PATCH(request: Request) {
       const message = err instanceof Error ? err.message : "Save failed";
       return NextResponse.json({ error: message }, { status: 500 });
     }
+    revalidatePublishedResults(show);
     return NextResponse.json({ ok: true });
   }
 
@@ -340,6 +343,7 @@ export async function PATCH(request: Request) {
             : c,
         ),
       }));
+      revalidatePublishedResults(show);
       return NextResponse.json({ ok: true, mock: result.mock });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Processing failed";
@@ -381,6 +385,7 @@ export async function PATCH(request: Request) {
           : c,
       ),
     }));
+    revalidatePublishedResults(show);
     return NextResponse.json({ ok: true, status: "APPROVED" });
   }
 
@@ -409,6 +414,7 @@ export async function PATCH(request: Request) {
           : c,
       ),
     }));
+    revalidatePublishedResults(show);
     return NextResponse.json({ ok: true, status: "PENDING_REVIEW" });
   }
 

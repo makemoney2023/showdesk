@@ -16,6 +16,7 @@ import {
 } from "@/lib/auth/api-guard";
 import { publicPageUrl, siteUrl } from "@/lib/site-url";
 import { readStore, updateStore } from "@/lib/store";
+import { revalidatePublishedResults } from "@/lib/store/revalidate-public-results";
 
 export async function GET() {
   const auth = await requireApiSession();
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
   }));
 
   const updated = nextStore.shows.find((show) => show.id === existing.id)!;
+  revalidatePublishedResults(updated);
   const href = showResultsPath(updated);
   const projected = getPublishedShow(nextStore, showResultsSlug(updated));
 

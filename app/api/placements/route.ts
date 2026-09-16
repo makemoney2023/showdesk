@@ -16,6 +16,7 @@ import {
   isApiUnauthorized,
 } from "@/lib/auth/api-guard";
 import { readJsonBody } from "@/lib/api/read-json";
+import { revalidatePublishedResults } from "@/lib/store/revalidate-public-results";
 
 export async function GET(request: Request) {
   const auth = await requireApiSession();
@@ -143,6 +144,9 @@ export async function PUT(request: Request) {
     );
   }
 
+  revalidatePublishedResults(
+    store.shows.find((show) => show.id === body.show_id),
+  );
   return NextResponse.json({
     placements: filterByShow(store.placements, body.show_id),
     evaluations: filterByShow(store.se_evaluations ?? [], body.show_id),

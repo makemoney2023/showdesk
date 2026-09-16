@@ -15,6 +15,7 @@ import {
   requireApiWrite,
   isApiUnauthorized,
 } from "@/lib/auth/api-guard";
+import { revalidatePublishedResults } from "@/lib/store/revalidate-public-results";
 
 export async function GET(request: Request) {
   const auth = await requireApiSession();
@@ -165,6 +166,9 @@ export async function PATCH(request: Request) {
     storeAfter.critiques,
     evaluation.entry_id,
     body.show_id,
+  );
+  revalidatePublishedResults(
+    storeAfter.shows.find((show) => show.id === body.show_id),
   );
   return NextResponse.json({
     evaluation: updated,
