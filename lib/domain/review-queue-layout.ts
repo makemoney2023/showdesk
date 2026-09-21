@@ -35,7 +35,7 @@ export function reviewFocusHref(entryId: string): string {
   return `/admin/review?entry=${encodeURIComponent(entryId)}`;
 }
 
-/** Open the critique that belongs to this reports row (own or sibling certificate). */
+/** Open the critique that belongs to this reports row. */
 export function reportsReviewHref(input: {
   entryId: string;
   critiqueEntryId?: string | null;

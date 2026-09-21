@@ -414,7 +414,7 @@ describe("se-to-critique", () => {
     ).toEqual(["c-se", "c-sun"]);
   });
 
-  it("carries the SE critique onto Saturday and Sunday report rows", () => {
+  it("keeps the SE critique on Friday and off Saturday and Sunday", () => {
     const seCritique = baseCritique({
       id: "c-se",
       entry_id: "se-1",
@@ -447,13 +447,13 @@ describe("se-to-critique", () => {
     ).toBe("c-se");
     expect(
       critiqueForReportEntry([seCritique], entries, entries[1], "s1")?.id,
-    ).toBe("c-se");
+    ).toBeUndefined();
     expect(
       critiqueForReportEntry([seCritique], entries, entries[2], "s1")?.id,
-    ).toBe("c-se");
+    ).toBeUndefined();
   });
 
-  it("prints Saturday's approved certificate on Sunday when Sunday has none", () => {
+  it("does not print Saturday's certificate on Sunday when Sunday has none", () => {
     const saturday = baseCritique({
       id: "c-sat",
       entry_id: "sat-1",
@@ -479,6 +479,9 @@ describe("se-to-critique", () => {
     ];
     expect(
       critiqueForReportEntry([saturday], entries, entries[1], "s1")?.id,
+    ).toBeUndefined();
+    expect(
+      critiqueForReportEntry([saturday], entries, entries[0], "s1")?.id,
     ).toBe("c-sat");
   });
 
@@ -516,7 +519,47 @@ describe("se-to-critique", () => {
     ).toBe("c-sun");
   });
 
-  it("replaces an unused Saturday SE clone with the real SE critique", () => {
+  it("does not fill a missing Saturday critique with Sunday's pasted SE letter", () => {
+    const sunday = baseCritique({
+      id: "c-sun",
+      entry_id: "sun-53",
+      status: "APPROVED",
+      transcript: "Number 53, scissors bite.",
+      audio_path: "show/c-sun.webm",
+      draft: {
+        narrative: "Critique from SE on Sept 4, 2026 - very large male",
+        formwert: "V",
+        placement: null,
+        titles: [],
+      },
+    });
+    const entries = [
+      {
+        id: "sat-20",
+        show_id: "s1",
+        armband: "20",
+        dog_id: "ason",
+        dog_name: "Ason Von Haus Wilkerson",
+        event_kind: "conformation" as const,
+      },
+      {
+        id: "sun-53",
+        show_id: "s1",
+        armband: "53",
+        dog_id: "ason",
+        dog_name: "Ason Von Haus Wilkerson",
+        event_kind: "conformation" as const,
+      },
+    ];
+    expect(
+      critiqueForReportEntry([sunday], entries, entries[0], "s1"),
+    ).toBeUndefined();
+    expect(
+      critiqueForReportEntry([sunday], entries, entries[1], "s1")?.id,
+    ).toBe("c-sun");
+  });
+
+  it("hides an unused Saturday SE clone instead of borrowing Friday", () => {
     const seCritique = baseCritique({
       id: "c-se",
       entry_id: "se-1",
@@ -547,7 +590,7 @@ describe("se-to-critique", () => {
     expect(
       critiqueForReportEntry([seCritique, clone], entries, entries[1], "s1")
         ?.id,
-    ).toBe("c-se");
+    ).toBeUndefined();
   });
 
   it("keeps a spoken Saturday critique instead of the SE stub", () => {
@@ -588,7 +631,7 @@ describe("se-to-critique", () => {
     ).toBe("c-sat");
   });
 
-  it("carries SE #4 onto conformation #22 by dog name, not armband", () => {
+  it("does not copy SE #4 onto conformation #22", () => {
     const seCritique = baseCritique({
       id: "c-se-4",
       entry_id: "se-4",
@@ -626,7 +669,7 @@ describe("se-to-critique", () => {
     ];
     expect(
       critiqueForReportEntry([seCritique], entries, entries[1], "s1")?.id,
-    ).toBe("c-se-4");
+    ).toBeUndefined();
     expect(
       critiqueForReportEntry([seCritique], entries, entries[2], "s1")?.id,
     ).toBeUndefined();
