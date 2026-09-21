@@ -108,6 +108,33 @@ describe("projection", () => {
     expect(found?.dog.judge).toBe("Hamid Falah (FCI-France)");
   });
 
+  it("publishes Review awards alongside stored ADRK titles", () => {
+    const withAwards = {
+      ...store,
+      critiques: store.critiques.map((critique) =>
+        critique.entry_id === "sample-rex"
+          ? {
+              ...critique,
+              draft: {
+                ...critique.draft,
+                awards: ["youth-sieger", "best-of-breed"],
+              },
+            }
+          : critique,
+      ),
+    };
+    const found = getPublishedDog(
+      withAwards,
+      "tnrk-rcc-national-sieger-show-2026-09-04",
+      "101-rex-vom-blacksage",
+    );
+    expect(found?.dog.titles).toEqual([
+      "Youth Sieger",
+      "Best of Breed",
+      "Anw.Dt.Jgd.-Ch.VDH",
+    ]);
+  });
+
   it("uses the newest approved spoken letter when two certificates exist", () => {
     const older = store.critiques.find((c) => c.entry_id === "sample-rex");
     expect(older).toBeTruthy();

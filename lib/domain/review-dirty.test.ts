@@ -26,6 +26,31 @@ describe("isReviewDraftDirty", () => {
     ).toBe(true);
   });
 
+  it("is dirty when class place or awards change", () => {
+    expect(
+      isReviewDraftDirty(
+        { narrative: "Strong male", formwert: "V", placement: 1 },
+        { narrative: "Strong male", formwert: "V", placement: 2 },
+      ),
+    ).toBe(true);
+    expect(
+      isReviewDraftDirty(
+        {
+          narrative: "Strong male",
+          formwert: "V",
+          placement: 1,
+          awards: ["sieger"],
+        },
+        {
+          narrative: "Strong male",
+          formwert: "V",
+          placement: 1,
+          awards: ["sieger", "best-of-breed"],
+        },
+      ),
+    ).toBe(true);
+  });
+
   it("ignores an appended SE dump when comparing the spoken letter", () => {
     expect(
       isReviewDraftDirty(

@@ -49,6 +49,9 @@ import { listQueuedRecordings, updateQueuedRecordingTranscript } from "@/lib/off
 import { syncOfflineQueue } from "@/lib/offline/sync";
 import { isReviewDraftDirty } from "@/lib/domain/review-dirty";
 import { catalogCompetitionLabel } from "@/lib/domain/catalog-competition";
+import { PlacementAwardFields } from "@/components/review/PlacementAwardFields";
+import { placementRowsForReviewAssign } from "@/lib/domain/placements";
+import { normalizeShowAwards } from "@/lib/domain/show-awards";
 import {
   critiqueLetterWithoutSeSection,
   isSeFormReplacementDraft,
@@ -76,6 +79,7 @@ import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { dogPhotoHrefForEntry } from "@/lib/domain/dog-photo";
 import type {
   CritiqueRecord,
+  PlacementRecord,
   RosterEntryRecord,
   SeEvaluationRecord,
 } from "@/lib/types";
@@ -95,6 +99,8 @@ function AdminReviewPageInner() {
   const [critiques, setCritiques] = useState<CritiqueRecord[]>([]);
   const [entries, setEntries] = useState<RosterEntryRecord[]>([]);
   const [evaluations, setEvaluations] = useState<SeEvaluationRecord[]>([]);
+  const [placements, setPlacements] = useState<PlacementRecord[]>([]);
+  const [placementsReady, setPlacementsReady] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<CritiqueRecord["draft"] | null>(null);
   const [statusMsg, setStatusMsg] = useState("");
@@ -133,13 +139,16 @@ function AdminReviewPageInner() {
       setCritiques([]);
       setEntries([]);
       setEvaluations([]);
+      setPlacements([]);
+      setPlacementsReady(false);
       setLoaded(true);
       return;
     }
-    const [critRes, entryRes, seRes] = await Promise.all([
+    const [critRes, entryRes, seRes, placeRes] = await Promise.all([
       fetch(`/api/critiques?show_id=${active}`),
       fetch(`/api/entries?show_id=${active}`),
       fetch(`/api/evaluations?show_id=${active}`),
+      fetch(`/api/placements?show_id=${active}`),
     ]);
     if (!critRes.ok || !entryRes.ok) {
       setStatusMsg("Could not load critiques");
@@ -162,6 +171,16 @@ function AdminReviewPageInner() {
         evaluations: SeEvaluationRecord[];
       };
       setEvaluations(seData.evaluations);
+    }
+    if (placeRes.ok) {
+      const placeData = (await placeRes.json()) as {
+        placements: PlacementRecord[];
+      };
+      setPlacements(placeData.placements);
+      setPlacementsReady(true);
+    } else {
+      setPlacements([]);
+      setPlacementsReady(false);
     }
     setLoaded(true);
   }, []);
@@ -201,8 +220,15 @@ function AdminReviewPageInner() {
         {
           ...selected.draft,
           formwert: officialRating,
+          placement:
+            placements.find((row) => row.entry_id === selected.entry_id)
+              ?.placement ?? selected.draft.placement,
+          awards: normalizeShowAwards(selected.draft.awards),
         },
-        draft,
+        {
+          ...draft,
+          awards: normalizeShowAwards(draft.awards),
+        },
       ),
   );
 
@@ -225,9 +251,13 @@ function AdminReviewPageInner() {
         selected.draft.narrative.trim() ||
         spokenCritiqueTranscript(selected),
       formwert: officialCritiqueFormwert(se, selected, appearance),
+      placement:
+        placements.find((row) => row.entry_id === selected.entry_id)
+          ?.placement ?? selected.draft.placement,
+      awards: normalizeShowAwards(selected.draft.awards),
     };
     setDraft(seeded);
-  }, [entries, evaluations, selected]);
+  }, [entries, evaluations, placements, selected]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -271,7 +301,11 @@ function AdminReviewPageInner() {
               ? {
                   ...item,
                   transcript: draft.narrative,
-                  draft: { ...item.draft, narrative: draft.narrative },
+                  draft: {
+                    ...item.draft,
+                    ...draft,
+                    narrative: draft.narrative,
+                  },
                   updated_at: new Date().toISOString(),
                 }
               : item,
@@ -294,13 +328,23 @@ function AdminReviewPageInner() {
       }),
     });
     const data = (await res.json().catch(() => ({}))) as { error?: string };
-    const ok = res.ok;
-    const msg = ok ? "Draft saved" : (data.error ?? "Save failed");
+    if (!res.ok) {
+      const msg = data.error ?? "Save failed";
+      setStatusMsg(msg);
+      pushToast(msg, "error");
+      setBusy(false);
+      return false;
+    }
+    const placeMsg = await persistReviewPlacement(
+      selected?.entry_id ?? current?.entry_id,
+      draft.placement,
+    );
+    const msg = placeMsg ?? "Draft saved";
     setStatusMsg(msg);
-    pushToast(msg, ok ? "ok" : "error");
+    pushToast(msg, placeMsg ? "error" : "ok");
     setBusy(false);
-    if (ok) await load();
-    return ok;
+    await load();
+    return !placeMsg;
   }
 
   async function syncQueuedCritique() {
@@ -321,6 +365,34 @@ function AdminReviewPageInner() {
     setStatusMsg(msg);
     pushToast(msg, result.synced > 0 ? "ok" : "error");
     setBusy(false);
+  }
+
+  async function persistReviewPlacement(
+    entryId: string | undefined,
+    place: 1 | 2 | 3 | 4 | null,
+  ): Promise<string | null> {
+    if (!showId || !entryId) return null;
+    const savedPlace =
+      placements.find((row) => row.entry_id === entryId)?.placement ?? null;
+    if (savedPlace === place) return null;
+    if (!placementsReady) {
+      return "Draft saved, but class place could not be updated — reload Review";
+    }
+    const payload = placementRowsForReviewAssign(
+      entries,
+      placements,
+      entryId,
+      place,
+    );
+    if (payload.length === 0) return null;
+    const res = await fetch("/api/placements", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ show_id: showId, placements: payload }),
+    });
+    if (res.ok) return null;
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return data.error ?? "Draft saved, but class place could not be updated";
   }
 
   async function discardAndRerun() {
@@ -801,6 +873,12 @@ function AdminReviewPageInner() {
                         : "Tap the rating the judge announced."}
                   </p>
                 </div>
+                <PlacementAwardFields
+                  entry={entry}
+                  draft={draft}
+                  disabled={busy || !draftEditable}
+                  onChange={setDraft}
+                />
                 {showId && selectedId && !queuedLocal ? (
                   <div className="flex flex-wrap gap-2">
                     {reviewPdfPreviewActions({

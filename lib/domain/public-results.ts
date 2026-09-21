@@ -6,7 +6,6 @@ import {
   tnrkFormwertPrintCode,
   type AdrkClassId,
   type AdrkFormwertCode,
-  type AdrkTitleOption,
   type FormwertScale,
 } from "./adrk-template";
 import { dogSexLabel, type DogSex } from "./class-division";
@@ -40,6 +39,7 @@ import {
 } from "./health-clearances";
 import { critiqueLetterForCertificate, seEvaluationForEntry } from "./se-to-critique";
 import { resolveAppearanceJudge } from "./show-judges";
+import { formatShowAwardLabels } from "./show-awards";
 import {
   appearanceSeEvaluation,
   officialCritiqueFormwert,
@@ -105,7 +105,7 @@ export interface PublicDogResult {
   formwertLabel: string | null;
   placement: 1 | 2 | 3 | 4 | null;
   ratingPlacement: string | null;
-  titles: AdrkTitleOption[];
+  titles: string[];
   narrative: string | null;
   judge: string | null;
   photoPath: string | null;
@@ -302,7 +302,10 @@ function toPublicDog(
     formwertLabel: formwert ? getAdrkFormwertLabel(formwert, scale) : null,
     placement: rank,
     ratingPlacement: ratingPlacementLabel(formwert, rank, scale),
-    titles: critique?.draft.titles ?? [],
+    titles: [
+      ...formatShowAwardLabels(critique?.draft.awards),
+      ...(critique?.draft.titles ?? []),
+    ],
     narrative,
     judge:
       optionalPublicText(

@@ -9,6 +9,7 @@ import {
   initialPlacementSelections,
   placementEntriesBelongToShow,
   placementRowsForPools,
+  placementRowsForReviewAssign,
   placementsSuggestedFromFormwert,
   resolveFormwertInputs,
   resolvePlacementInputs,
@@ -661,6 +662,50 @@ describe("assignClassPlacement", () => {
   it("clears a place when the same button is tapped again", () => {
     const cleared = assignClassPlacement({ e1: 2 }, "e1", 2, classIds);
     expect(cleared.e1).toBe("");
+  });
+
+  it("builds a Review payload that swaps and keeps the rest of the pool", () => {
+    const saturday = testEntry({
+      id: "sat-1",
+      event_kind: "conformation",
+      catalog_class: "open",
+      competition_day: "2026-09-05",
+      class_id: "offene-klasse",
+      sex: "R",
+    });
+    const mate = testEntry({
+      id: "sat-2",
+      event_kind: "conformation",
+      catalog_class: "open",
+      competition_day: "2026-09-05",
+      class_id: "offene-klasse",
+      sex: "R",
+    });
+    expect(
+      placementRowsForReviewAssign(
+        [saturday, mate],
+        [
+          { entry_id: "sat-1", placement: 1 },
+          { entry_id: "sat-2", placement: 2 },
+        ],
+        "sat-2",
+        1,
+      ),
+    ).toEqual([
+      { entry_id: "sat-1", placement: 2 },
+      { entry_id: "sat-2", placement: 1 },
+    ]);
+    expect(
+      placementRowsForReviewAssign(
+        [saturday, mate],
+        [{ entry_id: "sat-1", placement: 1 }],
+        "sat-1",
+        1,
+      ),
+    ).toEqual([
+      { entry_id: "sat-1", placement: 1 },
+      { entry_id: "sat-2", placement: null },
+    ]);
   });
 
   it("swaps two dogs when both already have places", () => {

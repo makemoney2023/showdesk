@@ -264,6 +264,38 @@ export function dirtyPlacementPoolKeys<
   return [...dirty];
 }
 
+/** Build a pool payload after Review assigns or clears one dog's class place. */
+export function placementRowsForReviewAssign<
+  T extends { id: string } & CatalogEntryMetadata & {
+    class_id: AdrkClassId;
+    sex: DogSex;
+  },
+>(
+  entries: T[],
+  saved: Array<{ entry_id: string; placement: 1 | 2 | 3 | 4 }>,
+  entryId: string,
+  place: 1 | 2 | 3 | 4 | null,
+): PlacementInput[] {
+  const entry = entries.find((item) => item.id === entryId);
+  const poolKey = entry ? competitionPoolKey(entry) : null;
+  if (!entry || !poolKey) return [];
+  const poolIds = entries
+    .filter((item) => competitionPoolKey(item) === poolKey)
+    .map((item) => item.id);
+  const current: Record<string, number | ""> = {};
+  for (const id of poolIds) current[id] = "";
+  for (const row of saved) {
+    if (poolIds.includes(row.entry_id)) current[row.entry_id] = row.placement;
+  }
+  const next =
+    place === null
+      ? { ...current, [entryId]: "" as const }
+      : current[entryId] === place
+        ? current
+        : assignClassPlacement(current, entryId, place, poolIds);
+  return placementRowsForPools(entries, next, [poolKey]);
+}
+
 /** Placement payload for one or more competition pools (null clears a rank). */
 export function placementRowsForPools<
   T extends { id: string } & CatalogEntryMetadata & {

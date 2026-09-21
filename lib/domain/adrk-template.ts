@@ -78,6 +78,8 @@ export interface DraftCritiqueSchema {
   formwert: AdrkFormwertCode | null;
   placement: 1 | 2 | 3 | 4 | null;
   titles: AdrkTitleOption[];
+  /** TNRK show awards selected in Review (Sieger, BOB, Best Puppy, …). */
+  awards?: string[];
   /** Optional draft assist buckets — not official ADRK form fields. */
   draftAssist?: Record<string, string>;
 }
@@ -88,6 +90,7 @@ export function createEmptyDraft(): DraftCritiqueSchema {
     formwert: null,
     placement: null,
     titles: [],
+    awards: [],
     draftAssist: {},
   };
 }

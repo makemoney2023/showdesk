@@ -49,6 +49,7 @@ describe("adrk-template", () => {
     expect(draft.formwert).toBeNull();
     expect(draft.placement).toBeNull();
     expect(draft.titles).toEqual([]);
+    expect(draft.awards).toEqual([]);
   });
 
   it("resolves English class labels", () => {
