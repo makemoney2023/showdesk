@@ -446,6 +446,7 @@ export function syncSeIntoCritiques(
       delivery_status: "pending",
       created_at: now,
       updated_at: now,
+      judge: form.judge.trim() || undefined,
     };
     return [...critiques, created];
   }

@@ -30,7 +30,12 @@ import {
   type TnrkSeForm,
 } from "@/lib/domain/tnrk-se-form";
 import { seSectionProgress } from "@/lib/domain/show-day";
-import { canRecordWithJudge, syncShowJudges } from "@/lib/domain/show-judges";
+import {
+  applySeJudgeAssignment,
+  canRecordWithJudge,
+  judgeForAssignment,
+  syncShowJudges,
+} from "@/lib/domain/show-judges";
 import { stickyJudgeForShow } from "@/lib/client/sticky-judge";
 import { useRingsideJudge } from "@/components/ringside/RingsideJudgeContext";
 import { SeStepper } from "@/components/ringside/SeStepper";
@@ -197,7 +202,9 @@ function StewardSeForm({
     const active =
       showData.shows.find((s) => s.id === showData.active_show_id) ?? null;
     const names = syncShowJudges(active ?? {}).judges;
-    const pick = stickyJudgeForShow(showData.active_show_id, names);
+    const pick =
+      judgeForAssignment({ judges: names, day: "se" }) ||
+      stickyJudgeForShow(showData.active_show_id, names);
     setJudges(names);
     setJudgePick(pick);
 
@@ -280,10 +287,12 @@ function StewardSeForm({
     if (generation !== loadGenerationRef.current) return;
     setEvaluation(evaluation);
     const nextForm = normalizeTnrkSeForm(evaluation.form);
-    const serverForm =
+    const serverForm = applySeJudgeAssignment(
       pick && !nextForm.judge.trim()
         ? { ...nextForm, judge: pick }
-        : nextForm;
+        : nextForm,
+      names,
+    );
     serverFingerprintRef.current = seFormFingerprint(serverForm);
     serverUpdatedAtRef.current = evaluation.updated_at;
 
@@ -320,10 +329,16 @@ function StewardSeForm({
 
   useEffect(() => {
     if (!ringsideJudge.available) return;
-    setJudgePick(ringsideJudge.judge || null);
+    const seJudge =
+      judgeForAssignment({ judges: ringsideJudge.judges, day: "se" }) ||
+      ringsideJudge.judge ||
+      null;
+    setJudgePick(seJudge);
     setJudges(ringsideJudge.judges);
-    if (ringsideJudge.judge) {
-      setForm((prev) => (prev ? { ...prev, judge: ringsideJudge.judge } : prev));
+    if (seJudge) {
+      setForm((prev) =>
+        prev ? applySeJudgeAssignment({ ...prev, judge: seJudge }, ringsideJudge.judges) : prev,
+      );
     }
   }, [ringsideJudge.available, ringsideJudge.judge, ringsideJudge.judges]);
 
@@ -403,10 +418,12 @@ function StewardSeForm({
       setActionMsg("Form is still loading — wait a moment and try again");
       return;
     }
-    const nextForm =
+    const nextForm = applySeJudgeAssignment(
       judgePick && !form.judge.trim()
         ? { ...form, judge: judgePick }
-        : form;
+        : form,
+      judges,
+    );
     if (markComplete && !canRecordWithJudge(nextForm.judge, judges)) {
       setActionError(true);
       setActionMsg("Select a judge");
@@ -537,8 +554,10 @@ function StewardSeForm({
     );
   }
 
-  const formForComplete =
-    judgePick && !form.judge.trim() ? { ...form, judge: judgePick } : form;
+  const formForComplete = applySeJudgeAssignment(
+    judgePick && !form.judge.trim() ? { ...form, judge: judgePick } : form,
+    judges,
+  );
   const gaps = seCompletionGaps(formForComplete);
   const sections = seSectionProgress(form);
   const photoHref = dogPhotoHrefForEntry(showId, roster, entry);

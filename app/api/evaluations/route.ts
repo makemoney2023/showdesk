@@ -8,6 +8,10 @@ import {
   validateTnrkSeFormForPass,
   type TnrkSeForm,
 } from "@/lib/domain/tnrk-se-form";
+import {
+  applySeJudgeAssignment,
+  syncShowJudges,
+} from "@/lib/domain/show-judges";
 import { openCritiqueForEntry } from "@/lib/domain/entry-cascade";
 import { syncSeIntoDogCritiques } from "@/lib/domain/se-to-critique";
 import {
@@ -56,7 +60,8 @@ export async function POST(request: Request) {
   const seed = seEntrySeedFromRoster(entry);
   const header = {
     date: show?.date,
-    judge: (body.judge ?? "").trim() || show?.judge,
+    judge: show?.judge,
+    judges: syncShowJudges(show ?? {}).judges,
   };
 
   const existing = (store.se_evaluations ?? []).find(
@@ -66,16 +71,22 @@ export async function POST(request: Request) {
     return NextResponse.json({
       evaluation: {
         ...existing,
-        form: mergeSeFormPreferFilled(
-          seedSeFormForEntry(seed, header),
-          existing.form,
+        form: applySeJudgeAssignment(
+          mergeSeFormPreferFilled(
+            seedSeFormForEntry(seed, header),
+            existing.form,
+          ),
+          header.judges,
         ),
       },
     });
   }
 
   const now = new Date().toISOString();
-  const form = seedSeFormForEntry(seed, header);
+  const form = applySeJudgeAssignment(
+    seedSeFormForEntry(seed, header),
+    header.judges,
+  );
 
   const evaluation = {
     id: newId("se"),
@@ -114,7 +125,11 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Evaluation not found" }, { status: 404 });
   }
 
-  const nextForm = mergeSeFormPreferFilled(evaluation.form, body.form);
+  const show = store.shows.find((item) => item.id === body.show_id);
+  const nextForm = applySeJudgeAssignment(
+    mergeSeFormPreferFilled(evaluation.form, body.form),
+    syncShowJudges(show ?? {}).judges,
+  );
   let nextStatus = evaluation.status;
   if (body.mark_complete) {
     const check = validateTnrkSeFormForPass(nextForm);

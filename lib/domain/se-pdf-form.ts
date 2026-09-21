@@ -1,5 +1,9 @@
 import { seEvaluationForEntry } from "@/lib/domain/se-to-critique";
 import {
+  applySeJudgeAssignment,
+  syncShowJudges,
+} from "@/lib/domain/show-judges";
+import {
   mergeEntryIntoSeForm,
   mergeSeFormPreferFilled,
   seEntrySeedFromRoster,
@@ -42,6 +46,7 @@ export function resolveSeFormForPdf(input: {
     kennel_name?: string;
     registration_club?: string;
   }>;
+  show?: { judge?: string; judges?: string[] } | null;
 }): TnrkSeForm {
   const entry = input.entries.find(
     (item) => item.id === input.evaluation?.entry_id,
@@ -55,7 +60,9 @@ export function resolveSeFormForPdf(input: {
     ),
   );
   if (!entry) return merged;
-  return mergeEntryIntoSeForm(merged, seEntrySeedFromRoster(entry));
+  const withEntry = mergeEntryIntoSeForm(merged, seEntrySeedFromRoster(entry));
+  if (!input.show) return withEntry;
+  return applySeJudgeAssignment(withEntry, syncShowJudges(input.show).judges);
 }
 
 export function resolveSeEvaluationForPdf<

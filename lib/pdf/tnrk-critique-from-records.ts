@@ -8,7 +8,7 @@ import { critiqueLetterForCertificate } from "@/lib/domain/se-to-critique";
 import { officialCritiqueFormwert } from "@/lib/domain/tnrk-se-form";
 import { formatCertificateDob, formatDisplayDate } from "@/lib/domain/show-day";
 import { registeredDogName } from "@/lib/domain/registered-name";
-import { resolvePdfJudge } from "@/lib/domain/show-judges";
+import { resolveAppearanceJudge } from "@/lib/domain/show-judges";
 import type {
   CritiqueRecord,
   PlacementRecord,
@@ -124,12 +124,16 @@ export async function buildTnrkCritiquePdfForRecords(input: {
     date: formatDisplayDate(date),
     owner: se?.form.owner_co_owner?.trim() || entry.owner,
     co_owner: "",
-    judge_signature:
-      se?.form.judge_signature?.trim() ||
-      resolvePdfJudge({
-        critiqueJudge: critique?.judge,
-        seJudge: se?.form.judge,
-        showJudge: show.judge,
-      }),
+    judge_signature: resolveAppearanceJudge({
+      entry,
+      show,
+      critiqueJudge: critique?.judge,
+      seJudge:
+        entry.event_kind === "se"
+          ? appearanceSe?.form.judge_signature?.trim() ||
+            appearanceSe?.form.judge ||
+            se?.form.judge
+          : null,
+    }),
   });
 }

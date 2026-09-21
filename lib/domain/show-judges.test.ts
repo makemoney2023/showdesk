@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  applySeJudgeAssignment,
+  assignmentDayForEntry,
   canRecordWithJudge,
   formatShowJudges,
   isSundayConformationDay,
+  judgeForAssignment,
   judgeForDogSex,
   judgeStorageKey,
   normalizeJudgeNames,
+  resolveAppearanceJudge,
   resolveAssignedJudge,
   resolvePdfJudge,
   syncShowJudges,
@@ -90,6 +94,66 @@ describe("judgeForDogSex", () => {
     expect(judgeForDogSex("H", ["Hamid Falah (FCI-France)"])).toBeNull();
     expect(judgeForDogSex(null, judges)).toBeNull();
   });
+
+  it("assigns Reck to Friday SE regardless of sex", () => {
+    expect(judgeForDogSex("R", judges, { se: true })).toBe(
+      "Sandra Reck (ADRK)",
+    );
+    expect(judgeForDogSex("H", judges, { se: true })).toBe(
+      "Sandra Reck (ADRK)",
+    );
+    expect(judgeForDogSex(null, judges, { day: "se" })).toBe(
+      "Sandra Reck (ADRK)",
+    );
+  });
+});
+
+describe("assignmentDayForEntry", () => {
+  it("maps Friday SE and Sat/Sun conformation onto the weekend", () => {
+    expect(
+      assignmentDayForEntry({
+        eventKind: "se",
+        competitionDay: "2026-09-04",
+        showDate: "2026-09-05",
+      }),
+    ).toBe("se");
+    expect(
+      assignmentDayForEntry({
+        eventKind: "conformation",
+        competitionDay: "2026-09-05",
+        showDate: "2026-09-05",
+      }),
+    ).toBe("saturday");
+    expect(
+      assignmentDayForEntry({
+        eventKind: "conformation",
+        competitionDay: "2026-09-06",
+        showDate: "2026-09-05",
+      }),
+    ).toBe("sunday");
+  });
+});
+
+describe("judgeForAssignment", () => {
+  const judges = ["Sandra Reck (ADRK)", "Hamid Falah (FCI-France)"];
+
+  it("follows the published weekend ring schedule", () => {
+    expect(judgeForAssignment({ judges, day: "se" })).toBe(
+      "Sandra Reck (ADRK)",
+    );
+    expect(judgeForAssignment({ sex: "H", judges, day: "saturday" })).toBe(
+      "Sandra Reck (ADRK)",
+    );
+    expect(judgeForAssignment({ sex: "R", judges, day: "saturday" })).toBe(
+      "Hamid Falah (FCI-France)",
+    );
+    expect(judgeForAssignment({ sex: "H", judges, day: "sunday" })).toBe(
+      "Hamid Falah (FCI-France)",
+    );
+    expect(judgeForAssignment({ sex: "R", judges, day: "sunday" })).toBe(
+      "Sandra Reck (ADRK)",
+    );
+  });
 });
 
 describe("resolveAssignedJudge", () => {
@@ -126,6 +190,89 @@ describe("resolveAssignedJudge", () => {
       }),
     ).toBe("Hamid Falah (FCI-France)");
   });
+
+  it("assigns Reck to Friday SE even when Hamid is the sticky pick", () => {
+    expect(
+      resolveAssignedJudge({
+        sex: "R",
+        judges,
+        requested: "Hamid Falah (FCI-France)",
+        eventKind: "se",
+        competitionDay: "2026-09-04",
+        showDate: "2026-09-05",
+      }),
+    ).toBe("Sandra Reck (ADRK)");
+  });
+});
+
+describe("resolveAppearanceJudge", () => {
+  const judges = ["Sandra Reck (ADRK)", "Hamid Falah (FCI-France)"];
+  const show = {
+    date: "2026-09-05",
+    judge: "Sandra Reck (ADRK)",
+    judges,
+  };
+
+  it("does not let a Friday SE name leak onto Saturday males", () => {
+    expect(
+      resolveAppearanceJudge({
+        entry: {
+          sex: "R",
+          event_kind: "conformation",
+          competition_day: "2026-09-05",
+        },
+        show,
+        critiqueJudge: "Sandra Reck (ADRK)",
+        seJudge: "Sandra Reck (ADRK)",
+      }),
+    ).toBe("Hamid Falah (FCI-France)");
+  });
+
+  it("corrects a Sunday female that was stamped with Reck", () => {
+    expect(
+      resolveAppearanceJudge({
+        entry: {
+          sex: "H",
+          event_kind: "conformation",
+          competition_day: "2026-09-06",
+        },
+        show,
+        critiqueJudge: "Sandra Reck (ADRK)",
+        seJudge: "Sandra Reck (ADRK)",
+      }),
+    ).toBe("Hamid Falah (FCI-France)");
+  });
+
+  it("keeps Reck on Friday SE when the stored form says Hamid", () => {
+    expect(
+      resolveAppearanceJudge({
+        entry: {
+          sex: "R",
+          event_kind: "se",
+          competition_day: "2026-09-04",
+        },
+        show,
+        seJudge: "Hamid Falah (FCI-France)",
+      }),
+    ).toBe("Sandra Reck (ADRK)");
+  });
+});
+
+describe("applySeJudgeAssignment", () => {
+  it("replaces a Hamid stamp and empty signature with Reck", () => {
+    expect(
+      applySeJudgeAssignment(
+        {
+          judge: "Hamid Falah (FCI-France)",
+          judge_signature: "Hamid Falah",
+        },
+        ["Sandra Reck (ADRK)", "Hamid Falah (FCI-France)"],
+      ),
+    ).toEqual({
+      judge: "Sandra Reck (ADRK)",
+      judge_signature: "Sandra Reck (ADRK)",
+    });
+  });
 });
 
 describe("canRecordWithJudge", () => {
@@ -160,6 +307,21 @@ describe("resolvePdfJudge", () => {
         showJudge: "C",
       }),
     ).toBe("C");
+  });
+
+  it("uses the weekend schedule when the appearance is known", () => {
+    expect(
+      resolvePdfJudge({
+        critiqueJudge: "Sandra Reck (ADRK)",
+        seJudge: "Sandra Reck (ADRK)",
+        showJudge: "Sandra Reck (ADRK)",
+        judges: ["Sandra Reck (ADRK)", "Hamid Falah (FCI-France)"],
+        sex: "R",
+        eventKind: "conformation",
+        competitionDay: "2026-09-05",
+        showDate: "2026-09-05",
+      }),
+    ).toBe("Hamid Falah (FCI-France)");
   });
 });
 

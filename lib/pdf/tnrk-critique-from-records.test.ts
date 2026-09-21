@@ -399,4 +399,113 @@ describe("critique certificate class line", () => {
     expect(text).not.toContain("Youth Ch");
     expect(text).not.toContain("Urka Inc");
   });
+
+  it("prints Hamid on a Saturday male even when the SE form is signed by Reck", async () => {
+    const bytes = await buildTnrkCritiquePdfForRecords({
+      show: {
+        id: "show-1",
+        name: "TNRK Sieger Show 2026",
+        date: "2026-09-05",
+        venue: "Demo",
+        judge: "Sandra Reck (ADRK)",
+        judges: ["Sandra Reck (ADRK)", "Hamid Falah (FCI-France)"],
+        rulebook: "adrk",
+        created_at: "t",
+      },
+      entry: {
+        id: "entry-sat-male",
+        show_id: "show-1",
+        armband: "22",
+        dog_name: "Rex vom Blacksage",
+        zb_number: "",
+        wt: "2023-01-01",
+        owner: "Owner",
+        sex: "R",
+        class_id: "offene-klasse",
+        event_kind: "conformation",
+        competition_day: "2026-09-05",
+        catalog_class: "open",
+        email: "",
+      },
+      se: {
+        id: "se-fri",
+        show_id: "show-1",
+        entry_id: "entry-fri",
+        status: "complete",
+        created_at: "t",
+        updated_at: "t",
+        form: {
+          ...createEmptyTnrkSeForm(),
+          judge: "Sandra Reck (ADRK)",
+          judge_signature: "Sandra Reck (ADRK)",
+        },
+      },
+      critique: {
+        id: "crit-sat",
+        show_id: "show-1",
+        entry_id: "entry-sat-male",
+        status: "APPROVED",
+        transcript: "Strong male.",
+        draft: {
+          narrative: "Strong male.",
+          formwert: "V",
+          placement: 1,
+          titles: [],
+        },
+        delivery_status: "pending",
+        created_at: "t",
+        updated_at: "t",
+        judge: "Sandra Reck (ADRK)",
+      },
+    });
+    const text = extractPdfText(bytes);
+    expect(text).toContain("Hamid Falah");
+    expect(text).not.toContain("Sandra Reck");
+  });
+
+  it("prints Reck on a Friday SE certificate even when the form stored Hamid", async () => {
+    const bytes = await buildTnrkCritiquePdfForRecords({
+      show: {
+        id: "show-1",
+        name: "TNRK Sieger Show 2026",
+        date: "2026-09-05",
+        venue: "Demo",
+        judge: "Hamid Falah (FCI-France)",
+        judges: ["Hamid Falah (FCI-France)", "Sandra Reck (ADRK)"],
+        rulebook: "adrk",
+        created_at: "t",
+      },
+      entry: {
+        id: "entry-se",
+        show_id: "show-1",
+        armband: "4",
+        dog_name: "Rex vom Blacksage",
+        zb_number: "",
+        wt: "2023-01-01",
+        owner: "Owner",
+        sex: "R",
+        class_id: "offene-klasse",
+        event_kind: "se",
+        competition_day: "2026-09-04",
+        catalog_class: "standard-evaluation",
+        email: "",
+      },
+      se: {
+        id: "se-fri",
+        show_id: "show-1",
+        entry_id: "entry-se",
+        status: "complete",
+        created_at: "t",
+        updated_at: "t",
+        form: {
+          ...createEmptyTnrkSeForm(),
+          judge: "Hamid Falah (FCI-France)",
+          judge_signature: "Hamid Falah (FCI-France)",
+        },
+      },
+    });
+    const text = extractPdfText(bytes);
+    expect(text).toContain("Sandra Reck");
+    expect(text).not.toContain("Hamid Falah");
+  });
 });

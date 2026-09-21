@@ -61,6 +61,7 @@ export default function RecordPage() {
   const [entry, setEntry] = useState<RosterEntryRecord | null>(null);
   const [entries, setEntries] = useState<RosterEntryRecord[]>([]);
   const [showId, setShowId] = useState<string | null>(null);
+  const [showDate, setShowDate] = useState<string | null>(null);
   const [judge, setJudge] = useState<string | null>(null);
   const [judges, setJudges] = useState<string[]>([]);
   const [recording, setRecording] = useState(false);
@@ -128,6 +129,7 @@ export default function RecordPage() {
       setShowId(showData.active_show_id);
       const active =
         showData.shows.find((s) => s.id === showData.active_show_id) ?? null;
+      setShowDate(active?.date ?? null);
       const names = syncShowJudges(active ?? {}).judges;
       setJudges(names);
       const res = await fetch(`/api/entries?show_id=${showData.active_show_id}`);
@@ -144,6 +146,7 @@ export default function RecordPage() {
           sex: found?.sex,
           judges: names,
           fallback: stickyJudgeForShow(showData.active_show_id, names),
+          eventKind: found?.event_kind,
           competitionDay: found?.competition_day,
           showDate: active?.date,
         }) || null,
@@ -196,7 +199,9 @@ export default function RecordPage() {
       ? judgeForDogSex(entry.sex, ringsideJudge.judges, {
           sunday: isSundayConformationDay({
             competitionDay: entry.competition_day,
+            showDate,
           }),
+          se: entry.event_kind === "se",
         })
       : null;
     const pick =
@@ -213,6 +218,7 @@ export default function RecordPage() {
     ringsideJudge.judge,
     ringsideJudge.judges,
     ringsideJudge.setJudge,
+    showDate,
   ]);
 
   useEffect(() => {

@@ -95,4 +95,21 @@ describe("resolveSeFormForPdf", () => {
     expect(form.measurements.height).toBe("68cm live");
     expect(form.overall_appearance).toBe("Live critique.");
   });
+
+  it("prints Reck on the SE PDF when the stored form named Hamid", () => {
+    const form = resolveSeFormForPdf({
+      evaluation: {
+        entry_id: "entry-038-se",
+        form: { ...filled, judge: "Hamid Falah (FCI-France)" },
+        status: "complete",
+      },
+      evaluations,
+      entries,
+      show: {
+        judge: "Hamid Falah (FCI-France)",
+        judges: ["Hamid Falah (FCI-France)", "Sandra Reck (ADRK)"],
+      },
+    });
+    expect(form.judge).toBe("Sandra Reck (ADRK)");
+  });
 });

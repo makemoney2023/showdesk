@@ -39,6 +39,7 @@ import {
   type HealthClearanceRow,
 } from "./health-clearances";
 import { critiqueLetterForCertificate, seEvaluationForEntry } from "./se-to-critique";
+import { resolveAppearanceJudge } from "./show-judges";
 import {
   appearanceSeEvaluation,
   officialCritiqueFormwert,
@@ -303,7 +304,15 @@ function toPublicDog(
     ratingPlacement: ratingPlacementLabel(formwert, rank, scale),
     titles: critique?.draft.titles ?? [],
     narrative,
-    judge: optionalPublicText(critique?.judge) ?? optionalPublicText(show.judge),
+    judge:
+      optionalPublicText(
+        resolveAppearanceJudge({
+          entry,
+          show,
+          critiqueJudge: critique?.judge,
+          seJudge: overlay?.form.judge,
+        }),
+      ) ?? optionalPublicText(show.judge),
     photoPath,
     photoHref: photoPath && photoSource
       ? publicDogPhotoHref(show.id, photoSource.id, { cacheBust: photoPath })

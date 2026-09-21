@@ -99,6 +99,26 @@ describe("tnrk-se-form", () => {
     expect(form.formwert).toBeNull();
   });
 
+  it("seeds Friday SE with Reck even when the show header lists Hamid first", () => {
+    const form = seedSeFormForEntry(
+      {
+        dog_name: "Rex",
+        armband: "101",
+        owner: "Blacksage",
+        email: "owner@test.local",
+        sex: "R",
+        zb_number: "ADRK-1",
+        wt: "2024-06-12",
+      },
+      {
+        date: "2026-09-04",
+        judge: "Hamid Falah (FCI-France)",
+        judges: ["Hamid Falah (FCI-France)", "Sandra Reck (ADRK)"],
+      },
+    );
+    expect(form.judge).toBe("Sandra Reck (ADRK)");
+  });
+
   it("keeps saved measurements and appearance when the client form is blank", () => {
     const stored = {
       ...createEmptyTnrkSeForm(),

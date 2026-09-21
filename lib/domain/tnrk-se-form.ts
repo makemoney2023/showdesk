@@ -2,6 +2,7 @@ import {
   isValidFormwert,
   type AdrkFormwertCode,
 } from "./adrk-template";
+import { judgeForAssignment, syncShowJudges } from "./show-judges";
 
 /** TNRK Standard Evaluation (SE) — Official Evaluation Form fields (2026 pack page 2). */
 
@@ -322,13 +323,17 @@ export function mergeSeFormPreferFilled(
 /** New SE form seeded from the roster row and optional show header. */
 export function seedSeFormForEntry(
   entry: SeEntrySeed,
-  show?: { date?: string; judge?: string } | null,
+  show?: { date?: string; judge?: string; judges?: string[] } | null,
 ): TnrkSeForm {
   const form = mergeEntryIntoSeForm(createEmptyTnrkSeForm(), entry);
+  const judges = syncShowJudges(show ?? {}).judges;
   return {
     ...form,
     date: show?.date?.trim() || form.date,
-    judge: show?.judge?.trim() || form.judge,
+    judge:
+      judgeForAssignment({ judges, day: "se" }) ||
+      show?.judge?.trim() ||
+      form.judge,
   };
 }
 

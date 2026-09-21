@@ -446,7 +446,7 @@ function upsertEvaluationFormwert(
   entry: RosterEntryRecord,
   showId: string,
   formwert: AdrkFormwertCode | null,
-  show: { date?: string; judge?: string } | null | undefined,
+  show: { date?: string; judge?: string; judges?: string[] } | null | undefined,
   newId: () => string,
   now: string,
 ): { evaluations: SeEvaluationRecord[]; evaluation: SeEvaluationRecord } {
@@ -490,7 +490,7 @@ export function applyFormwertUpdates(
     entries: RosterEntryRecord[];
     evaluations: SeEvaluationRecord[];
     critiques: CritiqueRecord[];
-    show?: { date?: string; judge?: string } | null;
+    show?: { date?: string; judge?: string; judges?: string[] } | null;
     rows: FormwertInput[];
     newEvaluationId: () => string;
     newCritiqueId: () => string;

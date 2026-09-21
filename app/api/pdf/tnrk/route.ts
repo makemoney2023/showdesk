@@ -10,7 +10,7 @@ import {
   resolveSeEvaluationForPdf,
   resolveSeFormForPdf,
 } from "@/lib/domain/se-pdf-form";
-import { resolvePdfJudge } from "@/lib/domain/show-judges";
+import { resolveAppearanceJudge } from "@/lib/domain/show-judges";
 import {
   DRAFT_PDF_PREVIEW_REQUIRED,
   canPrintCertificate,
@@ -78,6 +78,7 @@ export async function GET(request: Request) {
               evaluation,
               evaluations: store.se_evaluations ?? [],
               entries: store.entries,
+              show,
             }),
           ),
         );
@@ -148,6 +149,7 @@ export async function GET(request: Request) {
         evaluation,
         evaluations: store.se_evaluations ?? [],
         entries: store.entries,
+        show,
       }),
     );
     return pdfResponse(
@@ -239,10 +241,11 @@ export async function GET(request: Request) {
         entry.dog_name,
         `Owner: ${entry.owner}`,
       ],
-      judge: resolvePdfJudge({
+      judge: resolveAppearanceJudge({
+        entry,
+        show,
         critiqueJudge: critique?.judge,
         seJudge: se?.form.judge,
-        showJudge: show.judge,
       }),
       show_secretary: "Show Secretary",
     });

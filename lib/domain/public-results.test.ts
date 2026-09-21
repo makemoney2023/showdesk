@@ -76,6 +76,38 @@ describe("projection", () => {
     expect(youth?.dogs[0]?.ratingPlacement).toBe("V1");
   });
 
+  it("publishes the weekend ring judge, not a leaked Friday SE name", () => {
+    const rex = store.entries[0]!;
+    const withSchedule = {
+      ...store,
+      shows: store.shows.map((show) => ({
+        ...show,
+        date: "2026-09-05",
+        judge: "Sandra Reck (ADRK)",
+        judges: ["Sandra Reck (ADRK)", "Hamid Falah (FCI-France)"],
+      })),
+      entries: [
+        {
+          ...rex,
+          event_kind: "conformation" as const,
+          competition_day: "2026-09-05",
+        },
+        ...store.entries.slice(1),
+      ],
+      critiques: store.critiques.map((critique) =>
+        critique.entry_id === rex.id
+          ? { ...critique, judge: "Sandra Reck (ADRK)" }
+          : critique,
+      ),
+    };
+    const found = getPublishedDog(
+      withSchedule,
+      "tnrk-rcc-national-sieger-show-2026-09-05",
+      "101-rex-vom-blacksage",
+    );
+    expect(found?.dog.judge).toBe("Hamid Falah (FCI-France)");
+  });
+
   it("uses the newest approved spoken letter when two certificates exist", () => {
     const older = store.critiques.find((c) => c.entry_id === "sample-rex");
     expect(older).toBeTruthy();

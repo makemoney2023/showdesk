@@ -15,7 +15,7 @@ import {
   resolveSeEvaluationForPdf,
   resolveSeFormForPdf,
 } from "@/lib/domain/se-pdf-form";
-import { resolvePdfJudge } from "@/lib/domain/show-judges";
+import { resolveAppearanceJudge } from "@/lib/domain/show-judges";
 import { primaryCritiqueForEntry } from "@/lib/domain/entry-cascade";
 import { buildTnrkAwardPdf } from "@/lib/pdf/tnrk-award-pdf";
 import { buildTnrkCritiquePdfForRecords } from "@/lib/pdf/tnrk-critique-from-records";
@@ -160,6 +160,7 @@ export async function readPublishedPdf(
         evaluation: found.se,
         evaluations: store.se_evaluations ?? [],
         entries: store.entries,
+        show: found.show,
       }),
     );
     return {
@@ -185,10 +186,11 @@ export async function readPublishedPdf(
       catalogDivisionLabel(found.entry),
       `Owner: ${found.entry.owner}`,
     ],
-    judge: resolvePdfJudge({
+    judge: resolveAppearanceJudge({
+      entry: found.entry,
+      show: found.show,
       critiqueJudge: critique?.judge,
       seJudge: se?.form.judge,
-      showJudge: found.show.judge,
     }),
     show_secretary: "Show Secretary",
   });
