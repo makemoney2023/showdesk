@@ -54,7 +54,10 @@ BEGIN
     lower(TG_OP),
     to_jsonb(saved)
   );
-  RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+  RETURN NEW;
 END;
 $$;
 
