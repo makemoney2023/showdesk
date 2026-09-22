@@ -7,7 +7,10 @@ import {
   readCritiqueAudio,
 } from "@/lib/store";
 import { filterByShow } from "@/lib/domain/show-scope";
-import { processCritique } from "@/lib/pipeline/process-critique";
+import {
+  processCritique,
+  structureDraftFromTranscript,
+} from "@/lib/pipeline/process-critique";
 import {
   canRecall,
   canTransition,
@@ -96,6 +99,10 @@ export async function POST(request: Request) {
   );
   const critiqueId = existing?.id ?? newId("critique");
   const now = new Date().toISOString();
+  const uploadedTranscript = body.live_transcript?.trim() ?? "";
+  const uploadedDraft = uploadedTranscript
+    ? structureDraftFromTranscript(uploadedTranscript)
+    : { narrative: "", formwert: null, placement: null, titles: [] };
   const show = store.shows.find((item) => item.id === body.show_id);
   const judge =
     resolveAssignedJudge({
@@ -119,6 +126,8 @@ export async function POST(request: Request) {
                 status: canTransition(c.status, "PROCESSING")
                   ? ("PROCESSING" as const)
                   : c.status,
+                transcript: uploadedTranscript || c.transcript,
+                draft: uploadedTranscript ? uploadedDraft : c.draft,
                 error_message: undefined,
                 updated_at: now,
                 judge: judge || c.judge,
@@ -136,8 +145,8 @@ export async function POST(request: Request) {
           show_id: body.show_id,
           entry_id: body.entry_id,
           status: "PROCESSING" as const,
-          transcript: "",
-          draft: { narrative: "", formwert: null, placement: null, titles: [] },
+          transcript: uploadedTranscript,
+          draft: uploadedDraft,
           delivery_status: "blocked" as const,
           created_at: now,
           updated_at: now,
@@ -155,6 +164,20 @@ export async function POST(request: Request) {
         critiqueId,
         base64: body.audio_base64,
       });
+      // Link the raw recording before transcription. If Deepgram or draft
+      // processing fails, Review still has the audio and live transcript.
+      await updateStore((s) => ({
+        ...s,
+        critiques: s.critiques.map((c) =>
+          c.id === critiqueId
+            ? {
+                ...c,
+                audio_path: audioPath,
+                updated_at: new Date().toISOString(),
+              }
+            : c,
+        ),
+      }));
     }
 
     const result = await processCritique({

@@ -584,15 +584,17 @@ export default function RecordPage() {
         setStatus("Sent to review queue");
         router.push(nextRecordingHref());
       } else if (res.status === 409) {
-        // Approved while we were recording. Queueing would poison the sync
-        // queue until a recall, so surface the reason instead.
         const data = (await res.json().catch(() => null)) as {
           error?: string;
         } | null;
         const reason =
           data?.error ?? "Critique already approved — recall it to re-record";
+        // Never discard the new take. It remains blocked on this device until
+        // the desk recalls the approved critique, after which it can be synced.
+        await queueRecording(
+          `${reason} — recording kept in offline queue for recovery`,
+        );
         setApprovedBlock(reason);
-        setStatus(reason);
       } else {
         await queueRecording("Upload failed — queued offline");
       }
