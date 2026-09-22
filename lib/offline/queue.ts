@@ -76,6 +76,41 @@ export async function updateQueuedRecordingTranscript(
   return true;
 }
 
+/** Download a durable copy before syncing or removing a phone-only recording. */
+export async function downloadQueuedRecordingBackup(
+  recording: OfflineRecording,
+): Promise<void> {
+  const { default: JSZip } = await import("jszip");
+  const zip = new JSZip();
+  zip.file("recording.webm", recording.blob);
+  zip.file("transcript.txt", recording.liveTranscript?.trim() ?? "");
+  zip.file(
+    "recording.json",
+    JSON.stringify(
+      {
+        id: recording.id,
+        entryId: recording.entryId,
+        showId: recording.showId,
+        createdAt: recording.createdAt,
+        judge: recording.judge ?? null,
+        liveTranscript: recording.liveTranscript ?? "",
+      },
+      null,
+      2,
+    ),
+  );
+  const backup = await zip.generateAsync({ type: "blob" });
+  const url = URL.createObjectURL(backup);
+  const anchor = document.createElement("a");
+  const timestamp = recording.createdAt.replaceAll(/[:.]/g, "-");
+  anchor.href = url;
+  anchor.download = `showdesk-${recording.entryId}-${timestamp}.zip`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+}
+
 export async function enqueueSeDraft(draft: OfflineSeDraft): Promise<void> {
   const existing = await listQueuedSeDrafts();
   for (const prev of existing) {

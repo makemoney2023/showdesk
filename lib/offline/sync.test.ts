@@ -57,9 +57,11 @@ describe("formatQueueSyncStatus", () => {
         failed: 0,
         conflicts: 2,
         unauthorized: false,
-        remaining: 0,
+        remaining: 2,
       }),
-    ).toBe("Synced 1 item · 2 removed (already approved or entry deleted)");
+    ).toBe(
+      "Synced 1 item · 2 blocked — kept on this device; download a backup before removing",
+    );
     expect(
       formatQueueSyncStatus({
         synced: 0,

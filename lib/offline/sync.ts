@@ -34,8 +34,8 @@ export type SyncOutcome = "synced" | "retry" | "conflict" | "unauthorized";
 /**
  * Ring Wi-Fi drops mid-show, so the queue must drain itself:
  * - 401: session expired — keep the item, tell the steward to sign in.
- * - 404/409: the server state supersedes the queued item (entry deleted or
- *   critique approved elsewhere) — retrying forever poisons the queue.
+ * - 404/409: keep the item for manual recovery. A conflict must never erase
+ *   the phone's only copy of a recording or transcript.
  * - Other non-ok (5xx, network): transient — retry on the next sync.
  */
 export function classifySyncResponse(status: number | null): SyncOutcome {
@@ -81,7 +81,8 @@ async function syncRecordings(): Promise<{
       await removeQueuedRecording(item.id);
       synced += 1;
     } else if (outcome === "conflict") {
-      await removeQueuedRecording(item.id);
+      // Keep the original recording and live transcript on this device.
+      // The steward can download a backup before explicitly removing it.
       conflicts += 1;
     } else if (outcome === "unauthorized") {
       unauthorized = true;
@@ -151,7 +152,7 @@ async function syncSeDrafts(): Promise<{
       await clearRecoverableSeDraft(item.showId, item.entryId);
       synced += 1;
     } else if (outcome === "conflict") {
-      await removeQueuedSeDraft(item.id);
+      // Preserve the form on-device until a person downloads/reviews it.
       conflicts += 1;
     } else if (outcome === "unauthorized") {
       unauthorized = true;
@@ -195,7 +196,7 @@ export function formatQueueSyncStatus(result: QueueSyncResult): string {
   }
   if (result.conflicts > 0) {
     parts.push(
-      `${result.conflicts} removed (already approved or entry deleted)`,
+      `${result.conflicts} blocked — kept on this device; download a backup before removing`,
     );
   }
   if (result.failed > 0) {

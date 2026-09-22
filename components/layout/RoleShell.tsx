@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Mic } from "lucide-react";
+import { Download, Mic } from "lucide-react";
 import { deskAttentionCount } from "@/lib/domain/critique-status";
 import { visibleReviewCritiques } from "@/lib/domain/se-to-critique";
 import { RingsideJudgeProvider, useRingsideJudge } from "@/components/ringside/RingsideJudgeContext";
@@ -19,6 +19,7 @@ import {
   queuedItemReviewLabel,
 } from "@/lib/domain/show-day";
 import {
+  downloadQueuedRecordingBackup,
   discardOfflineQueueItem,
   listOfflineQueue,
 } from "@/lib/offline/queue";
@@ -180,8 +181,8 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
             {queueCount > 0 ? (
               <p className="text-sm text-sss-text-secondary">
                 Review opens the critique (or SE form) so you can edit it.
-                Remove drops an item from this phone only. The dog stays on the
-                roster.
+                Download a recording backup before syncing. Remove permanently
+                drops an item from this phone only.
               </p>
             ) : null}
             {queueCount === 0 ? (
@@ -211,19 +212,34 @@ export function RoleShell({ children }: { children: React.ReactNode }) {
                           disabled={queueBusy}
                           aria-label={`${queuedItemReviewLabel()} ${labeled.title}`}
                           onClick={() => {
-                            setQueueBusy(true);
-                            void (async () => {
-                              if (item.kind === "recording") {
-                                await syncOfflineQueue();
-                                await refreshQueue();
-                              }
-                              setQueueOpen(false);
-                              router.push(queuedItemHref(item));
-                            })().finally(() => setQueueBusy(false));
+                            setQueueOpen(false);
+                            router.push(queuedItemHref(item));
                           }}
                         >
                           {queuedItemReviewLabel()}
                         </Button>
+                        {item.kind === "recording" ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={queueBusy}
+                            aria-label={`Download backup for ${labeled.title}`}
+                            onClick={() => {
+                              setQueueBusy(true);
+                              void downloadQueuedRecordingBackup(item)
+                                .then(() =>
+                                  setQueueStatus(
+                                    "Backup downloaded — keep it until the recording is safely in Review",
+                                  ),
+                                )
+                                .finally(() => setQueueBusy(false));
+                            }}
+                          >
+                            <Download className="h-4 w-4" />
+                            Backup
+                          </Button>
+                        ) : null}
                         <Button
                           type="button"
                           variant="outline"
