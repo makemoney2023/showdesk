@@ -10,6 +10,10 @@ import { CompetitionDayFilter } from "@/components/desk/CompetitionDayFilter";
 import { DogAvatar } from "@/components/desk/DogAvatar";
 import { DogSearchField } from "@/components/desk/DogSearchField";
 import { DivisionFilterChips } from "@/components/desk/DivisionFilterChips";
+import {
+  JudgeFilterChips,
+  judgeFilterLabel,
+} from "@/components/desk/JudgeFilterChips";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { StatusChip } from "@/components/status/StatusChip";
@@ -57,12 +61,18 @@ import {
   saveBlobAsFile,
 } from "@/lib/domain/print-zip";
 import {
+  REPORT_UNASSIGNED_JUDGE,
+  reportAppearanceJudge,
   reportBrowseDay,
+  reportJudgeChoices,
   reportRowMatchesDay,
   reportRowMatchesFilter,
+  reportRowMatchesJudge,
   reportSearchFromParams,
+  sanitizeReportJudgeFilter,
   type ReportDeskFilter,
 } from "@/lib/domain/report-filters";
+import { syncShowJudges } from "@/lib/domain/show-judges";
 import {
   critiqueChipTone,
   labelCritiqueStatus,
@@ -74,6 +84,7 @@ import type {
   PlacementRecord,
   RosterEntryRecord,
   SeEvaluationRecord,
+  Show,
 } from "@/lib/types";
 
 export default function AdminReportsPage() {
@@ -87,6 +98,7 @@ export default function AdminReportsPage() {
 function AdminReportsPageInner() {
   const searchParams = useSearchParams();
   const [showId, setShowId] = useState<string | null>(null);
+  const [activeShow, setActiveShow] = useState<Show | null>(null);
   const [showName, setShowName] = useState("");
   const [critiques, setCritiques] = useState<CritiqueRecord[]>([]);
   const [entries, setEntries] = useState<RosterEntryRecord[]>([]);
@@ -98,6 +110,7 @@ function AdminReportsPageInner() {
   const [search, setSearch] = useState("");
   const [selectedDay, setSelectedDay] = useState("all");
   const [divisionFilter, setDivisionFilter] = useState("all");
+  const [judgeFilter, setJudgeFilter] = useState("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [zipBusy, setZipBusy] = useState(false);
@@ -117,11 +130,12 @@ function AdminReportsPageInner() {
     }
     const showData = (await showRes.json()) as {
       active_show_id: string | null;
-      shows?: { id: string; name: string }[];
+      shows?: Show[];
     };
     if (!showData.active_show_id) {
       setHasShow(false);
       setShowId(null);
+      setActiveShow(null);
       setShowName("");
       setCritiques([]);
       setEntries([]);
@@ -130,12 +144,13 @@ function AdminReportsPageInner() {
       setLoaded(true);
       return;
     }
+    const active =
+      showData.shows?.find((show) => show.id === showData.active_show_id) ??
+      null;
     setHasShow(true);
     setShowId(showData.active_show_id);
-    setShowName(
-      showData.shows?.find((show) => show.id === showData.active_show_id)
-        ?.name ?? "",
-    );
+    setActiveShow(active);
+    setShowName(active?.name ?? "");
     const [critRes, entryRes, seRes, placeRes] = await Promise.all([
       fetch(`/api/critiques?show_id=${showData.active_show_id}`),
       fetch(`/api/entries?show_id=${showData.active_show_id}`),
@@ -185,6 +200,8 @@ function AdminReportsPageInner() {
       entries,
     });
     if (fromUrl) setSearch(fromUrl);
+    const judge = searchParams.get("judge")?.trim() ?? "";
+    if (judge) setJudgeFilter(judge);
     appliedUrlSearch.current = true;
   }, [loaded, entries, searchParams]);
 
@@ -213,9 +230,15 @@ function AdminReportsPageInner() {
           critiqueStatus: critique?.status,
           seStatus: se?.status,
         });
-        return { entry, critique, se, placement, documents };
+        const judgeName = reportAppearanceJudge({
+          entry,
+          show: activeShow,
+          critiqueJudge: critique?.judge,
+          seJudge: se?.form.judge,
+        });
+        return { entry, critique, se, placement, documents, judgeName };
       });
-  }, [showId, entries, critiques, evaluations, placements]);
+  }, [showId, activeShow, entries, critiques, evaluations, placements]);
 
   const days = competitionDaysWithEntries(entries);
   const activeDay = resolvedCompetitionDayFilter(selectedDay, days);
@@ -229,11 +252,39 @@ function AdminReportsPageInner() {
     divisionFilter,
     dayEntries,
   );
-  const visibleRows = rows.filter(
+  const browseRows = rows.filter(
     (row) =>
       dogRecordMatchesSearch(search, row.entry) &&
       reportRowMatchesDay(row.entry, browseDay) &&
-      entryMatchesDivision(row.entry, activeDivisionFilter) &&
+      entryMatchesDivision(row.entry, activeDivisionFilter),
+  );
+  const judgeCounts = new Map<string, number>();
+  let unassignedCount = 0;
+  for (const row of browseRows) {
+    if (!row.judgeName) {
+      unassignedCount += 1;
+      continue;
+    }
+    judgeCounts.set(row.judgeName, (judgeCounts.get(row.judgeName) ?? 0) + 1);
+  }
+  const judgeChoices = reportJudgeChoices({
+    showJudges: syncShowJudges(activeShow ?? {}).judges,
+    rowJudges: browseRows.map((row) => row.judgeName),
+  });
+  for (const name of judgeChoices) {
+    if (!judgeCounts.has(name)) judgeCounts.set(name, 0);
+  }
+  const judgeOptions =
+    unassignedCount > 0
+      ? [...judgeChoices, REPORT_UNASSIGNED_JUDGE]
+      : judgeChoices;
+  if (unassignedCount > 0) {
+    judgeCounts.set(REPORT_UNASSIGNED_JUDGE, unassignedCount);
+  }
+  const activeJudge = sanitizeReportJudgeFilter(judgeFilter, judgeOptions);
+  const visibleRows = browseRows.filter(
+    (row) =>
+      reportRowMatchesJudge(row.judgeName, activeJudge) &&
       reportRowMatchesFilter(
         {
           documents: row.documents,
@@ -292,7 +343,10 @@ function AdminReportsPageInner() {
       }
       saveBlobAsFile(
         new Blob([Uint8Array.from(bytes)], { type: "application/zip" }),
-        printZipArchiveName(showName),
+        printZipArchiveName(
+          showName,
+          activeJudge === "all" ? undefined : judgeFilterLabel(activeJudge),
+        ),
       );
       if (failed.length > 0) {
         setMessage(
@@ -325,7 +379,7 @@ function AdminReportsPageInner() {
     <div className="space-y-6">
       <PageHeader
         title="Reports"
-        description="Filter by date, then view, download, or print approved SE forms and certificates. Download a ZIP of individual PDFs to take to a print shop."
+        description="Filter by date and judge, then view, download, or print. Choosing a judge only changes this list — every critique stays saved. Download that judge’s ZIP to email them."
         actions={
           <Button variant="outline" onClick={() => void load()}>
             <RefreshCw className="h-4 w-4" />
@@ -374,6 +428,22 @@ function AdminReportsPageInner() {
           value={activeDivisionFilter}
           onChange={setDivisionFilter}
         />
+        <JudgeFilterChips
+          judges={judgeOptions}
+          counts={judgeCounts}
+          total={browseRows.length}
+          value={activeJudge}
+          onChange={(judge) => {
+            setJudgeFilter(judge);
+            setSelectedIds([]);
+          }}
+        />
+        {activeJudge !== "all" ? (
+          <p className="text-xs text-sss-text-muted" role="status">
+            Showing {judgeFilterLabel(activeJudge)} only. Other critiques are
+            still saved — choose All judges to see them.
+          </p>
+        ) : null}
         <div className="flex flex-wrap gap-2">
           {(
             [
@@ -440,7 +510,9 @@ function AdminReportsPageInner() {
               disabled={Boolean(zipReason) || zipBusy}
               title={
                 zipReason ??
-                "Individual PDFs for a print shop. Uses the current selection, or every printable dog in this list."
+                (activeJudge === "all"
+                  ? "Individual PDFs for a print shop. Uses the current selection, or every printable dog in this list."
+                  : `PDFs for ${judgeFilterLabel(activeJudge)}. Downloading does not remove any critiques.`)
               }
               onClick={() => void downloadPrintZip()}
             >
@@ -453,7 +525,7 @@ function AdminReportsPageInner() {
         ) : null}
         </div>
         <ul className="space-y-3">
-          {visibleRows.map(({ entry, critique, se, placement, documents }) => {
+          {visibleRows.map(({ entry, critique, se, placement, documents, judgeName }) => {
             const printableCritique = documents.find(
               (doc) =>
                 doc.kind === "tnrk_critique" && doc.printable && doc.href,
@@ -496,6 +568,7 @@ function AdminReportsPageInner() {
                       </h2>
                       <p className="text-xs text-sss-text-muted">
                         {catalogCompetitionLabel(entry)}
+                        {judgeName ? ` · ${judgeName}` : ""}
                         {placement ? ` · Place ${placement.placement}` : ""}
                       </p>
                     </div>
@@ -566,11 +639,13 @@ function AdminReportsPageInner() {
           ) : null}
           {rows.length > 0 && visibleRows.length === 0 ? (
             <li className="sss-tray p-5 text-sm text-sss-text-muted">
-              {search.trim()
-                ? `No dogs match “${search}”.`
-                : browseDay !== "all"
-                  ? "No dogs entered on this day."
-                  : "No dogs match this filter."}
+              {activeJudge !== "all"
+                ? `No reports for ${judgeFilterLabel(activeJudge)} in this view. Critiques are unchanged — choose All judges to see every dog.`
+                : search.trim()
+                  ? `No dogs match “${search}”.`
+                  : browseDay !== "all"
+                    ? "No dogs entered on this day."
+                    : "No dogs match this filter."}
             </li>
           ) : null}
         </ul>
