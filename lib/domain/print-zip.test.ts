@@ -56,6 +56,9 @@ describe("print zip naming", () => {
       "tnrk-sieger-show-2026-print-pdfs.zip",
     );
     expect(printZipArchiveName("")).toBe("show-print-pdfs.zip");
+    expect(printZipArchiveName("TNRK Sieger Show 2026", "Sandra Reck")).toBe(
+      "tnrk-sieger-show-2026-sandra-reck-print-pdfs.zip",
+    );
   });
 });
 

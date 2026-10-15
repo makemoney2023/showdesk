@@ -50,9 +50,13 @@ export function printZipFilePath(input: {
   return `${folder}/${stem}-${PRINT_ZIP_SUFFIX[input.kind]}.pdf`;
 }
 
-export function printZipArchiveName(showName?: string): string {
+export function printZipArchiveName(
+  showName?: string,
+  judgeName?: string,
+): string {
   const slug = slugify(showName ?? "") || "show";
-  return `${slug}-print-pdfs.zip`;
+  const judge = slugify(judgeName ?? "");
+  return judge ? `${slug}-${judge}-print-pdfs.zip` : `${slug}-print-pdfs.zip`;
 }
 
 /**

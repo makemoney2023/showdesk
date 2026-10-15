@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  REPORT_UNASSIGNED_JUDGE,
+  reportAppearanceJudge,
   reportBrowseDay,
+  reportJudgeChoices,
   reportRowMatchesDay,
   reportRowMatchesFilter,
+  reportRowMatchesJudge,
   reportSearchFromParams,
+  sanitizeReportJudgeFilter,
 } from "./report-filters";
 
 describe("reportRowMatchesFilter", () => {
@@ -63,6 +68,113 @@ describe("reportRowMatchesDay", () => {
   it("ignores the date chip while a search is active", () => {
     expect(reportBrowseDay("2026-09-05", "")).toBe("2026-09-05");
     expect(reportBrowseDay("2026-09-05", "rex")).toBe("all");
+  });
+});
+
+describe("report judge filter", () => {
+  const weekendShow = {
+    date: "2026-09-05",
+    judge: "Sandra Reck (ADRK)",
+    judges: ["Sandra Reck (ADRK)", "Hamid Falah (FCI-France)"],
+  };
+
+  it("uses the weekend schedule so each judge gets the dogs they judged", () => {
+    expect(
+      reportAppearanceJudge({
+        entry: {
+          sex: "R",
+          event_kind: "conformation",
+          competition_day: "2026-09-05",
+        },
+        show: weekendShow,
+        critiqueJudge: "Sandra Reck (ADRK)",
+      }),
+    ).toBe("Hamid Falah (FCI-France)");
+    expect(
+      reportAppearanceJudge({
+        entry: {
+          sex: "H",
+          event_kind: "se",
+          competition_day: "2026-09-04",
+        },
+        show: weekendShow,
+        seJudge: "Hamid Falah (FCI-France)",
+      }),
+    ).toBe("Sandra Reck (ADRK)");
+  });
+
+  it("keeps a stored judge when the schedule does not apply", () => {
+    expect(
+      reportAppearanceJudge({
+        entry: { sex: "H" },
+        show: {
+          date: "2026-09-04",
+          judge: "Sandra Reck",
+          judges: ["Sandra Reck", "Maria Makomaski"],
+        },
+        critiqueJudge: "Maria Makomaski",
+      }),
+    ).toBe("Maria Makomaski");
+  });
+
+  it("does not invent the show's first judge for a critique with no name", () => {
+    expect(
+      reportAppearanceJudge({
+        entry: { sex: "R" },
+        show: weekendShow,
+      }),
+    ).toBe("");
+  });
+
+  it("filters the view and leaves every source critique in place", () => {
+    const rows = [
+      { id: "crit-sandra", judge: "Sandra Reck" },
+      { id: "crit-maria", judge: "Maria Makomaski" },
+      { id: "crit-open", judge: "" },
+    ];
+    const snapshot = structuredClone(rows);
+
+    expect(
+      rows
+        .filter((row) => reportRowMatchesJudge(row.judge, "all"))
+        .map((row) => row.id),
+    ).toEqual(["crit-sandra", "crit-maria", "crit-open"]);
+    expect(
+      rows
+        .filter((row) => reportRowMatchesJudge(row.judge, "Maria Makomaski"))
+        .map((row) => row.id),
+    ).toEqual(["crit-maria"]);
+    expect(
+      rows
+        .filter((row) =>
+          reportRowMatchesJudge(row.judge, REPORT_UNASSIGNED_JUDGE),
+        )
+        .map((row) => row.id),
+    ).toEqual(["crit-open"]);
+    expect(rows).toEqual(snapshot);
+  });
+
+  it("lists show judges and any extra name stored on a critique", () => {
+    expect(
+      reportJudgeChoices({
+        showJudges: ["Sandra Reck", "Maria Makomaski"],
+        rowJudges: ["Maria Makomaski", "Guest Judge", ""],
+      }),
+    ).toEqual(["Sandra Reck", "Maria Makomaski", "Guest Judge"]);
+  });
+
+  it("falls back to all judges when the selected name is not on the show", () => {
+    expect(
+      sanitizeReportJudgeFilter("Missing Judge", ["Sandra Reck"]),
+    ).toBe("all");
+    expect(
+      sanitizeReportJudgeFilter("Sandra Reck", ["Sandra Reck"]),
+    ).toBe("Sandra Reck");
+    expect(
+      sanitizeReportJudgeFilter(REPORT_UNASSIGNED_JUDGE, [
+        REPORT_UNASSIGNED_JUDGE,
+      ]),
+    ).toBe(REPORT_UNASSIGNED_JUDGE);
   });
 });
 
